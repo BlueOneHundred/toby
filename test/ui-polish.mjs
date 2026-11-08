@@ -6,8 +6,8 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {initialState} from '../src/store.mjs';
 const directory=await mkdtemp(path.join(tmpdir(),'gratis-polish-')),output=path.resolve(process.env.UI_REVIEW_OUTPUT||'.cache/ui-polish');await mkdir(output,{recursive:true});
-let requests=0;
-const server=createServer((req,res)=>{if(req.url!=='/v1/chat/completions'){res.writeHead(404).end();return;}requests++;let body='';req.on('data',b=>body+=b);req.on('end',()=>{res.writeHead(200,{'Content-Type':'text/event-stream'});let index=0;const parts=['## A useful answer\n\n','**First** step.\n\n',...Array(32).fill('More useful text. ')];const timer=setInterval(()=>{if(index<parts.length)res.write('data: '+JSON.stringify({choices:[{delta:{content:parts[index++]}}]})+'\n\n');else{clearInterval(timer);res.end('data: [DONE]\n\n');}},80);res.on('close',()=>clearInterval(timer));});});
+let requests=0,autoComplete=false;
+const server=createServer((req,res)=>{if(req.url!=='/v1/chat/completions'){res.writeHead(404).end();return;}requests++;let body='';req.on('data',b=>body+=b);req.on('end',()=>{const complete=autoComplete;res.writeHead(200,{'Content-Type':'text/event-stream'});let index=0;const parts=['## A useful answer\n\n','**First** step.\n\n',...Array(32).fill('More useful text. ')];const timer=setInterval(()=>{if(index<parts.length)res.write('data: '+JSON.stringify({choices:[{delta:{content:parts[index++]}}]})+'\n\n');else if(complete){clearInterval(timer);res.end('data: [DONE]\n\n');}},80);res.on('close',()=>clearInterval(timer));});});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const state=initialState(),bot=state.bots[0],chat=state.conversations[0];bot.promptMode='manual';bot.promptGenerated=true;bot.name='UI check';
 state.settings={...state.settings,provider:'local',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,model:'ui-fixture',appearance:'dark'};
@@ -29,7 +29,7 @@ try{
  await page.locator('#stop').click();await page.waitForFunction(()=>!document.querySelector('.message[data-status="streaming"]'));
  assert.equal(await page.locator('#stop').isVisible(),false);
  await capture('stopped-chat.png');
- await page.locator('#prompt').fill('Finish a reply.');await page.locator('#composer').evaluate(form=>form.requestSubmit());await page.locator('#stop').waitFor({state:'visible'});await page.locator('#stop').waitFor({state:'hidden'});assert.ok(await page.locator('#messages h2').count());
+ autoComplete=true;await page.locator('#prompt').fill('Finish a reply.');await page.locator('#composer').evaluate(form=>form.requestSubmit());await page.locator('#stop').waitFor({state:'visible'});await page.locator('#stop').waitFor({state:'hidden'});assert.ok(await page.locator('#messages h2').count());autoComplete=false;
  // Delay the IPC acceptance path to exercise Stop before send has resolved.
  await app.evaluate(({app})=>{const require=process.getBuiltinModule('module').createRequire(app.getAppPath()+'/package.json');const {ChatService}=require(app.getAppPath()+'/src/chat-service.mjs');const original=ChatService.prototype.send;
   ChatService.prototype.send=async function(value){const mode=globalThis.uiSendMode;globalThis.uiSendMode=null;if(mode==='fail')throw new Error('Synthetic send failure');if(mode==='delay')await new Promise(resolve=>setTimeout(resolve,150));const result=await original.call(this,value);if(mode==='delay')await new Promise(resolve=>setTimeout(resolve,150));return result;};globalThis.uiSendMode='delay';});
