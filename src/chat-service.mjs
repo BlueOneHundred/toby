@@ -1,3 +1,4 @@
+import {avatarShape as defaultAvatarShape} from './avatar.mjs';
 import {TeamCoordinator} from './team-coordinator.mjs';
 import {continuationContext,computerObservation} from './computer-checkpoint.mjs';
 import { randomUUID, createHash } from 'node:crypto';
@@ -21,6 +22,7 @@ export class ChatService {
   async init() {
     this.state = await this.store.load();
     let interrupted = false;
+    for(const [index,bot] of this.state.bots.entries()){if(!bot.avatarSeed){bot.avatarSeed=bot.name;interrupted=true;}if(!bot.avatarDefaultShape){bot.avatarDefaultShape=index===0?'sphere':defaultAvatarShape(bot.avatarSeed);interrupted=true;}if(!bot.avatarDefaultColor){bot.avatarDefaultColor=index===0?'black':'brown';interrupted=true;}}
     for (const c of this.state.conversations) for (const m of c.messages) if (m.status === 'streaming') { m.status = 'cancelled'; for(const activity of m.activities||[])if(['running','approval'].includes(activity.status))activity.status='cancelled'; m.error = 'Response interrupted when the app closed.'; c.claudeSession = null; c.codexSession=null; interrupted = true; }
     for(const c of this.state.conversations)if(c.queue?.length&&!c.queuePaused){c.queuePaused=true;interrupted=true;}
     if (interrupted) await this.store.save(this.state);
@@ -44,7 +46,7 @@ export class ChatService {
     this._validateCharacter(avatarShape, avatarColor);
     userPromptTemplate = text(userPromptTemplate, 'User prompt template', 16_000, true) || '{{message}}';
     userPrompt(userPromptTemplate, '');
-    const b = { id: randomUUID(), name, instructions, userPromptTemplate, promptMode: auto ? 'auto' : 'manual', promptGenerated: !auto, ...(avatarShape ? {avatarShape} : {}), ...(avatarColor ? {avatarColor} : {}), color: COLORS[this.state.bots.length % COLORS.length], avatarDataUrl: null, createdAt: Date.now() };
+    const b = { id: randomUUID(), name, avatarSeed:name, avatarDefaultShape:defaultAvatarShape(name), avatarDefaultColor:'brown', instructions, userPromptTemplate, promptMode: auto ? 'auto' : 'manual', promptGenerated: !auto, ...(avatarShape ? {avatarShape} : {}), ...(avatarColor ? {avatarColor} : {}), color: COLORS[this.state.bots.length % COLORS.length], avatarDataUrl: null, createdAt: Date.now() };
     this.state.bots.push(b); const c = this._newConversation(b.id);
     if (promptMode === 'auto') {
       c.messages.push({id:randomUUID(),role:'assistant',kind:'onboarding',status:'complete',createdAt:Date.now(),content:`Hi, I'm ${name}. Glad to meet you. Tell me what you'd like help with, and I'll get set up for it.`});
@@ -53,7 +55,7 @@ export class ChatService {
     return this._changed();
   }
   _validateCharacter(shape, color) {
-    if (shape !== undefined && !['blob','cloud','square','sparkle','clover','heart','flower','teardrop','tablet','wedge','house','star','hex'].includes(shape)) throw new Error('Choose a supported avatar shape.');
+    if (shape !== undefined && !['blob','cloud','square','sparkle','clover','heart','flower','teardrop','tablet','wedge','house','star','hex','sphere','capsule','pebble','squircle','heartChubby','starFlower','star6'].includes(shape)) throw new Error('Choose a supported avatar shape.');
     if (color !== undefined && !['black','brown','red','orange','yellow','green','cyan','blue','violet','magenta','gray'].includes(color)) throw new Error('Choose a supported avatar color.');
   }
   async _prepareBotPrompt(b, intention, settings, workspaceDir, signal, source) {
@@ -128,10 +130,10 @@ export class ChatService {
   async newConversation({ botId } = {}) { const b = this._bot(botId); this._newConversation(b.id); return this._changed(); }
   async selectConversation({ id: conversationId } = {}) { const c = this._conversation(conversationId); this._bot(c.botId); this.state.activeConversationId = c.id; this.state.activeBotId = c.botId; return this._changed(); }
   async setDraft({ conversationId, text: draft } = {}) { const c = this._conversation(conversationId); c.draft = text(draft, 'Draft', 100_000, true); return this._changed(); }
-  async updateSettings(value) { this._ready(); const old=this.state.settings;const next=validateSettings(value && { displayName:old.displayName,profileAvatarDataUrl:old.profileAvatarDataUrl,...value });next.providerDefaults={...old.providerDefaults,[old.provider]:{model:old.model,effort:old.effort},[next.provider]:{model:next.model,effort:next.effort}};this.state.settings=next;return this._changed(); }
+  async updateSettings(value) { this._ready(); const old=this.state.settings;const next=validateSettings(value && { displayName:old.displayName,profileAvatarDataUrl:old.profileAvatarDataUrl,appearance:old.appearance,...value });next.providerDefaults={...old.providerDefaults,[old.provider]:{model:old.model,effort:old.effort},[next.provider]:{model:next.model,effort:next.effort}};this.state.settings=next;return this._changed(); }
   async updateBot({ id: botId, name, instructions, userPromptTemplate, avatarDataUrl, avatarShape, avatarColor, capabilities, model, codexModel, pinned, memory, memoryProfileAccess } = {}) {
     const b = this._bot(botId), patch = {};
-    if (name !== undefined) patch.name = text(name, 'Bot name', 255).trim();
+    if (name !== undefined) {patch.name = text(name, 'Bot name', 255).trim();if(!b.avatarSeed)patch.avatarSeed=b.name;}
     if (instructions !== undefined && instructions !== b.instructions) { patch.instructions = text(instructions, 'Instructions', 16_000, true); patch.promptMode='manual'; patch.promptGenerated=true;patch.promptSource=null; }
     this._validateCharacter(avatarShape,avatarColor);
     if(avatarShape!==undefined)patch.avatarShape=avatarShape;

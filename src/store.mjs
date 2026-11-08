@@ -9,6 +9,7 @@ export function initialState() {
 }
 function validState(s) {
   if (!s || s.version !== 1 || !Array.isArray(s.bots) || !Array.isArray(s.conversations) || !s.settings || !['demo', 'local', 'claude', 'codex'].includes(s.settings.provider) || typeof s.settings.baseUrl !== 'string' || typeof s.settings.model !== 'string') return false;
+  if(s.settings.appearance!==undefined&&!['system','light','dark'].includes(s.settings.appearance))return false;
   if (s.settings.profileAvatarDataUrl !== undefined && s.settings.profileAvatarDataUrl !== null && (typeof s.settings.profileAvatarDataUrl !== 'string' || s.settings.profileAvatarDataUrl.length > 2_000_000 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(s.settings.profileAvatarDataUrl))) return false;
   if (s.settings.displayName !== undefined && (typeof s.settings.displayName !== 'string' || s.settings.displayName.length > 80)) return false;
   if (s.settings.effort !== undefined && !['minimal','low', 'medium', 'high','xhigh','max','ultra','persistent'].includes(s.settings.effort)) return false;
@@ -25,6 +26,8 @@ function validState(s) {
     if (b.memory !== undefined && (typeof b.memory !== 'string' || b.memory.length>16000)) return false;
     if (b.capabilities !== undefined && (!b.capabilities || Object.entries(b.capabilities).some(([k,v])=>!['web','files','computer','connections'].includes(k)||typeof v!=='boolean'))) return false;
     if (b.promptMode !== undefined && !['auto','manual'].includes(b.promptMode)) return false;
+    if(b.avatarDefaultShape!==undefined&&typeof b.avatarDefaultShape!=='string')return false;if(b.avatarDefaultColor!==undefined&&typeof b.avatarDefaultColor!=='string')return false;
+    if(b.avatarSeed!==undefined&&(typeof b.avatarSeed!=='string'||b.avatarSeed.length>255))return false;
     if (b.avatarShape !== undefined && typeof b.avatarShape !== 'string') return false;
     if (b.avatarColor !== undefined && typeof b.avatarColor !== 'string') return false;
     if (b.userPromptTemplate !== undefined && (typeof b.userPromptTemplate !== 'string' || b.userPromptTemplate.length > 16_000)) return false;

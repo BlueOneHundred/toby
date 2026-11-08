@@ -10,9 +10,13 @@
 
 The connection is remembered across reloads and desktop restarts. One phone/browser profile is supported per desktop. **Disconnect phone** revokes the old credential. Closing the desktop window keeps a confirmed mobile connection running; quitting the app or putting the Mac to sleep makes it unavailable.
 
+## Shared appearance
+
+The phone and desktop use the same agent identities, avatar artwork, group portraits and pins. Choose **Appearance** in the phone model/settings panel, or in desktop Settings, to share a Light, Dark, or Match system preference. Renames and deletions preserve the other agents’ appearances. See [One Gratis identity](SHARED_APPEARANCE.md).
+
 ## What syncs
 
-The phone shows up to 200 recent root conversations, including group chats, and the latest 60 messages in the selected chat (bounded to 100,000 characters, 30,000 per message). The home list shows agents by their desktop names and avatars, plus shared group chats. Use **+ → All chats** for individual conversation history. You can create an agent, edit its name or avatar, start another chat with the agent you are viewing, send text, watch streamed responses and stop a response. Agent edits update the existing desktop record. The open conversation is remembered after a reload. Choosing a chat on the phone does not change the desktop's selected chat.
+The phone shows up to 200 recent root conversations, including group chats, and the latest 60 messages in the selected chat (bounded to 100,000 characters, 30,000 per message). The home list shows agents by their desktop names and avatars, plus shared group chats. Use **+ → All chats** for individual conversation history. You can create an agent, edit its name or avatar, start another chat with the agent you are viewing, send text, watch streamed responses and stop a response. Agent edits and pins update the existing desktop record. The Delete action confirms before removing that same agent on both devices. The open conversation is remembered after a reload. Choosing a chat on the phone does not change the desktop's selected chat.
 
 Messages use the same desktop chat runtime and subscriptions. In a chat, open the top-right menu and choose the provider/model row, or use **+ → Model and provider**. Choose Claude (Haiku, Sonnet or Opus) or one of the models available to your signed-in Codex account. Changing the provider also updates the desktop workspace settings; the selected bot remembers its model. Credentials stay on the Mac. Use **Refresh connections** after signing in on the desktop.
 

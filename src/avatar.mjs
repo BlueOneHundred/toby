@@ -38,14 +38,11 @@ export const BOT_COLORS = [
   ['magenta','Magenta','#fb3399','#ff309b'],['gray','Gray','#777777','#777777'],
 ].map(([id,label,dark,light])=>({id,label,dark,light}));
 export function avatarColor(id,theme='dark'){const color=BOT_COLORS.find(c=>c.id===id);return color?.[theme]||(/^#[a-f0-9]{3}(?:[a-f0-9]{3})?$/i.test(String(id))?id:'#fa6710');}
-export function botAvatarUrl(bot,primary=false,theme='dark'){
-  if(bot.avatarDataUrl)return bot.avatarDataUrl;
-  if(bot.avatarShape){const shape=BOT_SHAPES.find(s=>s.id===bot.avatarShape)?.shape||bot.avatarShape;return avatarSvg(bot.name,avatarColor(bot.avatarColor||'orange',theme),shape);}
-  return avatarSvg(bot.name,primary?(theme==='dark'?'#ffffff':'#1c1c1c'):'#a16c39',primary?'sphere':undefined);
-}
+export function botAvatarUrl(bot,primary=false,theme='dark'){const a=avatarAppearance(bot,primary,theme);return a.photo||avatarSvg(a.name,a.color,a.shape);}
 export function avatarOutline(shape){const data=SHAPES[shape]||SHAPES.sphere;return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="'+data.body+'" fill="none" stroke="#666666" stroke-width="2"/></svg>');}
 
 export function avatarAppearance(bot,primary=false,theme='dark') {
- const shape=bot.avatarShape?(BOT_SHAPES.find(s=>s.id===bot.avatarShape)?.shape||ALIASES[bot.avatarShape]||bot.avatarShape):primary?'sphere':avatarShape(bot.name);
- return {name:bot.name,shape,color:bot.avatarShape?avatarColor(bot.avatarColor||'orange',theme):primary?(theme==='dark'?'#ffffff':'#1c1c1c'):'#a16c39',photo:bot.avatarDataUrl||null};
+ const shape=bot.avatarShape?(BOT_SHAPES.find(s=>s.id===bot.avatarShape)?.shape||ALIASES[bot.avatarShape]||bot.avatarShape):bot.avatarDefaultShape||(primary?'sphere':avatarShape(bot.avatarSeed||bot.name));
+ return {name:bot.name,shape,color:bot.avatarShape?avatarColor(bot.avatarColor||'orange',theme):bot.avatarDefaultColor?avatarColor(bot.avatarDefaultColor,theme):primary?(theme==='dark'?'#ffffff':'#1c1c1c'):'#a16c39',photo:bot.avatarDataUrl||null};
 }
+export function avatarChoice(bot,primary=false){const a=avatarAppearance(bot,primary);return{shape:bot.avatarShape||BOT_SHAPES.find(s=>s.shape===a.shape)?.id||a.shape,color:bot.avatarShape?(bot.avatarColor||'orange'):(bot.avatarDefaultColor||(primary?'black':'brown'))};}

@@ -1,3 +1,5 @@
+import {setupCharacterPicker} from './character-picker.mjs';
+import {resolveTheme} from './theme.mjs';
 import {setupMobile} from './mobile-ui.mjs';
 import {setupMentions} from './mentions-ui.mjs';
 import {sidebarItems} from './sidebar-items.mjs';
@@ -17,10 +19,13 @@ const $ = id => document.getElementById(id);
 const api = window.orbit;
 setupMobile({api});
 const selects = setupSelects();
+const characterPicker=setupCharacterPicker({api,onSaved:next=>render(next)});
+$('choose-character').onclick=()=>characterPicker.open(state.bots.find(b=>b.id===editingBot),editingBot===state.bots[0]?.id);
 
 document.querySelector('#attach-menu [data-icon]').dataset.icon='plus-filled';
 document.querySelectorAll('[data-icon]').forEach(node => { renderIcon(node,node.dataset.icon); });
 let voiceInput, workspaceUI,threadUI;
+let systemIsDark=true;
 let state, editingBot = null, draftTimer, dirtyDraft = null, previousConversation = null;
 let homeVisible = true;
 const messageViews=new Map();
@@ -61,7 +66,8 @@ function refreshComposer() {
   voiceInput?.sync();
 }
 function render(next) {
-  state = next; setProfileImage($('profile-avatar'),state.settings.profileAvatarDataUrl); $('profile-name-label').textContent = state.settings.displayName || 'Local workspace'; $('workspace-profile').setAttribute('aria-label', state.settings.displayName ? `Profile and settings for ${state.settings.displayName}` : 'Profile and settings'); const bot = currentBot(), conversation = currentConversation();
+  state = next;document.documentElement.dataset.theme=resolveTheme(state.settings.appearance??localStorage.getItem('orbit-appearance')??'system',systemIsDark);setProfileImage($('profile-avatar'),state.settings.profileAvatarDataUrl); $('profile-name-label').textContent = state.settings.displayName || 'Local workspace'; $('workspace-profile').setAttribute('aria-label', state.settings.displayName ? `Profile and settings for ${state.settings.displayName}` : 'Profile and settings'); const bot = currentBot(), conversation = currentConversation();
+  if(editingBot&&$('bot-dialog').open){const editing=state.bots.find(b=>b.id===editingBot);if(editing)$('bot-appearance-preview').replaceChildren(characterPicker.preview(editing,editing.id===state.bots[0]?.id));}
   const query = $('bot-filter').value.trim().toLowerCase();
   const filteredBots = state.bots.filter(b => (b.name+' '+state.conversations.filter(c=>c.botId===b.id).map(c=>c.messages.map(m=>m.content).join(' ')).join(' ')).toLowerCase().includes(query)).sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned));
   const sidebar=sidebarItems(state,query);
@@ -88,7 +94,7 @@ function render(next) {
     updateView(); return;
   }
   $('bot-name').textContent = conversation.kind==='group'?conversation.title:bot.name;document.querySelector('main').classList.toggle('team-chat',conversation.kind==='group');$('edit-bot').title=conversation.kind==='group'?'Chat details':'Bot settings and conversations'; $('bot-instructions').textContent = bot.instructions || 'Your personal bot';
-  const head=conversation.kind==='group'?el('span','thread-avatar-stack thread-header-stack'):makeAvatar(bot,false,'header');if(conversation.kind==='group')for(const id of conversation.participantIds.slice(0,3)){const peer=state.bots.find(b=>b.id===id);if(peer)head.append(makeAvatar(peer,false,'header-team'));}head.id = 'header-avatar'; $('header-avatar').replaceWith(head);
+  const head=conversation.kind==='group'?el('span','thread-avatar-stack thread-header-stack'):makeAvatar(bot,false,'header');if(conversation.kind==='group')for(const id of conversation.participantIds.slice(0,2)){const peer=state.bots.find(b=>b.id===id);if(peer)head.append(makeAvatar(peer,false,'header-team'));}head.id = 'header-avatar'; $('header-avatar').replaceWith(head);
   $('conversations').replaceChildren(...state.conversations.filter(c => c.botId === bot.id&&!c.parentThreadId&&c.kind!=='group').sort((a,b) => b.createdAt-a.createdAt).map(c => {
     const option = el('option', null, c.title); option.value = c.id; option.selected = c.id === conversation.id; return option;
   }));
@@ -251,7 +257,7 @@ function openBotDialog(edit = true) {
   $('bot-title').value = bot?.name || ''; $('bot-system').value = bot?.instructions || '';
   $('bot-user-template').value = bot?.userPromptTemplate || '{{message}}'; $('bot-user-template').setCustomValidity('');
   fillModels($('bot-model'),modelsForProvider(),state.settings.provider==='codex'?bot?.codexModel||'':bot?.model||'',true); $('bot-memory').value=bot?.memory||''; for(const key of ['web','files','computer','connections'])$('bot-'+key).checked=bot?.capabilities?.[key]!==false;
-  $('avatar-controls').hidden = !edit; $('bot-dialog').showModal(); selects.sync(); $('bot-title').focus();
+  if(bot)$('bot-appearance-preview').replaceChildren(characterPicker.preview(bot,bot.id===state.bots[0]?.id));$('avatar-controls').hidden = !edit; $('bot-dialog').showModal(); selects.sync(); $('bot-title').focus();
 }
 const createBot = setupCreateBot({api,onCreated:next=>{homeVisible=false;render(next);workspaceUI?.openComputer();$('messages').scrollTop=$('messages').scrollHeight;$('prompt').focus();}});
 $('new-bot').onclick = async () => {await flushDraft();voiceInput?.cancel();selects.close();createBot.open();}; $('edit-bot').onclick = () => {if(!threadUI?.showDetails())openBotDialog(true);};
@@ -307,7 +313,7 @@ function openSettings() {
   syncCodexEffort(state.settings.provider==='codex'?state.settings.effort:state.settings.providerDefaults?.codex?.effort);
   $('voice-language').value = state.settings.voiceLanguage || 'en';
   $('claude-model').onchange();
-  $('appearance').value = localStorage.getItem('orbit-appearance') || 'system'; $('provider').onchange(); $('settings-dialog').showModal(); selects.sync();
+  $('appearance').value = state.settings.appearance??localStorage.getItem('orbit-appearance')??'system'; $('provider').onchange(); $('settings-dialog').showModal(); selects.sync();
 }
 $('provider').onchange = () => { $('codex-options').hidden=$('provider').value!=='codex';if($('provider').value==='codex')void checkCodexConnection(); $('local-options').hidden = $('provider').value !== 'local'; $('claude-options').hidden = $('provider').value !== 'claude'; $('model').required = $('provider').value === 'local'; if ($('provider').value === 'claude') void checkClaudeConnection(); };
 $('claude-model').onchange = () => { $('claude-effort').disabled = $('claude-model').value === 'haiku'; selects.sync(); };
@@ -340,10 +346,10 @@ async function checkCodexConnection(){
 $('check-codex').onclick=checkCodexConnection;
 $('settings-button').onclick = openSettings; $('configure-backend').onclick = openSettings;
 $('settings-form').onsubmit = async e => { e.preventDefault();
-  const result = await run(() => api.updateSettings({ profileAvatarDataUrl: pendingProfileAvatar, displayName: $('profile-name').value.trim(), provider: $('provider').value, baseUrl: $('base-url').value.trim(), model: $('provider').value === 'claude' ? $('claude-model').value : $('provider').value==='codex'?$('codex-model').value:$('model').value.trim(), effort: $('provider').value==='codex'?$('codex-effort').value:$('claude-effort').value, voiceCleanup: true, voiceLanguage: $('voice-language').value }));
+  const result = await run(() => api.updateSettings({ appearance:$('appearance').value,profileAvatarDataUrl: pendingProfileAvatar, displayName: $('profile-name').value.trim(), provider: $('provider').value, baseUrl: $('base-url').value.trim(), model: $('provider').value === 'claude' ? $('claude-model').value : $('provider').value==='codex'?$('codex-model').value:$('model').value.trim(), effort: $('provider').value==='codex'?$('codex-effort').value:$('claude-effort').value, voiceCleanup: true, voiceLanguage: $('voice-language').value }));
   if (result) { localStorage.setItem('orbit-appearance', $('appearance').value); applyTheme(await api.systemDark()); $('settings-dialog').close(); }
 };
-function applyTheme(systemDark) { const choice = localStorage.getItem('orbit-appearance') || 'system'; document.documentElement.dataset.theme = choice === 'system' ? (systemDark ? 'dark' : 'light') : choice; if (state) render(state); }
+function applyTheme(systemDark){systemIsDark=systemDark;document.documentElement.dataset.theme=resolveTheme(state?.settings.appearance??localStorage.getItem('orbit-appearance')??'system',systemDark);if(state)render(state);}
 api.onTheme(applyTheme); applyTheme(await api.systemDark());
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); }

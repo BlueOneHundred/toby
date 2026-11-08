@@ -84,3 +84,5 @@ body[data-view=chat] .title-pill{padding-left:9px;padding-right:15px}.profile-he
 /* Measured text rhythm and transcript-to-composer clearance on iPhone. */
 .message.assistant .content:not(.question-content){line-height:26px;padding-top:5px;padding-bottom:4px}
 #messages{padding-bottom:56px}
+
+.mobile-appearance{display:block;color:var(--muted);font-size:13px;margin:20px 0 10px}.mobile-appearance select{display:block;width:100%;margin-top:8px;padding:11px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:16px}.group-avatar>.avatar-motion{margin-right:-30%}

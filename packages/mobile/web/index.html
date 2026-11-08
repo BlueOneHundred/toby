@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="/icon.png">
   <link rel="stylesheet" href="/style.css">
   <title>Gratis</title>
-<link rel="stylesheet" href="/avatar-motion.css"></head>
+<link rel="stylesheet" href="/avatar-motion.css"><link rel="stylesheet" href="/gratis-theme.css"></head>
 <body>
   <section id="pair-screen">
     <img class="pair-logo" src="/icon.png" alt="Gratis">
@@ -32,7 +32,7 @@
       <button id="menu-button" class="icon-button" aria-label="Connection options" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
     </header>
     <div class="connection-state" role="status"><span id="status-dot"></span><span id="connection-status">Connecting…</span></div>
-    <div id="menu" hidden><button id="menu-profile" type="button"><span data-icon="person"></span>View Profile</button><button id="menu-find" type="button"><span data-icon="search"></span>Find in Chat</button><button id="menu-new" type="button"><span data-icon="plus"></span>New Chat</button><button id="choose-model" type="button"><span id="current-model-label">Choose provider and model</span><span data-icon="chevron-down"></span></button><p>This phone is paired with your computer.</p><p>Keep Gratis running and your Mac awake.</p><p class="install-tip">Add to Home Screen from Safari’s Share menu.</p></div>
+    <div id="menu" hidden><button id="menu-profile" type="button"><span data-icon="person"></span>View Profile</button><button id="menu-find" type="button"><span data-icon="search"></span>Find in Chat</button><button id="menu-delete" type="button" class="danger-action"><span data-icon="trash"></span>Delete</button><button id="menu-new" type="button"><span data-icon="plus"></span>New Chat</button><button id="choose-model" type="button"><span id="current-model-label">Choose provider and model</span><span data-icon="chevron-down"></span></button><p>This phone is paired with your computer.</p><p>Keep Gratis running and your Mac awake.</p><p class="install-tip">Add to Home Screen from Safari’s Share menu.</p></div>
     <section id="list-view">
       <div class="search-wrap"><span data-icon="search"></span><input id="search" type="search" placeholder="Search" aria-label="Find a conversation"></div>
       <div id="conversations"></div>
@@ -57,7 +57,7 @@
     <header><button id="profile-back" class="icon-button" aria-label="Back to chat"><span data-icon="back"></span></button><span class="sheet-spacer"></span><button id="profile-share" class="icon-button" aria-label="Share agent appearance"><span data-icon="share"></span></button><button id="profile-connections" class="icon-button" aria-label="Connections"><span data-icon="more"></span></button></header>
     <div class="profile-hero"><div id="profile-avatar"></div><h2 id="profile-name"></h2><button id="profile-edit" class="small-pill">Edit</button></div>
     <div class="profile-group"><button id="profile-routines"><span data-icon="clock"></span>Routines<span id="routine-count"></span><span data-icon="chevron-right"></span></button><button id="profile-library"><span data-icon="library"></span>Library<span class="sheet-spacer"></span><span data-icon="chevron-right"></span></button><button id="profile-computer"><span data-icon="computer"></span>Computer<span id="computer-status">Idle</span><span data-icon="chevron-right"></span></button></div>
-    <div class="profile-group"><button id="profile-model-row"><span data-icon="settings"></span>Model<span id="profile-model"></span><span data-icon="chevron-right"></span></button></div>
+    <div class="profile-group"><button id="profile-delete" type="button" class="danger-action">Delete agent</button><button id="profile-pin" type="button">Pin to top</button><button id="profile-model-row"><span data-icon="settings"></span>Model<span id="profile-model"></span><span data-icon="chevron-right"></span></button></div>
     <section id="profile-detail" class="phone-sheet" hidden><header><button id="detail-back" class="icon-button" aria-label="Back to profile"><span data-icon="back"></span></button><h2 id="detail-title"></h2></header><div id="detail-content"></div></section>
   </section>
   <dialog id="agent-editor" tabindex="-1"><form id="agent-form">
@@ -68,12 +68,13 @@
     <p class="field-caption">Chat</p><button id="editor-model" class="editor-row" type="button">Model<span data-icon="chevron-right"></span></button><p id="agent-error" hidden></p>
     <section id="avatar-picker" hidden><header><button id="avatar-back" class="icon-button" type="button" aria-label="Back to agent"><span data-icon="back"></span></button><h2>Avatar</h2><button id="avatar-done" type="button">Done</button></header><div class="avatar-tabs"><button class="selected" type="button">Shape</button><button id="avatar-upload" type="button">Upload</button></div><div id="picker-preview"></div><div class="avatar-card"><div id="agent-shapes"></div><div id="agent-colors"></div><button id="avatar-reset" type="button">Reset to default</button></div></section>
   </form></dialog><input type="file" id="avatar-file" accept="image/*" hidden>
+  <dialog id="delete-confirm"><form id="delete-form"><h2 id="delete-title">Delete agent?</h2><p id="delete-description"></p><p id="delete-error" role="alert" hidden></p><div class="delete-actions"><button id="delete-cancel" type="button">Cancel</button><button id="delete-accept" type="submit">Delete</button></div></form></dialog>
   <dialog id="model-dialog">
     <div class="model-heading"><h2>Model</h2><button id="close-model" type="button" aria-label="Close model picker"><span data-icon="close"></span></button></div>
     <p class="model-note">Runs on your Mac using your subscription. Changes also appear in desktop settings.</p>
     <p id="model-picker-status" role="status"></p><div id="provider-choices"></div>
     <p id="model-picker-error" role="alert" hidden></p>
-    <button id="refresh-providers" type="button">Refresh connections</button><button id="disconnect" type="button">Disconnect this phone</button>
+    <label class="mobile-appearance">Appearance<select id="mobile-appearance"><option value="system">Match system</option><option value="dark">Dark</option><option value="light">Light</option></select></label><button id="refresh-providers" type="button">Refresh connections</button><button id="disconnect" type="button">Disconnect this phone</button>
   </dialog>
   <script type="module" src="/app.js"></script>
 </body>

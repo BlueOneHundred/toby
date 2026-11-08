@@ -16,7 +16,10 @@
     "Shared avatar rig animates on the phone",
     "Agent name and avatar edits match desktop",
     "Phone attachments enter the shared bot workspace",
-    "Phone creates the same agent on desktop"
+    "Phone creates the same agent on desktop",
+    "Pinned agents and appearance match desktop",
+    "Reopening the avatar editor retains the new edit session",
+    "Phone deletion removes the same desktop agent"
   ],
   "latency": "bounded by active polling; no measured SLA"
 }
