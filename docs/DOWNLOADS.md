@@ -7,8 +7,8 @@ Downloads live in the private [community repository releases](https://github.com
 | Mac with Apple silicon | `Gratis-VERSION-mac-arm64.dmg` | Open and drag Gratis to Applications |
 | Mac with Intel processor | `Gratis-VERSION-mac-x64.dmg` | Open and drag Gratis to Applications |
 | Windows 10/11 x64 | `Gratis-VERSION-win-x64.exe` | Run the per-user installer |
-| Ubuntu 24.04 x64 | `Gratis-VERSION-linux-x64.deb` | `sudo apt install ./Gratis-VERSION-linux-x64.deb` |
-| Linux x64 portable | `Gratis-VERSION-linux-x64.AppImage` | Make executable, then launch; FUSE 2 may be needed |
+| Ubuntu 24.04 x64 | `Gratis-VERSION-linux-amd64.deb` | `sudo apt install ./Gratis-VERSION-linux-amd64.deb` |
+| Linux x64 portable | `Gratis-VERSION-linux-x86_64.AppImage` | Make executable, then launch; FUSE 2 may be needed |
 
 No Windows ARM64 or Linux ARM64 installer is currently built.
 

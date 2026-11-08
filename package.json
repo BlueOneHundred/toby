@@ -47,5 +47,6 @@
   "bugs": {
     "url": "https://github.com/promptadvisers/gratis-community/issues"
   },
-  "author": "PromptAdvisers"
+  "author": "PromptAdvisers",
+  "desktopName": "com.gratis.desktop"
 }
