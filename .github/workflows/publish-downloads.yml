@@ -16,7 +16,7 @@ jobs:
       - name: Verify the build run
         id: build
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GRATIS_RELEASE_TOKEN || github.token }}
           BUILD_RUN: ${{ inputs.build_run }}
         run: |
           [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
@@ -38,7 +38,7 @@ jobs:
           merge-multiple: true
       - name: Publish the tested files
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GRATIS_RELEASE_TOKEN || github.token }}
           BUILD_SHA: ${{ steps.build.outputs.sha }}
         run: |
           VERSION=$(node -p 'require("./package.json").version')

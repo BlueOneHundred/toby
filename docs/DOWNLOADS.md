@@ -61,3 +61,9 @@ npm run dist:linux
 ```
 
 Use an Apple silicon Mac for arm64, an Intel Mac for x64, Windows for the Windows installer and Ubuntu for Linux. The GitHub **Build desktop downloads** workflow does this on all four runners. Each job validates the native runtime adapter, builds installers and launches the packaged app using synthetic data. Tagged builds publish a private prerelease only after every platform passes. Manual workflow runs retain downloadable artifacts; selecting Publish also creates a private prerelease after all builds pass.
+
+## Release publishing permissions
+
+Some repository policies deny release creation to the Actions integration even when a job requests `contents: write`. In that case, all successful build artifacts remain available. A repository administrator can either configure the optional `GRATIS_RELEASE_TOKEN` Actions secret with access to this repository's releases, or download the four verified artifacts and publish them with an already authenticated local GitHub CLI. Never place that token in source, an installer or a command argument.
+
+The **Publish verified downloads** workflow accepts the previous build run ID, checks that all four platform build jobs passed, and republishes those exact artifacts. It does not rebuild them. It will stop if any platform check failed.

@@ -74,7 +74,7 @@ jobs:
           merge-multiple: true
       - name: Publish private community preview
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GRATIS_RELEASE_TOKEN || github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           test "$(gh repo view "$GITHUB_REPOSITORY" --json isPrivate --jq .isPrivate)" = true
