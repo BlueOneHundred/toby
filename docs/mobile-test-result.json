@@ -13,7 +13,10 @@
     "Create a chat from the phone",
     "Switch subscription provider and model from the phone",
     "Record and transcribe microphone audio into the draft",
-    "Shared avatar rig animates on the phone"
+    "Shared avatar rig animates on the phone",
+    "Agent name and avatar edits match desktop",
+    "Phone attachments enter the shared bot workspace",
+    "Phone creates the same agent on desktop"
   ],
   "latency": "bounded by active polling; no measured SLA"
 }

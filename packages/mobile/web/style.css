@@ -41,3 +41,46 @@ body[data-view=chat] .heading h1{font-size:17px;line-height:24px}body[data-view=
 .waiting-avatar{animation:none}#heading-avatar{display:block}
 
 .message .content{font-size:17px}#prompt{font-size:17px}
+
+/* Native phone proportions, shared with the desktop identity. */
+:root{--bg:#131313;--card:#1e1e1e;--text:#e6e6e6}
+.icon-button{background:linear-gradient(145deg,#242424,#1d1d1d);border-color:#ffffff06}
+#open-profile{color:inherit;font:inherit}#open-profile h1{pointer-events:none}
+#composer{min-height:53px;background:linear-gradient(160deg,#202020,#1b1b1b);border-color:#ffffff0c}
+#voice-call{width:34px;height:34px}#microphone{background:#303030}
+.message .content{background:linear-gradient(125deg,#212121,#1e1e1e);border-color:#ffffff03}
+.message.user .content{background:#e5e5e5}
+#menu{top:calc(env(safe-area-inset-top) + 2px);right:16px;width:250px;padding:7px 8px;border:0;border-radius:28px;background:#272727ed;backdrop-filter:blur(20px);box-shadow:0 12px 30px #0004;z-index:10;font-size:17px;color:#ddd}
+#menu button{display:flex;align-items:center;gap:13px;height:42px;padding:6px 13px;border-radius:20px;color:inherit;font-size:17px;white-space:nowrap}#menu button svg{width:19px;height:19px}#menu p{display:none}#menu #choose-model{padding:6px 13px;margin:0;border:0;border-radius:20px;height:42px}#current-model-label{overflow:hidden;text-overflow:ellipsis}#menu #choose-model>span:last-child{margin-left:auto}
+#composer-tools{width:242px;padding:6px 7px;background:#252525ed;backdrop-filter:blur(20px);border:0;border-radius:24px}#composer-tools button{padding:8px 12px;min-height:40px;font-size:16px;gap:14px}#composer-tools button:nth-child(4){border-top:1px solid #ffffff0a;border-radius:0}
+#chat-search{display:flex;align-items:center;gap:10px;margin:12px 16px 0;padding:8px 12px;background:var(--card);border-radius:12px}#chat-query{font-size:17px;min-width:0;width:100%;background:none;border:0;color:inherit;outline:none}#chat-match-count{font-size:13px;color:var(--muted)}#close-chat-search{font-size:24px;color:var(--muted)}mark{background:#80632c;color:inherit;border-radius:3px}
+#attachment-tray{display:flex;gap:6px;flex-wrap:wrap;padding:8px 30px}#attachment-tray span{font-size:12px;padding:7px 10px;background:#282828;border-radius:10px}
+.group-avatar{position:relative;width:100%;height:100%;display:flex;align-items:center;isolation:isolate}.group-avatar>.avatar-motion{width:65%;height:85%;flex:none;margin-right:-26%;filter:drop-shadow(1px 0 1px #131313)}.group-avatar>.avatar-motion:nth-child(2){z-index:1}.group-avatar>.avatar-motion:nth-child(3){z-index:2}
+.phone-sheet{position:fixed;inset:0 auto auto 50%;transform:translateX(-50%);height:var(--height);width:100%;max-width:720px;z-index:12;background:#1e1e1e;padding-top:env(safe-area-inset-top);overflow:auto;overscroll-behavior:contain;animation:sheet-in 220ms ease-out}.phone-sheet header{background:transparent;height:44px}.sheet-spacer{flex:1}.phone-sheet h2{font-size:22px;font-weight:550;margin:0}.profile-hero{padding:26px 20px 22px;text-align:center}.profile-hero h2{margin:20px 0 12px;font-size:22px;font-weight:600}.small-pill{font-size:14px;background:#383838;border-radius:999px;padding:7px 13px}#profile-avatar{width:82px;height:82px;margin:auto}.profile-group{margin:0 16px 24px;background:#2a2a2a;border-radius:16px;overflow:hidden}.profile-group>button{display:flex;align-items:center;gap:12px;width:100%;height:52px;text-align:left;padding:0 16px;font-size:17px;border-bottom:1px solid #ffffff05}.profile-group>button:last-child{border-bottom:0}.profile-group>button>span[data-icon]{color:#a1a1a1}.profile-group>button>span[data-icon] svg{width:20px;height:20px}#routine-count,#computer-status,#profile-model{margin-left:auto;color:#989898;max-width:48%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}#detail-content{margin:26px 20px;color:#bbb;font-size:17px;line-height:1.5}.detail-row{padding:14px;border-bottom:1px solid #ffffff0b}.standalone .install-tip{display:none}
+#agent-editor{max-width:470px;width:calc(100% - 28px);max-height:calc(var(--height) - env(safe-area-inset-top) - 40px);padding:0;background:#222;color:var(--text);border:1px solid #ffffff15;border-radius:26px;overflow:auto}#agent-editor::backdrop{background:#0006;backdrop-filter:blur(10px)}#agent-form>header{height:68px;background:transparent;padding:22px 24px}#agent-form h2{font-size:22px;font-weight:600;margin:0}#agent-photo{display:block;width:100px;height:100px;margin:12px auto 24px}#agent-preview{display:block;width:100%;height:100%}#agent-name{display:block;width:calc(100% - 40px);margin:0 20px 24px;padding:14px;font-size:17px;border:1px solid #ffffff20;border-radius:14px;background:#181818;color:inherit}#agent-shapes{display:grid;grid-template-columns:repeat(5,1fr);gap:17px 10px;padding:0 24px;justify-items:center}#agent-shapes button{width:42px;height:42px;padding:2px;border:1px solid transparent;border-radius:50%}#agent-shapes button.selected{border-color:#999}#agent-colors{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;padding:24px 18px}#agent-colors button{width:18px;height:18px;border-radius:5px;padding:0}#agent-colors button.selected{outline:1px solid #bbb;outline-offset:3px}#agent-form footer{display:flex;justify-content:flex-end;gap:10px;padding:18px 20px;border-top:1px solid #ffffff0b}#agent-form footer button{padding:11px 19px;border-radius:24px;background:#303030}#agent-save{background:#eee!important;color:#151515}#agent-error{font-size:13px;color:#e5a6a6;padding:0 20px}@keyframes sheet-in{from{opacity:.5;transform:translateX(calc(-50% + 50px))}to{opacity:1;transform:translateX(-50%)}}
+.member-row{display:flex;align-items:center;gap:14px}.member-row>.avatar-motion{width:36px;height:36px}
+/* The editor uses the same full-height navigation as the agent profile. */
+#agent-editor{position:fixed;inset:0;margin:0;width:100%;max-width:none;height:var(--height);max-height:none;border:0;border-radius:0;padding-top:env(safe-area-inset-top);background:#1e1e1e}
+#agent-form>header,#avatar-picker>header{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 16px;background:transparent}
+#agent-form h2,#avatar-picker h2{font-size:17px;font-weight:600;margin:0}
+#agent-save,#avatar-done{font-size:17px;font-weight:500;padding:10px 18px;border-radius:999px;background:#f1f1f1;color:#111}
+#agent-photo{position:relative;width:82px;height:82px;margin:27px auto 30px;padding:0}.photo-edit{position:absolute;right:-6px;bottom:-6px;background:#272727;border:1px solid #3a3a3a;border-radius:50%;width:33px;height:33px;display:grid;place-items:center;font-size:23px;color:#bbb}
+.field-caption{display:block;font-size:12px;color:#8d8d8d;margin:26px 30px 8px}#agent-name{width:calc(100% - 32px);margin:0 16px;padding:15px 17px;background:#2a2a2a;border:0;border-radius:14px;font-size:17px}
+.editor-row{display:flex;align-items:center;justify-content:space-between;width:calc(100% - 32px);margin:0 16px;background:#2a2a2a;border-radius:14px;padding:15px 17px;text-align:left;font-size:17px}.editor-row svg{width:18px;height:18px;color:#999}
+#avatar-picker{position:absolute;inset:env(safe-area-inset-top) 0 0;background:#1e1e1e;z-index:2;overflow:auto}.avatar-tabs{display:flex;justify-content:center;gap:22px;padding:18px 12px 14px}.avatar-tabs button{font-size:15px;color:#999;padding:9px 13px;border-radius:999px}.avatar-tabs .selected{background:#363636;color:#ddd}#picker-preview{width:86px;height:86px;margin:16px auto 30px}.avatar-card{margin:0 16px 30px;background:#292929;border-radius:18px;overflow:hidden}#agent-shapes{padding:20px 24px 12px;gap:15px 14px}#agent-colors{padding:20px 24px 24px;gap:14px 20px}#agent-colors button{width:24px;height:24px;border-radius:50%}#avatar-reset{display:block;text-align:left;width:100%;padding:16px 20px;border-top:1px solid #ffffff0b;color:#1784fc;font-size:17px}
+
+#agent-editor:focus{outline:none}
+
+body[data-view=chat] .title-pill{padding-left:9px;padding-right:15px}.profile-hero{padding-top:20px;padding-bottom:25px}#profile-avatar{width:92px;height:92px}.profile-hero h2{margin-top:10px}.profile-group>button{padding-left:21px}#agent-photo{width:92px;height:92px;margin-top:20px;margin-bottom:27px}#agent-form>header h2,#avatar-picker>header h2{position:absolute;left:50%;transform:translateX(-50%)}
+.profile-hero{padding-bottom:28px}
+#picker-preview{width:96px;height:96px;margin-top:12px;margin-bottom:20px}
+#agent-shapes{grid-template-columns:repeat(10,1fr);gap:18px 0;padding:20px 28px 12px}
+#agent-shapes button{grid-column:span 2;width:44px;height:44px}
+#agent-shapes button:nth-child(1),#agent-shapes button:nth-child(5){grid-column:2/span 2}
+#agent-shapes button:nth-child(9){grid-column:1/span 2}
+#agent-colors{display:grid;grid-template-columns:repeat(12,1fr);column-gap:0;row-gap:18px;justify-items:center;padding:23px 16px 22px}
+#agent-colors button{grid-column:span 2}#agent-colors button:nth-child(7){grid-column:2/span 2}
+#agent-shapes{padding-top:24px;row-gap:15px}#agent-colors{padding-left:19px;padding-right:19px}
+/* Measured text rhythm and transcript-to-composer clearance on iPhone. */
+.message.assistant .content:not(.question-content){line-height:26px;padding-top:5px;padding-bottom:4px}
+#messages{padding-bottom:56px}

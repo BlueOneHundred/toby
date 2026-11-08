@@ -12,13 +12,13 @@ The connection is remembered across reloads and desktop restarts. One phone/brow
 
 ## What syncs
 
-The phone shows up to 200 recent root conversations, including group chats, and the latest 60 messages in the selected chat (bounded to 100,000 characters, 30,000 per message). You can switch chats, start a chat with the desktop's selected bot, send text, watch streamed responses and stop a response. Choosing a chat on the phone does not change the desktop's selected chat.
+The phone shows up to 200 recent root conversations, including group chats, and the latest 60 messages in the selected chat (bounded to 100,000 characters, 30,000 per message). The home list shows agents by their desktop names and avatars, plus shared group chats. Use **+ → All chats** for individual conversation history. You can create an agent, edit its name or avatar, start another chat with the agent you are viewing, send text, watch streamed responses and stop a response. Agent edits update the existing desktop record. The open conversation is remembered after a reload. Choosing a chat on the phone does not change the desktop's selected chat.
 
 Messages use the same desktop chat runtime and subscriptions. In a chat, open the top-right menu and choose the provider/model row, or use **+ → Model and provider**. Choose Claude (Haiku, Sonnet or Opus) or one of the models available to your signed-in Codex account. Changing the provider also updates the desktop workspace settings; the selected bot remembers its model. Credentials stay on the Mac. Use **Refresh connections** after signing in on the desktop.
 
-New workspaces start in the explicitly labeled demo mode until a provider is selected. Demo history stays labeled Demo after switching; new replies identify the real provider/model.
+New workspaces start in the explicitly labeled demo mode until a provider is selected. Demo history stays labeled Demo after switching; the chat menu and profile identify the active provider/model.
 
-The phone does not need a separate Claude or Codex login. It sends the message to your running Mac, which performs the subscription-backed request and streams the same response into the shared conversation. The phone does not receive provider API keys. File uploads, connection settings, approvals and remote computer control remain desktop features in this release.
+The phone does not need a separate Claude or Codex login. It sends the message to your running Mac, which performs the subscription-backed request and streams the same response into the shared conversation. The phone does not receive provider API keys. Use **+** for Photo or Video, Take Photo, or Choose File. Attachments are limited to 1 MB after optional image compression and are stored in the same bot workspace as desktop attachments. The profile shows routines and files; remote computer control, approval decisions and Composio account management remain desktop features.
 
 If the Mac is offline, the composer keeps your draft but does not queue new work. A command accepted just before a network failure is tracked by its sequence and content digest. Retries cannot execute it twice. If a restart interrupts delivery at an ambiguous point, the phone asks you to check the chat rather than silently replaying it.
 
