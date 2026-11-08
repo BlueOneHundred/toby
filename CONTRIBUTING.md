@@ -1,7 +1,7 @@
-# Contributing
+# Contributing to the community edition
 
-Start with a small, reproducible issue. Explain the user-visible behavior, steps to reproduce, expected result and operating system. Replace private content with a synthetic example.
+Use this private repository for community features, examples and exercises. Follow `AGENTS.md` and `docs/BUILDING_COMMUNITY.md`.
 
-For a change, run `npm run check` and the affected desktop flows. Keep new dependencies justified, lockfile changes reproducible, and UI screenshots free of real account content. Do not claim an integration is working based only on a visible button or mocked test; document what was actually exercised.
+Make changes in `src/`, keep examples synthetic, run `npm run check` and the affected desktop checks, and push only to the private `origin` remote. A shared fix intended for the public core needs a separate, reviewed and sanitized change in that checkout.
 
-Core changes belong here. Community-specific templates, lessons and member features belong in the community edition. Contributions to this core are licensed under the repository's MIT license.
+Do not include account credentials, member chats or production screenshots in commits or issues. The inherited core source remains MIT-licensed; repository access is controlled separately.

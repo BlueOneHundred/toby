@@ -1,4 +1,4 @@
-name: Check core
+name: Check community
 on: [push, pull_request]
 permissions:
   contents: read

@@ -1,19 +1,20 @@
 {
-  "name": "gratis-core",
-  "productName": "Gratis Core",
+  "name": "gratis-community",
+  "productName": "Gratis Community",
   "version": "0.1.0",
   "private": true,
-  "description": "Independent desktop assistants with local memory, scheduled tasks and optional connected apps",
+  "description": "The community edition of Gratis, with guided starter roles and hands-on workflows",
   "type": "module",
   "main": "src/main.cjs",
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.mjs",
-    "test:desktop": "node test/community-desktop.mjs",
+    "test:desktop": "SCREENSHOT_PREFIX=community node test/community-desktop.mjs",
     "setup:assets": "node scripts/setup-assets.mjs",
     "verify:public": "node scripts/verify-public.mjs",
     "package:mac": "node scripts/package.mjs",
-    "check": "npm run verify:public && npm test"
+    "check": "npm run verify:public && npm test",
+    "postinstall": "node scripts/install-hooks.mjs"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
@@ -34,10 +35,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/promptadvisers/gratis.git"
+    "url": "git+https://github.com/promptadvisers/gratis-community.git"
   },
-  "homepage": "https://github.com/promptadvisers/gratis",
+  "homepage": "https://github.com/promptadvisers/gratis-community",
   "bugs": {
-    "url": "https://github.com/promptadvisers/gratis/issues"
+    "url": "https://github.com/promptadvisers/gratis-community/issues"
   }
 }

@@ -28,4 +28,4 @@ The memory vault, connection secrets, schedules and T3 dispatch metadata use the
 
 ## Editions
 
-`edition.json` controls the visible app name, data folder and bundle identity. The core and community builds have separate identities and storage. They do not migrate data from another edition. A community repository can pin this core and overlay a distinct edition configuration and assets without copying private history into either Git repository.
+`edition.json` controls the visible app name, data folder and bundle identity. The core and community builds have separate identities and storage. They do not migrate data from another edition. A community repository maintains a private development branch with a distinct edition configuration and assets without copying private history into either Git repository.

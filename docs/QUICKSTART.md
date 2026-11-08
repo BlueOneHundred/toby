@@ -2,9 +2,9 @@
 
 ## 1. Install and launch
 
-Use a Mac with Apple Silicon, Node.js 22+ and npm. Clone the repository and run the four commands in the main README. `npm run setup:assets` downloads a fixed revision of the semantic memory encoder and a fixed Composio CLI release, verifies checksums, and installs them only inside this checkout. It does not copy your account configuration or sign you in.
+Use a Mac with Apple Silicon, Node.js 22+ and npm. Clone the repository and run the four commands in the community README. `npm run setup:assets` downloads a fixed revision of the semantic memory encoder and a fixed Composio CLI release, verifies checksums, and installs them only inside this checkout. It does not copy your account configuration or sign you in.
 
-`npm start` opens **Gratis Core**. This edition uses its own local app data folder, separate from other editions. A fresh checkout starts with an empty demo conversation.
+`npm start` opens **Gratis Community**. This edition uses its own local app data folder, separate from other editions. A fresh checkout starts with an empty demo conversation.
 
 ## 2. Choose a provider
 
@@ -19,7 +19,7 @@ Open Settings, select the provider, and check the connection. Choose a model ava
 
 Create a bot with a name such as **Research** and describe the work you want it to do. Start with a small request you can verify, for example: “Explain this paragraph in three bullets.” You can later edit its instructions, model, avatar and tool capabilities.
 
-![Create an assistant using original geometric badges](screenshots/core-create-bot.png)
+![Create an assistant using original geometric badges](screenshots/community-create-bot.png)
 
 ## 4. Try a group
 
@@ -29,7 +29,7 @@ Create a group with two or more bots. The first bot coordinates the work. Most m
 
 Open **+ → Scheduled tasks**, or ask: “Every weekday at 9 AM America/Toronto, summarize the open questions in this conversation.” Check the saved task, timezone and next run. Keep the Mac awake and Gratis running. You can pause, edit, delete or run the task now.
 
-![A scheduled task using synthetic instructions](screenshots/core-schedules.png)
+![A scheduled task using synthetic instructions](screenshots/community-schedules.png)
 
 ## Optional voice input
 
