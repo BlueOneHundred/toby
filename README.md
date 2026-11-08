@@ -1,5 +1,7 @@
 # Gratis
 
+<p align="center"><img src="assets/gratis-icon.png" alt="Gratis app icon" width="160" height="160"></p>
+
 **Build one useful assistant workflow. Then make it repeatable.**
 
 This public community edition builds on [Gratis Core](https://github.com/promptadvisers/gratis). It includes the shared desktop and mobile runtime, community exercises and a workspace for member features. There is one app and one workspace.
@@ -54,8 +56,4 @@ The underlying tools and runtime remain shared. This repository adds deeper exer
 
 This is not a hosted subscription, a preconnected set of private accounts or a promise of unlimited model use. Local schedules require the app running and the computer awake. Integrations are optional and use your own accounts. See [Privacy](PRIVACY.md), [Security](SECURITY.md) and the [setup guide](docs/QUICKSTART.md).
 
-## For maintainers
-
-`origin` is the public community repository. `upstream` is the public core. A pre-push hook blocks publishing directly from this checkout to the public core. Do not remove it to bypass core review. Prepare a separately reviewed, sanitized change in the public checkout instead.
-
-The community source is publicly available under the inherited MIT license. The public core remains at `promptadvisers/gratis`; community development and releases live here under Early AI-dopters.
+The community source is publicly available under the inherited MIT license. The public core remains at [Prompt Advisers](https://github.com/promptadvisers/gratis). Contribution instructions are in [CONTRIBUTING.md](CONTRIBUTING.md).
