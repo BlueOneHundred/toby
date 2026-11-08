@@ -14,7 +14,11 @@ The connection is remembered across reloads and desktop restarts. One phone/brow
 
 The phone shows up to 200 recent root conversations, including group chats, and the latest 60 messages in the selected chat (bounded to 100,000 characters, 30,000 per message). You can switch chats, start a chat with the desktop's selected bot, send text, watch streamed responses and stop a response. Choosing a chat on the phone does not change the desktop's selected chat.
 
-Messages use the same desktop chat runtime, model settings and accounts. The phone does not receive provider API keys. File uploads, connection settings, approvals, native voice recording and remote computer control remain desktop features in this release.
+Messages use the same desktop chat runtime and subscriptions. In a chat, open the top-right menu and choose the provider/model row, or use **+ → Model and provider**. Choose Claude (Haiku, Sonnet or Opus) or one of the models available to your signed-in Codex account. Changing the provider also updates the desktop workspace settings; the selected bot remembers its model. Credentials stay on the Mac. Use **Refresh connections** after signing in on the desktop.
+
+New workspaces start in the explicitly labeled demo mode until a provider is selected. Demo history stays labeled Demo after switching; new replies identify the real provider/model.
+
+The phone does not need a separate Claude or Codex login. It sends the message to your running Mac, which performs the subscription-backed request and streams the same response into the shared conversation. The phone does not receive provider API keys. File uploads, connection settings, approvals, native voice recording and remote computer control remain desktop features in this release.
 
 If the Mac is offline, the composer keeps your draft but does not queue new work. A command accepted just before a network failure is tracked by its sequence and content digest. Retries cannot execute it twice. If a restart interrupts delivery at an ambiguous point, the phone asks you to check the chat rather than silently replaying it.
 
@@ -35,6 +39,12 @@ npx wrangler deploy
 Choose a strong random enrollment secret of at least 32 characters. Configure the desktop's **Connect phone** form with the deployed HTTPS address and this secret. Keep the secret in private operator storage, never in Git or a distributed app bundle. Each self-hosted installation uses its own relay and secret. A community operator can provision member desktops separately; this release does not include a public sign-up or tenant-management service.
 
 For private installation provisioning, the desktop consumes a `mobile-provision.json` file in its data directory, shaped as `{ "endpoint": "https://your-relay.example", "enrollmentKey": "YOUR_PRIVATE_SECRET" }`. Use file mode 0600. After a successful import the file is removed and settings are stored with the operating system's secure storage. Never include it in a release.
+
+## Relay updates
+
+This chat relay uses immediate Durable Object code updates so its request validator and the mobile UI advance together. It does not execute the AI job: the Mac retains that work. Pairing hashes and command receipts remain durable through an update, and the desktop republishes the transient chat view. The phone also checks the relay protocol version before enabling model controls.
+
+Cloudflare changed active objects to deferred updates by default on 30 October 2026. Without an explicit strategy, an existing phone connection can keep the previous validator while new assets expose new commands. See [Cloudflare’s update behavior](https://developers.cloudflare.com/changelog/post/2026-10-30-durable-objects-deferred-code-updates/).
 
 ## Privacy and reliability
 

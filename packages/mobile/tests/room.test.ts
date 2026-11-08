@@ -1,4 +1,5 @@
-import {describe,it,expect,vi,afterEach} from 'vitest';import {MobileRoom} from '../src/room';import {sha256Hex} from '../src/crypto';
+import {describe,it,expect,vi,afterEach} from 'vitest';import {parseMobileCommand} from '../src/protocol';
+import {MobileRoom} from '../src/room';import {sha256Hex} from '../src/crypto';
 function storage(){let row:string|undefined;return {sql:{exec:(sql:string,...args:any[])=>{if(sql.startsWith('INSERT'))row=args[0];return{toArray:()=>sql.startsWith('SELECT')&&row?[{value:row,id:1}]:[]};}},setAlarm:async()=>{}} as unknown as DurableObjectStorage;}
 const owner='a'.repeat(64),invite='b'.repeat(64);async function fixture(){const db=storage(),room=new MobileRoom(db);await room.initialize(await sha256Hex(owner),await sha256Hex(invite));return{room,db};}
 afterEach(()=>vi.useRealTimers());
@@ -8,3 +9,7 @@ describe('trusted mobile room',()=>{
  it('rejects expired, cross-room and revoked access',async()=>{vi.useFakeTimers();const{room}=await fixture();vi.advanceTimersByTime(120001);await expect(room.claim(invite)).rejects.toThrow();const other=await fixture(),first=await fixture();const{token}=await first.room.claim(invite);await expect(other.room.poll(token)).rejects.toThrow();first.room.desktop(await sha256Hex(owner),{revoke:true});await expect(first.room.poll(token)).rejects.toThrow();});
  it('does not allow another desktop to confirm or fetch messages',async()=>{const {room}=await fixture();expect(()=>room.desktop('wrong',{confirm:true})).toThrow();});
 });
+
+it('accepts bounded model choices while rejecting credential and provider injection',()=>{expect(parseMobileCommand({seq:1,kind:'model',conversationId:'chat',provider:'claude',model:'haiku'})).toMatchObject({provider:'claude',model:'haiku'});expect(()=>parseMobileCommand({seq:1,kind:'model',conversationId:'chat',provider:'other',model:'x'})).toThrow();expect(()=>parseMobileCommand({seq:1,kind:'model',conversationId:'chat',provider:'claude',model:'haiku',apiKey:'secret'})).toThrow();});
+
+it('a reopened relay preserves trust and accepts the current model protocol after republishing',async()=>{const{room,db}=await fixture();const{token}=await room.claim(invite);room.desktop(await sha256Hex(owner),{confirm:true,snapshot:{conversations:[]}});const reopened=new MobileRoom(db);expect(await reopened.poll(token)).toMatchObject({protocol:2,confirmed:true,online:false});reopened.desktop(await sha256Hex(owner),{snapshot:{conversations:[]}});expect(await reopened.command(token,{seq:1,kind:'model',conversationId:'chat',provider:'codex',model:'test-model'})).toMatchObject({accepted:true});});

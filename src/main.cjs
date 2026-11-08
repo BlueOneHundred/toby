@@ -16,7 +16,7 @@ const humanComputers=new Set(),computerControlEpochs=new Map(),computerControlRe
 function setHumanControl(id,human){if(humanComputers.has(id)!==human){human?humanComputers.add(id):humanComputers.delete(id);computerControlRevisions.set(id,(computerControlRevisions.get(id)||0)+1);}}
 const controlState=value=>({...value,control:humanComputers.has(value.conversationId)?'human':'bot',controlRevision:computerControlRevisions.get(value.conversationId)||0});
 const computerSnapshot=id=>{const snapshot=cloud.snapshot(id);return {...snapshot,state:controlState(snapshot.state)};};
-let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, closing = false, finishDraftFlush, voiceTask;
+let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, closing = false, finishDraftFlush, voiceTask;
 app.on('activate',()=>{if(window&&!window.isDestroyed()){window.show();window.focus();}});
 app.on('second-instance', () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } });
 async function shutdown() {
@@ -86,7 +86,9 @@ app.whenReady().then(async () => {
   const {Schedules}=await import('./schedules.mjs');
   schedules=await new Schedules({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:schedules-changed');}}).init();
   const [{MobileBridge},{mobileSnapshot,executeMobile}]=await Promise.all([import('./mobile-bridge.mjs'),import('./mobile-projection.mjs')]);
-  mobile=await new MobileBridge({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,snapshot:id=>mobileSnapshot(service,id),execute:command=>executeMobile(service,command),onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:mobile-changed',value);}}).init();
+  mobileProviders=new (await import('./mobile-providers.mjs')).MobileProviders({onChange:()=>mobile?.requestSync()});
+  void mobileProviders.refresh().catch(()=>{});
+  mobile=await new MobileBridge({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,snapshot:id=>mobileSnapshot(service,id,mobileProviders.snapshot()),execute:async command=>command.kind==='model'?mobileProviders.select(service,command):command.kind==='providers'?(await mobileProviders.refresh(true),command.conversationId):executeMobile(service,command),onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:mobile-changed',value);}}).init();
   try{const config=JSON.parse(await fs.readFile(path.join(dataDir,'mobile-provision.json'),'utf8'));if(!mobile.data.pairing)await mobile.configure(config);await fs.unlink(path.join(dataDir,'mobile-provision.json'));}catch(e){if(e.code!=='ENOENT')console.error('Mobile provisioning did not complete.');}
   schedules.start();
   t3Tasks.start();

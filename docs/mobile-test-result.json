@@ -10,7 +10,8 @@
     "Offline status",
     "Revocation denies old phone token",
     "Chromium and WebKit paired messaging layouts",
-    "Create a chat from the phone"
+    "Create a chat from the phone",
+    "Switch subscription provider and model from the phone"
   ],
   "latency": "bounded by active polling; no measured SLA"
 }

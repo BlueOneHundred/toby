@@ -20,7 +20,7 @@ You need repository access, macOS Apple Silicon, Node.js 22+ and npm. You can ex
 
 ## Continue on your phone
 
-Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then approve the phone on the desktop. The mobile companion remembers the connection and syncs your chats while Gratis Community is running and your Mac is awake. Add it to your iPhone Home Screen for a standalone view. A relay must be provisioned first; see the [mobile setup and privacy guide](docs/MOBILE.md).
+Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then approve the phone on the desktop. The mobile companion remembers the connection and syncs your chats while Gratis Community is running and your Mac is awake. Choose Claude or Codex and a model from the phone’s chat menu; replies use the subscriptions signed in on your Mac. Add it to your iPhone Home Screen for a standalone view. A relay must be provisioned first; see the [mobile setup and privacy guide](docs/MOBILE.md).
 
 ![Mobile chat with synthetic test messages](docs/screenshots/mobile-chat.png)
 
