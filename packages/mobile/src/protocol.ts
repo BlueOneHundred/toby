@@ -18,8 +18,8 @@ export function parseMobileCommand(raw: unknown): MobileCommand {
 }
 export const mobileCommandSchema = { parse: parseMobileCommand };
 export interface MobileSnapshot {
-  conversations: { id: string; title: string; status: string; provider: string; avatarShape?: string; avatarColor?: string; botName?: string }[];
-  selected?: { id: string; title: string; status: string; provider: string; messages: { id: string; role: string; content: string; status?: string; speaker?: string }[]; queued: number; computer: boolean; browserUrl?: string };
+  conversations: { id: string; title: string; status: string; provider: string; avatarShape?: string; avatarColor?: string; botName?: string; preview?: string; group?: boolean }[];
+  selected?: { id: string; title: string; status: string; provider: string; messages: { id: string; role: string; content: string; createdAt?: number; status?: string; speaker?: string }[]; queued: number; computer: boolean; group?: boolean; truncated?: boolean; browserUrl?: string };
 }
 export interface MobileStatus {
   paired: boolean; claimed: boolean; confirmed: boolean; inviteUrl?: string; error?: string;

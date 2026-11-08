@@ -1,7 +1,7 @@
 {
   "name": "gratis-community",
   "productName": "Gratis Community",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "The community edition of Gratis, with guided starter roles and hands-on workflows",
   "type": "module",

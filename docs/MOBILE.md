@@ -44,6 +44,10 @@ Clearing Safari/site data removes the phone credential and drafts. Disconnect th
 
 Active phone polling is about 900 ms and desktop polling 1.5 seconds, with additional updates triggered by chat changes. Background Safari is subject to iOS suspension. No instant-delivery SLA, offline agent execution or push notification service is included.
 
+## Device verification
+
+The [physical iPhone check](MOBILE_DEVICE_CHECK.md) records the Safari and Home Screen tests. The mobile layout shares the desktop’s neutral chat surfaces and icon set, with a compact avatar header, rounded bubbles and bottom composer. The installed view accounts for iOS status-bar and keyboard viewport differences.
+
 ## Verification
 
 `npm test` covers bridge persistence, bounded projection, commands and access checks. `packages/mobile` tests cover invitation expiry, confirmation, revocation, ownership and duplicate commands. `test/mobile-sync.mjs` uses a real relay with an isolated Electron profile and a mocked provider to test both directions, interrupted responses, reload, restart and revocation. The test defaults to a local relay on port 18879; `MOBILE_TEST_URL` and `MOBILE_TEST_SECRETS_FILE` select a private deployed relay. No credentials belong in the test report.
