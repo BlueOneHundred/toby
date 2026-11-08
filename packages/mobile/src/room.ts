@@ -58,7 +58,7 @@ export class MobileRoom {
   async poll(token: string, revision?: string): Promise<unknown> {
     const s = await this.authorize(token);
     const online = this.heartbeat > Date.now() - 15_000;
-    return { protocol: 5, confirmed: s.confirmed, online, nextSeq: s.seq + 1, revision: this.revision, snapshot: online && s.confirmed && revision !== this.revision ? this.latest : undefined,
+    return { protocol: 6, confirmed: s.confirmed, online, nextSeq: s.seq + 1, revision: this.revision, snapshot: online && s.confirmed && revision !== this.revision ? this.latest : undefined,
       receipt: s.receipt ?? (s.seq && !this.pending ? { seq: s.seq, ok: false, detail: "Outcome unknown. Check the chat before sending again." } : undefined) };
   }
   async command(token: string, raw: unknown): Promise<unknown> {

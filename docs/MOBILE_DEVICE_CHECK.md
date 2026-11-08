@@ -35,3 +35,16 @@ The automated relay test passed with the single-app configuration, including mic
 
 
 The [follow-up visual comparison](MOBILE_FIDELITY.md) records the shared-identity and avatar-picker corrections. A green avatar edit made on the physical phone was verified in the same desktop agent, then restored to blue.
+
+## Computer and settings on the original iPhone workspace
+
+Gratis 0.17.0 was installed over the original application, retaining its existing data. Testing stayed in the approved disposable reference conversation. The phone and desktop used the same agent, avatar and existing subscription.
+
+- The full-screen computer was compared with the phone reference: black viewport, compact agent header, lower controls and gesture help.
+- On a real cloud browser, phone pointer input selected a field and clicked Apply. Direct keyboard input and Return produced the expected saved result. The address field navigated to the test page.
+- During a live Claude task, Take control paused the bot. The phone entered a unique marker. Give control back inspected the changed page and resumed automatically. The bot preserved that marker, clicked Apply once and reported the saved value in the shared conversation.
+- Stop, Retry start and Restart browser were exercised against the real browser, and the test computer was left stopped.
+- The phone changed the display name and appearance; the existing desktop settings reflected both. Name, original photo and Dark appearance were restored. The final one-tap profile save was checked after relaunching the installed phone app.
+- Settings and Appearance were compared on the same phone, including safe-area spacing and monochrome controls. Account credentials remain managed on the desktop; the phone shows connection status.
+
+Automated Chromium and WebKit checks cover profile/photo saving, appearance, menus, navigation and creation. The relay/Electron integration check covers ordered computer input, control handback, settings persistence, reconnect and revocation. Physical testing confirms the specific flows above; it does not establish universal pixel identity or a latency guarantee.

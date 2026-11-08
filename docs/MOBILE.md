@@ -22,7 +22,7 @@ Messages use the same desktop chat runtime and subscriptions. From the home scre
 
 New workspaces start in the explicitly labeled demo mode until a provider is selected. Demo history stays labeled Demo after switching; the model settings identify the active provider/model.
 
-The phone does not need a separate Claude or Codex login. It sends the message to your running Mac, which performs the subscription-backed request and streams the same response into the shared conversation. The phone does not receive provider API keys. Use **+** for Photo or Video, Take Photo, or Choose File. Attachments are limited to 1 MB after optional image compression and are stored in the same bot workspace as desktop attachments. The profile shows routines and files. Its Notifications switch enables completion notifications while the phone app is open; it does not register a background push service. Remote computer control, approval decisions and Composio account management remain desktop features.
+The phone does not need a separate Claude or Codex login. It sends the message to your running Mac, which performs the subscription-backed request and streams the same response into the shared conversation. The phone does not receive provider API keys. Use **+** for Photo or Video, Take Photo, or Choose File. Attachments are limited to 1 MB after optional image compression and are stored in the same bot workspace as desktop attachments. The profile shows routines and files. Its Notifications switch enables completion notifications while the phone app is open; it does not register a background push service. The phone can start and view the same cloud computer, take control, click, drag, scroll, type, and give control back. Approval decisions and Composio account management remain desktop features.
 
 
 
@@ -64,7 +64,7 @@ Pairing credentials are encrypted on the Mac and stored in the phone browser's l
 
 Clearing Safari/site data removes the phone credential and drafts. Disconnect the old phone on the Mac before pairing another. If a relay restarts, it requests a fresh projection from the desktop. Provider sessions and memory remain on the Mac.
 
-Active phone polling is about 900 ms and desktop polling 1.5 seconds, with additional updates triggered by chat changes. Background Safari is subject to iOS suspension. No instant-delivery SLA, offline agent execution or push notification service is included.
+Normal phone polling is about 900 ms and desktop polling 1.5 seconds. While a computer view is open, the phone polls at 160 ms and the desktop checks commands at 250 ms, with frame updates throttled to 120 ms. Actual latency depends on the network and cloud browser. Background Safari is subject to iOS suspension. No instant-delivery SLA, offline agent execution or push notification service is included.
 
 ## Device verification
 
@@ -75,3 +75,11 @@ The [physical iPhone check](MOBILE_DEVICE_CHECK.md) records the Safari and Home 
 `npm test` covers bridge persistence, bounded projection, commands and access checks. `packages/mobile` tests cover invitation expiry, confirmation, revocation, ownership and duplicate commands. `test/mobile-sync.mjs` uses a real relay with an isolated Electron profile and a mocked provider to test both directions, interrupted responses, reload, restart and revocation. The test defaults to a local relay on port 18879; `MOBILE_TEST_URL` and `MOBILE_TEST_SECRETS_FILE` select a private deployed relay. No credentials belong in the test report.
 
 `node test/mobile-screens.mjs` checks the menus, bottom search navigation, profile/empty-state layouts, create/cancel behavior and notification transitions in Chromium and WebKit using synthetic data.
+
+## Computer and settings
+
+Open an agent profile and choose **Computer**. It opens the same conversation computer used on desktop. You start in view mode. **Take control** pauses the bot; **Give control back** waits for pending input, inspects the current page and resumes the existing task. If inspection fails, you keep control. A control revision prevents stale input after another device changes ownership.
+
+Tap to click, hold to right-click, drag with one finger, use two fingers to scroll, and pinch to zoom. The keyboard button accepts text; the controls menu provides keys, a web address field, refresh, restart and stop. Signed browser endpoints and service credentials stay on the Mac. Only bounded screen images pass through the existing authenticated relay while the view is open. Its lease expires after the phone stops keeping it alive.
+
+The home profile button opens Settings. Profile name and photo edits update the existing desktop settings. Appearance is shared, and AI subscriptions use the existing provider selector. Connections shows status; account sign-in and credentials are managed on the Mac.

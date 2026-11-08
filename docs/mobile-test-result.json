@@ -19,7 +19,9 @@
     "Phone creates the same agent on desktop",
     "Pinned agents and appearance match desktop",
     "Reopening the avatar editor retains the new edit session",
-    "Phone deletion removes the same desktop agent"
+    "Phone deletion removes the same desktop agent",
+    "Computer start, take control, typing and handback use the shared desktop controller",
+    "Phone profile settings persist on desktop"
   ],
   "latency": "bounded by active polling; no measured SLA"
 }

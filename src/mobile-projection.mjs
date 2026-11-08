@@ -1,3 +1,4 @@
+import {validatePhoneSettings} from './mobile-controls.mjs';
 import {sidebarItems} from './sidebar-items.mjs';
 import {appearanceSetting} from './theme.mjs';
 import {avatarAppearance,avatarChoice} from './avatar.mjs';
@@ -8,6 +9,7 @@ export function mobileSnapshot(service,selectedId,providers=[]){const roots=serv
  return{conversations,bots,providers,home,preferences,userProfile,selected:{botId:selected.botId,bot:bots.find(b=>b.id===selected.botId),attachments:(selected.draftAttachments||[]).map(f=>({name:f.name,bytes:f.bytes})),id:selected.id,title:conversations.find(c=>c.id===selected.id).title,status:service.teams.busy(selected)?'working':'ready',provider:service.state.settings.provider,model:(service.state.settings.provider==='claude'?service._bot(selected.botId).model:service._bot(selected.botId).codexModel)||service.state.settings.model,messages,group:selected.kind==='group',queued:selected.queue?.length||0,computer:false,truncated}};
 }
 export async function executeMobile(service,command){
+ if(command.kind==='user-settings'){await service.updateSettings({...service.state.settings,...validatePhoneSettings(command.settings)});return command.conversationId;}
  if(command.kind==='preferences'){await service.updateSettings({...service.state.settings,appearance:appearanceSetting(command.preferences.appearance)});return command.conversationId;}
  if(command.kind==='create-bot'){const profile=validateMobileProfile(command.profile);if(!profile.name)throw new Error('Enter an agent name.');const active={bot:service.state.activeBotId,conversation:service.state.activeConversationId};await service.createBot({...profile,promptMode:'auto'});const id=service.state.activeConversationId;if(profile.avatarDataUrl)await service.updateBot({id:service.state.activeBotId,avatarDataUrl:profile.avatarDataUrl});service.state.activeBotId=active.bot;service.state.activeConversationId=active.conversation;await service._changed();return id;}
  if(command.kind==='new'){const bot=service.state.bots.find(b=>b.id===(command.botId||service.state.activeBotId))||service.state.bots[0];if(!bot)throw new Error('Create a bot on the desktop first.');const active={bot:service.state.activeBotId,conversation:service.state.activeConversationId};const c=service._newConversation(bot.id);service.state.activeBotId=active.bot;service.state.activeConversationId=active.conversation;await service._changed();return c.id;}

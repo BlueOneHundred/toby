@@ -16,7 +16,7 @@ const humanComputers=new Set(),computerControlEpochs=new Map(),computerControlRe
 function setHumanControl(id,human){if(humanComputers.has(id)!==human){human?humanComputers.add(id):humanComputers.delete(id);computerControlRevisions.set(id,(computerControlRevisions.get(id)||0)+1);}}
 const controlState=value=>({...value,control:humanComputers.has(value.conversationId)?'human':'bot',controlRevision:computerControlRevisions.get(value.conversationId)||0});
 const computerSnapshot=id=>{const snapshot=cloud.snapshot(id);return {...snapshot,state:controlState(snapshot.state)};};
-let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, mobileDictation, closing = false, finishDraftFlush, voiceTask;
+let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, mobileDictation, computerControl, mobileComputer, closing = false, finishDraftFlush, voiceTask;
 app.on('activate',()=>{if(window&&!window.isDestroyed()){window.show();window.focus();}});
 app.on('second-instance', () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } });
 async function shutdown() {
@@ -31,7 +31,7 @@ async function shutdown() {
   }
   const activeVoice = voiceTask;
   activeVoice?.controller.abort(new DOMException('App closed', 'AbortError'));
-  try { await mobileDictation?.close(); await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await cloud?.close(); } finally { app.exit(0); }
+  try { mobileComputer?.close(); await mobileDictation?.close(); await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await cloud?.close(); } finally { app.exit(0); }
 }
 const actions = ['createBot', 'deleteBot', 'selectBot', 'newConversation', 'selectConversation', 'setDraft',
   'createThread','renameThread','updateThreadMembers','pinThread','deleteThread','updateSettings', 'updateBot', 'duplicateBot', 'respondApproval', 'updateQueue', 'send', 'stop', 'retry'];
@@ -73,7 +73,7 @@ app.whenReady().then(async () => {
     return{binding,submit:input=>t3Tasks.submit({...input,...binding,conversationId,botId:args.bot.id,sourceMessageId:args.sourceMessageId}),read:id=>t3Tasks.refresh({id,conversationId}).then(jobs=>jobs.find(j=>j.id===id)),send:(id,message)=>t3Tasks.followup({id,message,conversationId}),stop:id=>t3Tasks.cancel({id,conversationId})};
   };
   files=new WorkspaceFiles(dataDir);
-  cloud=new CloudComputer(connections,{onFrame:frame=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-frame',frame);},onState:state=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-state',controlState(state));}});
+  cloud=new CloudComputer(connections,{onFrame:frame=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-frame',frame);if(mobileComputer?.view?.id===frame.conversationId)mobile?.requestSync();},onState:state=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-state',controlState(state));if(mobileComputer?.view?.id===state.conversationId)mobile?.requestSync();}});
   const {MemoryService}=await import('./memory-service.mjs'),{MemoryEmbeddings}=await import('./memory-embeddings.mjs'),{memoryKeyring}=await import('./memory-keyring.mjs');
   const embeddings=new MemoryEmbeddings({modelPath:(app.isPackaged?path.join(process.resourcesPath,'models','sentence-encoder'):path.join(__dirname,'../assets/models/sentence-encoder'))+path.sep});
   memory=await new MemoryService({directory:dataDir,...memoryKeyring(safeStorage),embeddings,onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:memory-changed',value);}}).init();
@@ -90,12 +90,16 @@ app.whenReady().then(async () => {
   await (await import('./edition-setup.mjs')).applyEdition(service,edition);
   const {Schedules}=await import('./schedules.mjs');
   schedules=await new Schedules({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:schedules-changed');}}).init();
+  const {ComputerControl}=await import('./computer-control.mjs');
+  computerControl=new ComputerControl({service,cloud,humanComputers,epochs:computerControlEpochs,revisions:computerControlRevisions,setHuman:setHumanControl,snapshot:computerSnapshot,onState:state=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-state',state);mobile?.requestSync();}});
+  const {MobileComputer}=await import('./mobile-computer.mjs');
+  mobileComputer=new MobileComputer({service,cloud,control:computerControl,nativeImage,onMode:value=>mobile?.setInteractive(value),onChange:()=>mobile?.requestSync()});
   const [{MobileBridge},{mobileSnapshot,executeMobile},{mobileAvatarThumbnails}]=await Promise.all([import('./mobile-bridge.mjs'),import('./mobile-projection.mjs'),import('./mobile-avatars.mjs')]);
   mobileDictation=new (await import('./mobile-dictation.mjs')).MobileDictation({service,directory:dataDir,onChange:()=>mobile?.requestSync(),available:()=>!voiceTask});
   mobileProviders=new (await import('./mobile-providers.mjs')).MobileProviders({onChange:()=>mobile?.requestSync()});
   void mobileProviders.refresh().catch(()=>{});
   const mobileDetails=new Map(),{attachMobileFile}=await import('./mobile-files.mjs');
-  mobile=await new MobileBridge({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,snapshot:id=>{const snapshot=mobileSnapshot(service,id,mobileProviders.snapshot());snapshot.avatars=mobileAvatarThumbnails(service,nativeImage,snapshot.selected?.id);if(snapshot.selected){snapshot.voice=mobileDictation.snapshot(snapshot.selected.id);snapshot.selected.details=mobileDetails.get(snapshot.selected.id);}return snapshot;},execute:async command=>command.kind==='profile'?await (async()=>{const c=service._conversation(command.conversationId);const entries=await files.list(c.botId);const routines=schedules.snapshot(c.id);mobileDetails.set(c.id,{files:entries.slice(0,40),routines:routines.map(r=>({id:r.id,title:r.title,enabled:r.enabled,nextRunAt:r.nextRunAt})),computer:cloud.snapshot(c.id).state?.status||'idle'});if(mobileDetails.size>40)mobileDetails.delete(mobileDetails.keys().next().value);return c.id;})():command.kind==='attach'?attachMobileFile(service,files,command):command.kind==='voice'?mobileDictation.start(command):command.kind==='voice-cancel'?mobileDictation.cancel(command):command.kind==='model'?mobileProviders.select(service,command):command.kind==='providers'?(await mobileProviders.refresh(true),command.conversationId):executeMobile(service,command),onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:mobile-changed',value);}}).init();
+  mobile=await new MobileBridge({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,snapshot:id=>{const snapshot=mobileSnapshot(service,id,mobileProviders.snapshot());snapshot.appVersion=app.getVersion();snapshot.connections=connections.status();delete snapshot.connections.cloudEndpoint;const phoneComputer=mobileComputer.snapshot(snapshot.selected?.id);snapshot.avatars=mobileAvatarThumbnails(service,nativeImage,snapshot.selected?.id,phoneComputer?240000:600000);if(snapshot.selected){snapshot.voice=mobileDictation.snapshot(snapshot.selected.id);snapshot.selected.details=mobileDetails.get(snapshot.selected.id);snapshot.selected.computerView=phoneComputer;}return snapshot;},execute:async command=>command.kind==='computer'?mobileComputer.execute(command):command.kind==='profile'?await (async()=>{const c=service._conversation(command.conversationId);const entries=await files.list(c.botId);const routines=schedules.snapshot(c.id);mobileDetails.set(c.id,{files:entries.slice(0,40),routines:routines.map(r=>({id:r.id,title:r.title,enabled:r.enabled,nextRunAt:r.nextRunAt})),computer:cloud.snapshot(c.id).state?.status||'idle'});if(mobileDetails.size>40)mobileDetails.delete(mobileDetails.keys().next().value);return c.id;})():command.kind==='attach'?attachMobileFile(service,files,command):command.kind==='voice'?mobileDictation.start(command):command.kind==='voice-cancel'?mobileDictation.cancel(command):command.kind==='model'?mobileProviders.select(service,command):command.kind==='providers'?(await mobileProviders.refresh(true),command.conversationId):executeMobile(service,command),onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:mobile-changed',value);}}).init();
   try{const config=JSON.parse(await fs.readFile(path.join(dataDir,'mobile-provision.json'),'utf8'));if(!mobile.data.pairing)await mobile.configure(config);await fs.unlink(path.join(dataDir,'mobile-provision.json'));}catch(e){if(e.code!=='ENOENT')console.error('Mobile provisioning did not complete.');}
   schedules.start();
   t3Tasks.start();
@@ -189,25 +193,11 @@ app.whenReady().then(async () => {
   ipcMain.handle('orbit:cloud-health', async e => {authorized(e);return cloud.health();});
   ipcMain.handle('orbit:computer-frame', async (e,{conversationId}) => {authorized(e);return cloud.frames.get(conversationId)||null;});
   ipcMain.handle('orbit:computer-state', (e,{conversationId}) => {authorized(e);service._threadOpen(service._conversation(conversationId));return computerSnapshot(conversationId);});
-  ipcMain.handle('orbit:computer-start', async(e,{conversationId,restart=false})=>{authorized(e);const c=service._conversation(conversationId);service._threadOpen(c);const bot=service._bot(c.botId);if(bot.capabilities?.computer===false)throw new Error('Enable Computer in this bot’s settings first.');if(restart&&service.tasks.has(c.id))throw new Error('Stop the bot before restarting its computer.');await cloud.start({botId:bot.id,conversationId:c.id,restart});if(cloud.serverOwners.get(c.id))setHumanControl(c.id,true);return computerSnapshot(c.id);});
-  ipcMain.handle('orbit:computer-action', async (e,{conversationId,name,args}) => {authorized(e);const conversation=service._conversation(conversationId);service._threadOpen(conversation);if(service.tasks.has(conversationId)&&!humanComputers.has(conversationId))throw new Error('Use Take control to pause the bot before using its computer.');const revision=computerControlRevisions.get(conversationId);const live=humanComputers.has(conversationId)?cloud.manualInput({conversationId,name,args,canUse:()=>humanComputers.has(conversationId)&&computerControlRevisions.get(conversationId)===revision}):null;if(live){const result=await live;if(result.clipboardText!==undefined){clipboard.writeText(result.clipboardText);return{live:true};}return result;}if(['pointer_event','wheel_input','copy_selection'].includes(name))throw new Error('Live controls are reconnecting. Wait a moment and try again.');if(name==='move_pointer')return {live:false};return cloud.execute({botId:conversation.botId,conversationId,name,args,humanControl:true});});
+  ipcMain.handle('orbit:computer-start',(e,value)=>{authorized(e);return computerControl.start(value);});
+  ipcMain.handle('orbit:computer-action',async(e,value)=>{authorized(e);const result=await computerControl.action(value);if(result?.clipboardText!==undefined){clipboard.writeText(result.clipboardText);return {live:true};}return result;});
   ipcMain.handle('orbit:computer-watch',(e,{conversationId,visible})=>{authorized(e);const c=service._conversation(conversationId);if(visible)service._threadOpen(c);cloud.watch(c.botId,conversationId,!!visible);return true;});
-  ipcMain.handle('orbit:computer-control', async(e,{conversationId,human})=>{
-    authorized(e);service._threadOpen(service._conversation(conversationId));if(typeof human!=='boolean')throw new Error('Choose who controls the computer.');
-    const epoch=(computerControlEpochs.get(conversationId)||0)+1;computerControlEpochs.set(conversationId,epoch);
-    if(human){setHumanControl(conversationId,true);const pausing=service.pauseForComputer({conversationId});try{await cloud.control(service._conversation(conversationId).botId,conversationId,true);await pausing;}catch(error){await pausing;setHumanControl(conversationId,false);throw error;}}
-    else{
-      await cloud.whenIdle(conversationId);
-      const c=service._conversation(conversationId);let current=computerSnapshot(conversationId).frame;
-      if(c.computerPause){try{const observed=await cloud.execute({botId:c.botId,conversationId,name:'inspect_page',args:{mode:'both',limit:60},humanControl:true});current=observed.observation||current;}catch(error){throw new Error('Could not inspect your current page. You still have control. Try Give control back again. '+error.message);}}
-      if(computerControlEpochs.get(conversationId)!==epoch)return computerSnapshot(conversationId);
-      await cloud.control(c.botId,conversationId,false);if(computerControlEpochs.get(conversationId)!==epoch)return computerSnapshot(conversationId);
-      setHumanControl(conversationId,false);
-      await service.resumeAfterComputer({conversationId,computerState:current?{...current,dataUrl:undefined}:undefined});
-    }
-    const snapshot=computerSnapshot(conversationId);window.webContents.send('orbit:computer-state',snapshot.state);return snapshot;
-  });
-  ipcMain.handle('orbit:computer-stop', async (e,{conversationId}) => {authorized(e);const c=service._conversation(conversationId);await service.stop({conversationId});await cloud.dispose(c.botId,conversationId);setHumanControl(conversationId,false);return true;});
+  ipcMain.handle('orbit:computer-control',(e,value)=>{authorized(e);return computerControl.control(value);});
+  ipcMain.handle('orbit:computer-stop',(e,value)=>{authorized(e);return computerControl.stop(value);});
   ipcMain.handle('orbit:files', async(e,{botId})=>{authorized(e);service._bot(botId);return files.list(botId);});
   ipcMain.handle('orbit:attach-files', async(e,{conversationId})=>{authorized(e);const c=service._conversation(conversationId);const result=await dialog.showOpenDialog(window,{properties:['openFile','multiSelections'],title:'Attach files to this bot'});if(result.canceled)return service.snapshot();const added=await files.import(c.botId,result.filePaths);c.draftAttachments=[...(c.draftAttachments||[]),...added].slice(0,10);return service._changed();});
   ipcMain.handle('orbit:remove-attachment', async(e,{conversationId,path:attachment})=>{authorized(e);const c=service._conversation(conversationId);c.draftAttachments=(c.draftAttachments||[]).filter(f=>f.path!==attachment);return service._changed();});

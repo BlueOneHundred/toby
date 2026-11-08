@@ -5,7 +5,7 @@ const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(',')}]
 const digest=value=>createHash('sha256').update(value).digest('hex');
 export const COMPUTER_ACTIONS=['browse_url','inspect_page','capture_screen','click_element','fill_field','press_key','select_option','scroll_page','wait_for','click_screen','type_text','run_command','list_files','read_file','create_file','edit_file'];
 export class CloudComputer {
-  constructor(connections,{fetcher=fetch,onFrame=()=>{},onState=()=>{}}={}){this.connections=connections;this.fetcher=fetcher;this.onFrame=onFrame;this.onState=onState;this.frames=new Map();this.seats=new Set();this.states=new Map();this.starts=new Map();this.epochs=new Map();this.operations=new Map();this.requests=new Map();this.liveLinks=new Map();this.live=new Map();this.watched=null;this.liveGeneration=0;this.observations=new Map();this.inputOperations=new Map();this.controlOperations=new Map();this.serverOwners=new Map();}
+  constructor(connections,{fetcher=fetch,onFrame=()=>{},onState=()=>{}}={}){this.connections=connections;this.fetcher=fetcher;this.onFrame=onFrame;this.onState=onState;this.frames=new Map();this.seats=new Set();this.states=new Map();this.starts=new Map();this.epochs=new Map();this.operations=new Map();this.requests=new Map();this.liveLinks=new Map();this.live=new Map();this.watched=null;this.watchers=new Map();this.liveGeneration=0;this.liveGenerations=new Map();this.liveRetries=new Map();this.refreshingViews=new Set();this.observations=new Map();this.inputOperations=new Map();this.controlOperations=new Map();this.serverOwners=new Map();}
   async request(path,body,signal){
     const cloud=this.connections.value.cloud;if(!cloud?.token)throw new Error('Connect a cloud computer in Settings first.');
     const timeoutMs=path==='/heartbeat'?15000:path==='/execute'&&body.name==='run_command'?125000:60000;
@@ -33,7 +33,7 @@ export class CloudComputer {
     finally{if(id){const set=this.requests.get(id);set?.delete(controller);if(!set?.size)this.requests.delete(id);}}
   }
   async health(){return this.request('/heartbeat',{});}
-  state(conversationId){const value=this.states.get(conversationId)||{conversationId,status:'idle'};return value.status==='ready'&&Date.now()-(this.frames.get(conversationId)?.at||0)>240000?{...value,status:'idle',liveStatus:this.watched?.conversationId===conversationId?(this.live.get(conversationId)?.ready?'live':this.live.has(conversationId)?'connecting':'reconnecting'):'inactive',live:!!this.live.get(conversationId)?.ready}:{...value,liveStatus:this.watched?.conversationId===conversationId?(this.live.get(conversationId)?.ready?'live':this.live.has(conversationId)?'connecting':'reconnecting'):'inactive',live:!!this.live.get(conversationId)?.ready};}
+  state(conversationId){const value=this.states.get(conversationId)||{conversationId,status:'idle'};return value.status==='ready'&&Date.now()-(this.frames.get(conversationId)?.at||0)>240000?{...value,status:'idle',liveStatus:this.isWatched(conversationId)?(this.live.get(conversationId)?.ready?'live':this.live.has(conversationId)?'connecting':'reconnecting'):'inactive',live:!!this.live.get(conversationId)?.ready}:{...value,liveStatus:this.isWatched(conversationId)?(this.live.get(conversationId)?.ready?'live':this.live.has(conversationId)?'connecting':'reconnecting'):'inactive',live:!!this.live.get(conversationId)?.ready};}
   snapshot(conversationId){return {state:this.state(conversationId),frame:this.frames.get(conversationId)||null};}
   setState(conversationId,status,error,notice){const state={conversationId,status,...(error?{error}:{}),...(notice?{notice}:{}),updatedAt:Date.now()};this.states.set(conversationId,state);this.onState(this.state(conversationId));}
   serialize(conversationId,operation){const epoch=this.epochs.get(conversationId)||0;const previous=this.operations.get(conversationId)||Promise.resolve();const next=previous.catch(()=>{}).then(()=>{if(epoch!==(this.epochs.get(conversationId)||0))throw new Error('Computer operation cancelled.');return operation();});this.operations.set(conversationId,next);next.finally(()=>{if(this.operations.get(conversationId)===next)this.operations.delete(conversationId);}).catch(()=>{});return next;}
@@ -79,35 +79,40 @@ export class CloudComputer {
     if(epoch!==(this.epochs.get(conversationId)||0))throw new Error('Computer operation cancelled.');
     this.seats.add(`${botId}/${conversationId}`);
     if(value.browserObservation)this.observations.set(conversationId,value.browserObservation);
-    if(value.visualArtifact?.liveViewUrl){const prior=this.liveLinks.get(conversationId)?.url,next=value.visualArtifact.liveViewUrl;if(prior&&liveSocketURL(prior)?.split('?')[0]!==liveSocketURL(next)?.split('?')[0]){this.live.get(conversationId)?.close();this.live.delete(conversationId);}this.liveLinks.set(conversationId,{url:value.visualArtifact.liveViewUrl,at:Date.now(),botId});if(this.watched?.conversationId===conversationId)void this.connectLive(conversationId);}
+    if(value.visualArtifact?.liveViewUrl){const prior=this.liveLinks.get(conversationId)?.url,next=value.visualArtifact.liveViewUrl;if(prior&&liveSocketURL(prior)?.split('?')[0]!==liveSocketURL(next)?.split('?')[0]){this.live.get(conversationId)?.close();this.live.delete(conversationId);}this.liveLinks.set(conversationId,{url:value.visualArtifact.liveViewUrl,at:Date.now(),botId});if(this.isWatched(conversationId))void this.connectLive(conversationId);}
     if(value.visualArtifact){const f=value.visualArtifact;if(f.mimeType!=='image/png'||typeof f.dataBase64!=='string'||f.dataBase64.length>6000000||digest(Buffer.from(f.dataBase64,'base64'))!==f.sha256)throw new Error('The computer returned an invalid screenshot.');const frame={botId,conversationId,dataUrl:`data:image/png;base64,${f.dataBase64}`,url:f.currentUrl,title:f.pageTitle,at:Date.now()};const live=this.live.get(conversationId),previous=this.frames.get(conversationId);if(!live?.ready||!previous){this.frames.set(conversationId,frame);this.onFrame(frame);}else{const metadata={...previous,url:live.url||frame.url,title:frame.title};this.frames.set(conversationId,metadata);this.onFrame(metadata);}}
     return {output:value.output,observation:value.browserObservation,outcome:value.browserOutcome,receiptId:value.receiptId,...(value.visualArtifact?{image:value.visualArtifact.dataBase64}:{})};
   }
-  watch(botId,conversationId,visible){
-    if(!visible){if(this.watched?.conversationId===conversationId)this.unwatch();return;}
-    if(this.watched?.conversationId!==conversationId){this.unwatch();this.watched={botId,conversationId};}
-    void this.connectLive(conversationId);
+  isWatched(id){return [...this.watchers.values()].some(w=>w.conversationId===id);}
+  watch(botId,conversationId,visible,owner='desktop'){
+    if(visible)this.watchers.set(owner,{botId,conversationId});else if(this.watchers.get(owner)?.conversationId===conversationId)this.watchers.delete(owner);
+    this.watched=this.watchers.get('desktop')||[...this.watchers.values()][0]||null;
+    for(const id of this.live.keys())if(!this.isWatched(id))this.stopLive(id);
+    for(const w of this.watchers.values())void this.connectLive(w.conversationId);
   }
-  unwatch(){this.liveGeneration++;clearTimeout(this.liveRetry);this.watched=null;for(const client of this.live.values())client.close();this.live.clear();}
+  stopLive(id){this.liveGenerations.set(id,(this.liveGenerations.get(id)||0)+1);clearTimeout(this.liveRetries.get(id));this.liveRetries.delete(id);this.live.get(id)?.close();this.live.delete(id);}
+  unwatch(){this.liveGeneration++;this.watchers.clear();this.watched=null;for(const id of new Set([...this.live.keys(),...this.liveRetries.keys()]))this.stopLive(id);}
   async connectLive(conversationId){
-    if(this.watched?.conversationId!==conversationId||this.live.has(conversationId))return;
-    const link=this.liveLinks.get(conversationId);if(!link||Date.now()-link.at>240000){
-      if(this.refreshingLive)return;this.refreshingLive=true;
-      try{await this.execute({botId:this.watched.botId,conversationId,name:'capture_screen',args:{},humanControl:true});}catch{}finally{this.refreshingLive=false;if(this.watched&&this.watched.conversationId!==conversationId)void this.connectLive(this.watched.conversationId);}
+    if(!this.isWatched(conversationId)||this.live.has(conversationId))return;
+    const watch=[...this.watchers.values()].find(w=>w.conversationId===conversationId),link=this.liveLinks.get(conversationId);
+    if(!link||Date.now()-link.at>240000){
+      if(this.refreshingViews.has(conversationId))return;this.refreshingViews.add(conversationId);
+      try{await this.execute({botId:watch.botId,conversationId,name:'capture_screen',args:{},humanControl:true});}catch{}finally{this.refreshingViews.delete(conversationId);}
       return;
     }
-    const generation=this.liveGeneration;
+    const generation=this.liveGenerations.get(conversationId)||0;
+    const retry=ms=>{clearTimeout(this.liveRetries.get(conversationId));this.liveRetries.set(conversationId,setTimeout(()=>void this.connectLive(conversationId),ms));};
     const client=new ComputerLive({onFrame:value=>{
-      if(this.watched?.conversationId!==conversationId||generation!==this.liveGeneration)return;
+      if(!this.isWatched(conversationId)||generation!==(this.liveGenerations.get(conversationId)||0))return;
       const previous=this.frames.get(conversationId);const frame={...previous,botId:link.botId,conversationId,...value,url:client.url||previous?.url};this.frames.set(conversationId,frame);this.onFrame(frame);
     },onState:ready=>{
-      if(this.watched?.conversationId!==conversationId||generation!==this.liveGeneration||this.live.get(conversationId)!==client)return;
+      if(!this.isWatched(conversationId)||generation!==(this.liveGenerations.get(conversationId)||0)||this.live.get(conversationId)!==client)return;
       this.onState(this.state(conversationId));
-      if(!ready){client.close();this.live.delete(conversationId);this.liveLinks.delete(conversationId);clearTimeout(this.liveRetry);this.liveRetry=setTimeout(()=>void this.connectLive(conversationId),2500);}
+      if(!ready){this.live.delete(conversationId);client.close();this.liveLinks.delete(conversationId);retry(2500);}
     }});
     this.live.set(conversationId,client);
-    try{await client.connect(link.url);if(generation!==this.liveGeneration)client.close();}
-    catch{if(this.live.get(conversationId)===client){client.close();this.live.delete(conversationId);this.liveLinks.delete(conversationId);if(this.watched?.conversationId===conversationId)this.liveRetry=setTimeout(()=>void this.connectLive(conversationId),5000);}}
+    try{await client.connect(link.url);if(generation!==(this.liveGenerations.get(conversationId)||0))client.close();}
+    catch{if(this.live.get(conversationId)===client){this.live.delete(conversationId);client.close();this.liveLinks.delete(conversationId);if(this.isWatched(conversationId))retry(5000);}}
   }
   control(botId,conversationId,human){
     const previous=this.controlOperations.get(conversationId)||Promise.resolve();
@@ -121,7 +126,7 @@ export class CloudComputer {
   }
   async whenIdle(conversationId){while(this.operations.has(conversationId)||this.inputOperations.has(conversationId))await Promise.allSettled([this.operations.get(conversationId),this.inputOperations.get(conversationId)]);}
   async dispose(botId,conversationId){
-    if(this.watched?.conversationId===conversationId)this.unwatch();this.liveLinks.delete(conversationId);this.observations.delete(conversationId);
+    for(const [owner,w]of this.watchers)if(w.conversationId===conversationId)this.watchers.delete(owner);this.stopLive(conversationId);this.watched=this.watchers.get('desktop')||[...this.watchers.values()][0]||null;this.liveLinks.delete(conversationId);this.observations.delete(conversationId);
     this.epochs.set(conversationId,(this.epochs.get(conversationId)||0)+1);this.setState(conversationId,'stopping');
     this.starts.get(conversationId)?.controller.abort(new DOMException('Stopped','AbortError'));
     for(const controller of this.requests.get(conversationId)||[])controller.abort(new DOMException('Stopped','AbortError'));

@@ -187,3 +187,52 @@ body.all-chats .heading{display:block}
 #detail-content.empty-detail{padding-left:35px;padding-right:35px}
 .creating #create-actions{padding-top:40px}
 .creating #agent-save{padding-top:10px;padding-bottom:10px}
+/* Live computer and account settings use the same phone navigation shell. */
+#mobile-computer{display:flex;flex-direction:column;background:#000;overflow:hidden;z-index:16}
+.computer-sheet header{gap:10px}.computer-sheet header h2{position:static;transform:none;font-size:17px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+#mobile-computer-avatar{width:27px;height:27px;flex:none}#mobile-computer-help{font-size:26px}
+#mobile-computer-viewport{position:relative;flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:none}
+#mobile-computer-screen{width:100%;height:100%;object-fit:contain;transform-origin:center;touch-action:none;user-select:none;-webkit-user-select:none}
+#mobile-computer-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#999;font-size:15px;text-align:center;padding:30px;line-height:22px}
+#mobile-computer-status{max-width:320px;margin:12px 0}
+#mobile-computer-spinner{width:18px;height:18px;border:2px solid #444;border-top-color:#aaa;border-radius:50%;animation:computer-spin 1s linear infinite}
+@keyframes computer-spin{to{transform:rotate(360deg)}}
+#mobile-computer footer{display:flex;gap:8px;align-items:center;padding:0 30px max(28px,env(safe-area-inset-bottom));height:72px;flex:none}
+#mobile-computer-control,#mobile-computer-retry{border:1px solid #ffffff09;background:#242424;border-radius:20px;padding:7px 12px;font-size:15px;line-height:20px;color:#ddd}
+#mobile-computer footer .icon-button{width:36px;height:36px}
+#mobile-computer-keyboard-row{display:flex;gap:6px;padding:8px 16px;flex:none;background:#191919}
+#mobile-computer-text,#mobile-computer-address{min-width:0;flex:1;width:0;background:#292929;color:var(--text);border:0;border-radius:10px;font-size:16px;padding:10px}
+#mobile-computer-keyboard-row button,#mobile-computer-address-form button{padding:5px 10px;border-radius:9px;background:#292929}
+#mobile-computer-tools{position:absolute;left:16px;right:16px;bottom:90px;padding:16px;background:#252525ed;backdrop-filter:blur(20px);border-radius:22px;z-index:4}
+#mobile-computer-address-form{display:flex;gap:8px;margin-bottom:10px}
+.computer-tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.computer-tool-grid button,#mobile-computer-copy-result{padding:10px;text-align:left;font-size:14px;background:#ffffff05;border-radius:8px}
+#mobile-computer-clipboard{width:100%;height:54px;font-size:14px;background:#191919;color:var(--text);border:0;border-radius:10px;margin-top:8px;padding:8px}
+.phone-help{position:fixed;inset:auto 8px 0;width:calc(100% - 16px);max-width:720px;margin:auto;height:calc(var(--height) - env(safe-area-inset-top) - 60px);max-height:none;border:0;border-radius:32px 32px 0 0;background:#1e1e1e;color:var(--text);padding:0 0 30px;overflow:auto}
+.phone-help header{height:72px;background:transparent;gap:0}.phone-help h2{font-size:17px;position:absolute;left:50%;transform:translateX(-50%);font-weight:500;margin:0;white-space:nowrap}.phone-help .settings-group p{padding:14px 18px;margin:0;border-bottom:1px solid #ffffff08;font-size:13px;color:#999;line-height:18px}.phone-help strong{display:block;font-size:17px;color:#ddd;font-weight:400;margin-bottom:4px}
+.settings-sheet{top:env(safe-area-inset-top);height:calc(var(--height) - env(safe-area-inset-top));padding-top:0;border-radius:32px 32px 0 0;z-index:18}
+.settings-sheet>header{height:72px;padding:14px 16px 0;align-items:flex-start}.settings-group{margin:24px 16px 28px;background:#292929;border-radius:16px;overflow:hidden}
+.settings-group .settings-row{display:flex;align-items:center;gap:12px;padding:14px 18px;width:100%;min-height:52px;text-align:left;position:relative;font-size:17px;line-height:22px}
+.settings-row:not(:last-child)::after{content:'';position:absolute;bottom:0;left:18px;right:0;border-bottom:1px solid #ffffff08}.settings-row>span:first-child:not(.account-photo){flex:1}.settings-row strong{display:block;font-size:17px;font-weight:400}.settings-row small{display:block;font-size:13px;line-height:18px;color:#999}.settings-row>span[data-icon]{margin-left:auto;color:#888}.settings-row svg{width:18px;height:18px}
+.account-photo{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:50%;background:#25466a;color:#83aff7;overflow:hidden}.account-photo img{width:100%;height:100%;object-fit:cover}.account-photo svg{width:32px;height:32px}
+.settings-footnote{font-size:13px;color:#888;text-align:center;margin:20px 28px 30px;line-height:20px}
+#settings-profile-view,#appearance-view,#settings-connections-view{z-index:19}#settings-profile-form>header{position:relative;background:transparent;display:flex;justify-content:space-between}#settings-profile-form h2{position:absolute;left:50%;transform:translateX(-50%);font-size:17px;font-weight:500}
+#settings-edit-photo{width:92px;height:92px;margin:30px auto 14px}#settings-edit-photo svg{width:65px;height:65px}.text-action{display:block;color:#1484fc;font-size:15px;margin:0 auto 30px}
+#settings-profile-name{margin:0 16px;width:calc(100% - 32px);padding:15px 17px;border-radius:14px;background:#292929;color:inherit;border:0;font-size:17px}#settings-error{margin:20px;color:#ef7777}
+#appearance-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:50px 16px 12px}#appearance-options button{font-size:15px;padding:0}#appearance-options button>span{height:80px;border-radius:18px;border:1px solid #ffffff0a;display:grid;place-items:center;font-size:30px;margin-bottom:10px}#appearance-options button[aria-pressed=true]>span{background:#343438}
+#connection-summary{white-space:pre-line;padding:18px;font-size:17px;line-height:30px}
+:root[data-theme=light] .settings-group,:root[data-theme=light] #settings-profile-name{background:var(--gratis-field)}
+:root[data-theme=light] .settings-row small,:root[data-theme=light] .settings-footnote{color:var(--gratis-muted)}
+:root[data-theme=light] #appearance-options button>span{border-color:var(--gratis-line)}
+:root[data-theme=light] #appearance-options button[aria-pressed=true]>span{background:#ddd}
+:root[data-theme=light] #computer-help{background:var(--gratis-bg)}
+#mobile-computer-offline{padding:6px 16px;background:#2b2417;color:#d4c3a2;font-size:12px;text-align:center}
+#mobile-computer-error{color:#efb0aa;background:#382424;font-size:13px;padding:10px 16px;line-height:18px}
+#settings-profile-view,#appearance-view,#settings-connections-view{position:absolute;inset:0;left:0;top:0;transform:none;width:100%;height:100%;max-width:none;padding-top:0}
+#settings-profile-view header,#appearance-view header,#settings-connections-view header{position:relative;height:72px;padding:14px 16px 0;align-items:flex-start}
+#settings-profile-view header h2,#appearance-view header h2,#settings-connections-view header h2{top:24px;line-height:24px}
+#settings-save{background:#eee;color:#171717;padding:10px 18px;font-size:17px;line-height:24px}
+:root[data-theme=light] #settings-save{background:#222;color:#fff}
+#appearance-options{padding-top:18px}#appearance-options svg{width:28px;height:28px}
+body.computer-visible::before{content:'';position:fixed;inset:0;background:#000;z-index:15}
+#mobile-computer-keyboard-row{position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;overflow:hidden;padding:0}
+#mobile-computer-text{width:1px;min-width:1px;padding:0;border:0}
