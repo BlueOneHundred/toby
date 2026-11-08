@@ -10,6 +10,6 @@ module.exports={
  win:{target:['nsis'],icon:'assets/gratis-icon.png',signAndEditExecutable:false},
  nsis:{oneClick:false,perMachine:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false,createDesktopShortcut:true,shortcutName:'Gratis'},
  linux:{executableName:'gratis',syncDesktopName:true,target:['deb','AppImage'],icon:'assets/gratis-icon.png',category:'Utility',maintainer:'PromptAdvisers',synopsis:'Your personal AI assistants',desktop:{entry:{StartupWMClass:'com.gratis.desktop'}}},
- deb:{depends:['libgtk-3-0t64 | libgtk-3-0','libnotify4','libnss3','libxss1','libxtst6','xdg-utils','libatspi2.0-0t64 | libatspi2.0-0','libuuid1','libsecret-1-0','libasound2t64 | libasound2','libgbm1']},
+ deb:{compression:'zst',depends:['libgtk-3-0t64 | libgtk-3-0','libnotify4','libnss3','libxss1','libxtst6','xdg-utils','libatspi2.0-0t64 | libatspi2.0-0','libuuid1','libsecret-1-0','libasound2t64 | libasound2','libgbm1']},
  publish:null
 };
