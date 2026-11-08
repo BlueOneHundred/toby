@@ -48,3 +48,11 @@ Gratis 0.17.0 was installed over the original application, retaining its existin
 - Settings and Appearance were compared on the same phone, including safe-area spacing and monochrome controls. Account credentials remain managed on the desktop; the phone shows connection status.
 
 Automated Chromium and WebKit checks cover profile/photo saving, appearance, menus, navigation and creation. The relay/Electron integration check covers ordered computer input, control handback, settings persistence, reconnect and revocation. Physical testing confirms the specific flows above; it does not establish universal pixel identity or a latency guarantee.
+
+## Home closes the Computer preview
+
+On 8 November 2026, Gratis 0.18.1 was installed over the same original desktop application. On the actual desktop, opening the disposable test computer and returning to Home hid the panel and resize handle; reopening the test chat did not reopen the preview. The test computer was then stopped.
+
+The hosted phone assets were compared byte-for-byte with the tested build. On the physical iPhone, the standalone app was relaunched, the same test agent's Computer opened, and the iPhone Home Screen visited. Returning to Gratis showed the agent profile with the Computer preview dismissed. Returning to Gratis Home and opening the same chat also kept the preview closed. The agent and avatar remained the same.
+
+Chromium and WebKit regression checks cover Home navigation and background dismissal. All four packaged desktop builds also passed the Home-panel and preview-unsubscribe check alongside chat and restart persistence. Ubuntu was checked after installing its `.deb`.
