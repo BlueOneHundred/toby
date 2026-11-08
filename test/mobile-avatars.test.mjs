@@ -11,3 +11,9 @@ test('phone avatars preserve the desktop appearance when legacy bots have no exp
  for(const bot of bots){const expected=avatarAppearance(bot,bot.id==='primary'),row=snapshot.conversations.find(c=>c.botId===bot.id);assert.equal(row.avatarShape,expected.shape);assert.equal(row.avatarColor,expected.color);}
  assert.equal(snapshot.conversations.find(c=>c.botId==='primary').avatarColor,'#ffffff');
 });
+
+test('phone account avatar uses a bounded copy of the desktop profile photo',()=>{
+ const service={state:{bots:[],conversations:[],settings:{profileAvatarDataUrl:'profile-only'}}};
+ const sizes=[];const native={createFromDataURL:()=>({isEmpty:()=>false,resize:({width})=>{sizes.push(width);return{toJPEG:()=>Buffer.from('tiny profile')};}})};
+ const avatars=mobileAvatarThumbnails(service,native);assert.ok(avatars.__profile?.startsWith('data:image/jpeg;base64,'));assert.ok(sizes.every(size=>size<=72));assert.deepEqual(Object.keys(avatars),['__profile']);
+});

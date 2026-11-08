@@ -86,3 +86,104 @@ body[data-view=chat] .title-pill{padding-left:9px;padding-right:15px}.profile-he
 #messages{padding-bottom:56px}
 
 .mobile-appearance{display:block;color:var(--muted);font-size:13px;margin:20px 0 10px}.mobile-appearance select{display:block;width:100%;margin-top:8px;padding:11px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:16px}.group-avatar>.avatar-motion{margin-right:-30%}
+
+/* Screen-by-screen phone reference measurements. */
+#account-button{color:#6f9ac6;background:#263c55;overflow:hidden;width:40px;height:40px}
+#account-button svg{width:32px;height:32px}
+body[data-view=list] .heading{display:none}
+body[data-view=list] header #new-chat{margin-left:auto}
+body[data-view=list] .search-wrap{margin-top:18px}
+#menu,.floating-menu{width:230px;padding:8px;border-radius:28px;background:#262626ed;border:1px solid #ffffff07;backdrop-filter:blur(22px);box-shadow:0 8px 24px #0003}
+#menu button,.floating-menu button{height:39px;font-size:16px;gap:13px;padding:6px 18px;white-space:nowrap}
+.floating-menu{position:absolute;top:calc(env(safe-area-inset-top) + 2px);right:16px;z-index:20}
+.floating-menu button{display:flex;align-items:center;width:100%;text-align:left;border-radius:20px}
+.floating-menu svg{width:18px;height:18px}
+#composer-tools{width:230px;border-radius:28px;padding:8px;bottom:calc(57px + env(safe-area-inset-bottom));left:30px}
+#composer-tools button{height:39px;min-height:39px;padding:6px 18px;font-size:16px}
+#composer-tools button:is(#tools-new,#tools-chats,#tools-model,#tools-connection){display:none}
+#chat-search{order:5;flex:none;margin:0 30px 0;padding:0;background:transparent;gap:9px;height:44px;margin-bottom:max(28px,calc(env(safe-area-inset-bottom) - 4px));border-radius:0}
+.chat-search-field{display:flex;align-items:center;gap:6px;padding:0 12px;min-width:0;flex:1;height:44px;border:1px solid #ffffff08;border-radius:25px;background:linear-gradient(145deg,#242424,#1d1d1d)}
+.chat-search-field>span[data-icon] svg{width:16px;height:16px;color:var(--muted)}
+#chat-query{font-size:16px;min-width:0;flex:1;width:0;padding:0;height:100%;outline:none}
+#chat-query::-webkit-search-cancel-button{display:none}
+#chat-match-count{font-size:13px;white-space:nowrap;flex:none;color:var(--muted)}
+#chat-search .icon-button{width:44px;height:44px;padding:0}
+#chat-search .icon-button svg{width:19px;height:19px}
+#close-chat-search{font-size:16px;color:var(--text);height:44px;padding:0 16px;border:1px solid #ffffff08;border-radius:25px;background:linear-gradient(145deg,#242424,#1d1d1d)}
+body.searching-chat :is(#composer,.bottom-note,#chat-hint,#attachment-tray,#jump){display:none!important}
+mark[data-search-match]{background:#d5ae42;color:#111;border-radius:0}
+mark.current-match{background:#ffcc29;color:#111}
+.phone-sheet>header>h2{position:absolute;left:50%;transform:translateX(-50%);font-size:17px;font-weight:600}
+.profile-hero h2{font-size:22px;font-weight:600}
+.profile-group>button{position:relative;border:0}
+.profile-group>button:not(:last-child)::after{content:'';position:absolute;right:0;left:52px;bottom:0;border-bottom:1px solid #ffffff05}
+.notification-group{margin-bottom:8px}
+.notification-group label{display:flex;align-items:center;position:relative;height:56px;padding:0 17px;font-size:17px;gap:12px}
+.notification-group input{position:absolute;right:16px;width:61px;height:32px;opacity:0;margin:0;cursor:pointer}
+.switch-track{margin-left:auto;display:block;width:61px;height:28px;background:#505050;border-radius:20px;pointer-events:none;transition:background .18s}
+.switch-track::after{content:'';display:block;width:24px;height:24px;margin:2px;background:#fff;border-radius:50%;box-shadow:0 1px 3px #0004;transition:transform .18s}
+.notification-group input:checked+.switch-track{background:var(--gratis-accent)}
+.notification-group input:checked+.switch-track::after{transform:translateX(33px)}
+.notification-group input:focus-visible+.switch-track{outline:2px solid var(--text);outline-offset:3px}
+.notification-note{margin:0 32px;font-size:13px;line-height:18px;color:#858585}
+#detail-content.empty-detail{display:flex;align-items:center;justify-content:center;text-align:center;height:calc(100% - 44px - env(safe-area-inset-bottom));margin:0;padding:0 42px 90px;color:#999;font-size:17px;line-height:24px}
+.photo-edit{font-size:initial}.photo-edit svg{width:18px;height:18px}
+#agent-editor.creating{inset:auto 8px 0;margin:auto;width:calc(100% - 16px);height:min(580px,72dvh);max-height:calc(var(--height) - env(safe-area-inset-top) - 60px);padding:0;border-radius:32px 32px 0 0;transition:height .2s}
+#agent-editor.creating.expanded{height:calc(var(--height) - env(safe-area-inset-top) - 60px)}
+.creating #agent-form>header{height:64px;padding:12px 16px}
+.creating #agent-cancel span svg{display:none}
+.creating #agent-cancel::before{content:'×';font-size:28px;font-weight:300;line-height:1}
+.creating #agent-photo{width:120px;height:120px;margin:34px auto 35px;pointer-events:none}
+.creating .photo-edit,.creating .field-caption,.creating .editor-row,.creating #avatar-picker>header,.creating .avatar-tabs,.creating #picker-preview,.creating #avatar-reset{display:none}
+.creating #agent-name{text-align:center;font-size:20px;font-weight:500;margin:0 14px;width:calc(100% - 28px);height:54px;padding:12px;background:#2b2b2d;border:1px solid #ffffff06}
+.creating #avatar-picker{position:static;overflow:visible;background:transparent}
+.creating .avatar-card{margin:12px 12px 0;background:transparent;overflow:visible}
+.creating #agent-shapes{grid-template-columns:repeat(10,1fr);padding:16px 28px 12px;row-gap:15px}
+.creating #agent-shapes button{width:42px;height:42px;grid-column:span 2}
+.creating #agent-shapes button:nth-child(5),.creating #agent-shapes button:nth-child(9){grid-column:span 2}
+.creating #agent-shapes button:nth-child(11){grid-column:3/span 2}
+.creating #agent-colors{padding:20px 8px 22px;row-gap:17px}
+#create-actions{display:none}
+.creating #create-actions{display:block;padding:0 30px calc(24px + env(safe-area-inset-bottom))}
+.creating #agent-save{width:100%;font-size:17px;padding:12px;font-weight:500}
+.creating #agent-error{padding:0 28px}
+:root[data-theme=light] .floating-menu{background:#fffffff2}
+:root[data-theme=light] :is(.chat-search-field,#close-chat-search){background:var(--gratis-surface);border-color:var(--gratis-line)}
+:root[data-theme=light] .creating #agent-name{background:var(--gratis-field)}
+.creating #agent-form{display:flex;flex-direction:column}
+.creating #agent-form>header{order:0;flex:none}
+.creating #agent-photo{order:1;flex:none}
+.creating #agent-name{order:2;flex:none}
+.creating #avatar-picker{order:3}
+.creating #agent-error{order:4}
+.creating #create-actions{order:5}
+#account-button img{width:100%;height:100%;object-fit:cover}
+body[data-view=list] #menu{left:16px;right:auto}
+#menu #choose-model{padding:6px 18px;font-size:16px;height:39px}
+
+.creating #agent-photo{width:110px;height:110px;margin-top:24px;margin-bottom:28px}
+.creating #agent-form h2{font-weight:500}
+
+#menu,.floating-menu,#composer-tools{width:250px}
+#menu button,.floating-menu button,#composer-tools button,#menu #choose-model{height:42px;min-height:42px;font-size:17px}
+.phone-sheet>header>h2,#agent-form>header h2,#avatar-picker>header h2{font-weight:500}
+#detail-content.empty-detail{font-size:18px;padding-bottom:70px}
+#detail-content.empty-detail[data-kind=files]{padding-bottom:56px}
+#agent-editor.creating{height:min(565px,72dvh)}
+#agent-editor.creating.expanded{height:calc(var(--height) - env(safe-area-inset-top) - 60px)}
+.creating #agent-photo{width:120px;height:120px;margin-top:34px;margin-bottom:31px}
+.creating #agent-name{height:56px}
+.creating #agent-shapes{padding-top:19px}
+.creating::backdrop{backdrop-filter:none;background:#0005}
+body.all-chats .heading{display:block}
+#menu button,.floating-menu button{padding-left:24px}
+.icon-button{border-color:#ffffff09}
+#composer-tools{bottom:env(safe-area-inset-bottom);padding:10px 8px}
+#composer-tools button{padding-left:23px}
+.creating #agent-form>header{height:72px}
+.creating #agent-photo{margin-top:26px}
+.creating #agent-colors{padding-left:18px;padding-right:18px}
+.creating #create-actions{padding-top:36px}
+#detail-content.empty-detail{padding-left:35px;padding-right:35px}
+.creating #create-actions{padding-top:40px}
+.creating #agent-save{padding-top:10px;padding-bottom:10px}

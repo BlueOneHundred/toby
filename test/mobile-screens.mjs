@@ -1,0 +1,38 @@
+import {chromium,webkit} from '@playwright/test';
+import {createServer} from 'node:http';
+import {readFile,mkdir} from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const publicRoot=path.resolve('packages/mobile/public'),out=path.resolve('../../work/mobile-remaining/synthetic');
+await mkdir(out,{recursive:true});
+const server=createServer(async(req,res)=>{try{const pathname=new URL(req.url,'http://localhost').pathname;const file=path.join(publicRoot,pathname==='/'?'index.html':pathname);if(!file.startsWith(publicRoot+path.sep))throw Error();const data=await readFile(file);res.setHeader('Content-Type',file.endsWith('.js')||file.endsWith('.mjs')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.png')?'image/png':'text/html');res.end(data);}catch{res.writeHead(404);res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}`;
+const bot={id:'test-bot',name:'Gratis UI reference',avatarShape:'cloud',choiceShape:'cloud',choiceColor:'blue',avatarColor:'#1784fc',pinned:false};
+const row={id:'test-chat',botId:bot.id,botName:bot.name,title:bot.name,preview:'We can help.',avatarShape:'cloud',choiceColor:'blue',status:'ready'};
+const fixture={bots:[bot],home:[row],conversations:[row],providers:[],preferences:{appearance:'dark'},selected:{...row,bot,messages:[{id:'one',role:'assistant',content:'I can help. Tell me what you would like help with.',createdAt:Date.now(),status:'complete'}]}};
+let receipt,commands=[];
+for(const [name,engine]of [['chromium',chromium],['webkit',webkit]].filter(([name])=>!process.env.SCREEN_ENGINE||name===process.env.SCREEN_ENGINE)){receipt=undefined;commands=[];const browser=await engine.launch();try{
+ const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,serviceWorkers:'block'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{localStorage.setItem('gratis.mobile.v1',JSON.stringify({roomId:'a'.repeat(32),token:'b'.repeat(64)}));localStorage.setItem('gratis.mobile.selected','test-chat');localStorage.setItem('gratis.mobile.view','chat');});
+ await page.route('**/api/**',async route=>{const body=route.request().postDataJSON();if(route.request().url().endsWith('/command')){commands.push(body);receipt={seq:body.seq,ok:true,detail:''};await route.fulfill({json:{accepted:true}});}else await route.fulfill({json:{confirmed:true,online:true,protocol:5,nextSeq:(receipt?.seq||0)+1,revision:String(commands.length),snapshot:fixture,receipt}});});
+ await page.goto(base);await page.locator('#heading').getByText(bot.name,{exact:true}).waitFor();
+ await page.locator('#menu-button').click();assert.equal(await page.locator('#menu button:visible').count(),4);await page.screenshot({path:path.join(out,name+'-menu.png')});
+ await page.locator('#menu-find').click();await page.locator('#chat-query').fill('help');assert.equal(await page.locator('#chat-match-count').textContent(),'1 of 2');assert.equal(await page.locator('#composer').isVisible(),false);
+ await page.locator('#search-next').click();assert.equal(await page.locator('#chat-match-count').textContent(),'2 of 2');await page.locator('#search-next').click();assert.equal(await page.locator('#chat-match-count').textContent(),'1 of 2');
+ const search=await page.locator('#chat-search').boundingBox();assert.ok(search.y>740);await page.screenshot({path:path.join(out,name+'-search.png')});await page.locator('#close-chat-search').click();assert.equal(await page.locator('#messages mark').count(),0);assert.equal(await page.locator('#composer').isVisible(),true);
+ await page.locator('#compose-menu').click();assert.equal(await page.locator('#composer-tools button:visible').count(),3);await page.screenshot({path:path.join(out,name+'-attachments.png')});await page.locator('#heading').click();
+ await page.locator('#profile-view').waitFor({state:'visible'});await page.locator('#profile-view').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));assert.equal(await page.locator('#profile-delete').isVisible(),false);await page.screenshot({path:path.join(out,name+'-profile.png')});
+ await page.locator('#profile-routines').click();assert.equal(await page.locator('#detail-title').textContent(),'Routines');await page.locator('#profile-detail').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));assert.ok((await page.locator('#detail-content').boundingBox()).height>650);await page.screenshot({path:path.join(out,name+'-routines.png')});await page.locator('#detail-back').click();
+ await page.locator('#profile-library').click();await page.locator('#profile-detail').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));await page.screenshot({path:path.join(out,name+'-library.png')});await page.locator('#detail-back').click();
+ await page.locator('#profile-connections').click();await page.locator('#profile-copy').waitFor();await page.screenshot({path:path.join(out,name+'-profile-menu.png')});await page.locator('#profile-name').click();
+ await page.locator('#profile-back').click();await page.locator('#back').click();await page.locator('#new-chat').click();assert.equal(await page.locator('#agent-editor').getAttribute('class'),'creating');assert.equal(await page.locator('#agent-save').isEnabled(),false);assert.equal(await page.locator('#agent-shapes button:visible').count(),13);
+ await page.screenshot({path:path.join(out,name+'-create.png')});await page.locator('#agent-name').fill('Draft only');assert.equal(await page.locator('#agent-save').isEnabled(),true);const before=commands.filter(c=>c.kind==='create-bot').length;await page.locator('#agent-cancel').click();assert.equal(commands.filter(c=>c.kind==='create-bot').length,before);
+ const alerts=await page.evaluate(async()=>{
+ const calls=[];Object.defineProperty(window,'Notification',{configurable:true,value:class{static permission='granted';static async requestPermission(){throw Error('No permission prompt expected');}constructor(title,options){calls.push({title,options});}}});
+ Object.defineProperty(navigator.serviceWorker,'getRegistration',{configurable:true,value:async()=>({showNotification:async(title,options)=>calls.push({title,options})})});
+ const {setupAgentNotifications}=await import('/notifications.mjs');const ui=setupAgentNotifications({context:()=>({bot:{id:'notice-test'}}),notice:()=>{},scope:()=> 'notifications-test'});ui.paint();
+ const toggle=document.getElementById('agent-notifications');toggle.checked=true;await toggle.onchange();await ui.update({conversations:[{id:'notice-chat',botId:'notice-test',botName:'Test',status:'working'}]});await ui.update({conversations:[{id:'notice-chat',botId:'notice-test',botName:'Test',status:'ready'}]});await ui.update({conversations:[{id:'notice-chat',botId:'notice-test',botName:'Test',status:'ready'}]});return calls;
+ });assert.equal(alerts.length,1);assert.equal(alerts[0].options.body,'Your reply is ready in Gratis.');
+ assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);console.log(name+': menus, search navigation, profile, empty screens, creation and cancellation passed');
+ }finally{await browser.close();}}
+server.close();
