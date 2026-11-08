@@ -20,7 +20,7 @@ jobs:
           BUILD_RUN: ${{ inputs.build_run }}
         run: |
           [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
-          test "$(gh repo view "$GITHUB_REPOSITORY" --json isPrivate --jq .isPrivate)" = true
+          test "$GITHUB_REPOSITORY" = earlyaidopters/gratis-community
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > run.json
           test "$(jq -r .path run.json)" = .github/workflows/release.yml
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/jobs?per_page=100" > jobs.json

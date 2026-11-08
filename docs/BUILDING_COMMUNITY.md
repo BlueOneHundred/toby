@@ -1,6 +1,6 @@
 # Building community features
 
-This repository is the default development target for community work. The app is called Gratis. This private repository is the destination for community changes; it updates the same installed app and existing workspace. The public core checkout remains separate.
+This repository is the default development target for community work. The app is called Gratis. This public repository is the destination for community changes; it updates the same installed app and existing workspace. The public core checkout remains separate.
 
 ## Where changes belong
 
@@ -10,14 +10,14 @@ This repository is the default development target for community work. The app is
 - Member exercises, recipes and screenshots live in `docs/` and `examples/`.
 - Unit and synthetic desktop tests live in `test/`.
 
-Do not modify generated app bundles as source. Do not put community-only material, secrets, account fixtures or member content into the public repository.
+Do not modify generated app bundles as source. Never commit secrets, personal account fixtures, private member content or production workspace data.
 
 ## Development loop
 
 1. Make a small change here.
 2. Run `npm run check` and the relevant desktop flow.
 3. Use synthetic examples to record a new screenshot when behavior changes.
-4. Push to the private `origin` remote.
+4. Push to the community `origin` remote.
 
 A pre-push hook blocks this checkout from pushing to the public core. It is installed by `npm ci` and can also be installed with `node scripts/install-hooks.mjs`.
 
@@ -27,11 +27,11 @@ A pre-push hook blocks this checkout from pushing to the public core. It is inst
 git fetch upstream
 ```
 
-Review the incoming commits before merging. Preserve the Gratis app identity, existing workspace and community documentation. Resolve conflicts deliberately and rerun the tests. Fetching does not publish private code.
+Review the incoming commits before merging. Preserve the Gratis app identity, existing workspace and community documentation. Resolve conflicts deliberately and rerun the tests. Fetching does not change either repository.
 
 ## Contributing a fix to the public core
 
-Use the separate public checkout. Port only the small, reviewed change that should be public. Remove private examples, member-specific behavior, account details and incidental logs. Run its privacy check and full-history secret scan before pushing. Do not merge the private community branch wholesale into the public core.
+Use the separate public checkout. Port only the small, reviewed change that should be public. Remove private examples, member-specific behavior, account details and incidental logs. Run its privacy check and full-history secret scan before pushing. Do not merge the community branch wholesale into the Prompt Advisers core without review.
 
 ## Before a member-facing release
 

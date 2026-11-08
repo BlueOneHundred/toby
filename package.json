@@ -3,7 +3,7 @@
   "productName": "Gratis",
   "version": "0.18.1",
   "private": true,
-  "description": "Gratis desktop and mobile companion, maintained in the private community repository",
+  "description": "Gratis desktop and mobile companion, maintained in the public community repository",
   "type": "module",
   "main": "src/main.cjs",
   "scripts": {
@@ -41,12 +41,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/promptadvisers/gratis-community.git"
+    "url": "git+https://github.com/earlyaidopters/gratis-community.git"
   },
-  "homepage": "https://github.com/promptadvisers/gratis-community",
+  "homepage": "https://github.com/earlyaidopters/gratis-community",
   "bugs": {
-    "url": "https://github.com/promptadvisers/gratis-community/issues"
+    "url": "https://github.com/earlyaidopters/gratis-community/issues"
   },
-  "author": "PromptAdvisers",
+  "author": "Early AI-dopters",
   "desktopName": "com.gratis.desktop"
 }

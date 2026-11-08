@@ -1,6 +1,6 @@
 # Install Gratis
 
-Downloads live in the private [community repository releases](https://github.com/promptadvisers/gratis-community/releases). No website or separate app edition is required. Sign in to GitHub with an account that has repository access.
+Downloads live in the public [Early AI-dopters community releases](https://github.com/earlyaidopters/gratis-community/releases). No website or separate app edition is required. No GitHub sign-in is required to download a public release.
 
 | Computer | Download | Install |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ npm run dist:win
 npm run dist:linux
 ```
 
-Use an Apple silicon Mac for arm64, an Intel Mac for x64, Windows for the Windows installer and Ubuntu for Linux. The GitHub **Build desktop downloads** workflow does this on all four runners. Each job validates the native runtime adapter, builds installers and launches the packaged app using synthetic data. Tagged builds publish a private prerelease only after every platform passes. Manual workflow runs retain downloadable artifacts; selecting Publish also creates a private prerelease after all builds pass.
+Use an Apple silicon Mac for arm64, an Intel Mac for x64, Windows for the Windows installer and Ubuntu for Linux. The GitHub **Build desktop downloads** workflow does this on all four runners. Each job validates the native runtime adapter, builds installers and launches the packaged app using synthetic data. Tagged builds publish a community prerelease only after every platform passes. Manual workflow runs retain downloadable artifacts; selecting Publish also creates a community prerelease after all builds pass.
 
 ## Release publishing permissions
 
