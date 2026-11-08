@@ -1,0 +1,48 @@
+name: Publish verified downloads
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Build desktop downloads run ID with all four build jobs successful
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify the build run
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          test "$(gh repo view "$GITHUB_REPOSITORY" --json isPrivate --jq .isPrivate)" = true
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > run.json
+          test "$(jq -r .path run.json)" = .github/workflows/release.yml
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/jobs?per_page=100" > jobs.json
+          jq -e '[.jobs[] | select(.name | startswith("build ("))] | length == 4 and all(.[]; .conclusion == "success")' jobs.json
+          echo "sha=$(jq -r .head_sha run.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.build.outputs.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+          pattern: Gratis-*
+          path: installers
+          merge-multiple: true
+      - name: Publish the tested files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_SHA: ${{ steps.build.outputs.sha }}
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          cd installers
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 5
+          sha256sum * > SHA256SUMS.txt
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$BUILD_SHA" --prerelease --title "Gratis $VERSION community preview" --notes-file ../docs/RELEASE_NOTES.md ./*

@@ -77,7 +77,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          test "$(gh repo view --repo "$GITHUB_REPOSITORY" --json isPrivate --jq .isPrivate)" = true
+          test "$(gh repo view "$GITHUB_REPOSITORY" --json isPrivate --jq .isPrivate)" = true
           if [[ "$RELEASE_TAG" != v* ]]; then RELEASE_TAG="v$(node -p 'require("./package.json").version')"; fi
           cd installers
           sha256sum * > SHA256SUMS.txt
