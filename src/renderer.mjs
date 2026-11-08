@@ -125,6 +125,7 @@ function render(next) {
   updateView();
 }
 function updateView() {
+  if(homeVisible)workspaceUI?.hideForHome();
   const composing=!!threadUI?.composing;document.querySelector('main').classList.toggle('new-thread-composing',composing);document.querySelector('.topbar').hidden=composing;
   document.querySelector('.header-actions').hidden = homeVisible;
   $('bot-picker').hidden = !homeVisible;

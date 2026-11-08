@@ -83,3 +83,5 @@ Open an agent profile and choose **Computer**. It opens the same conversation co
 Tap to click, hold to right-click, drag with one finger, use two fingers to scroll, and pinch to zoom. The keyboard button accepts text; the controls menu provides keys, a web address field, refresh, restart and stop. Signed browser endpoints and service credentials stay on the desktop computer. Only bounded screen images pass through the existing authenticated relay while the view is open. Its lease expires after the phone stops keeping it alive.
 
 The home profile button opens Settings. Profile name and photo edits update the existing desktop settings. Appearance is shared, and AI subscriptions use the existing provider selector. Connections shows status; account sign-in and credentials are managed on the desktop computer.
+
+Returning to the Gratis home screen closes the Computer view and stops its preview subscription. Hiding the phone app also dismisses the view; an interrupted network connection lets the preview lease expire. This does not stop the bot's task or delete its browser state. Taking control is retained until you explicitly give it back.

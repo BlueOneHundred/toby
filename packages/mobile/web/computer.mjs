@@ -1,7 +1,7 @@
 import {computerPoint} from '../../../src/workspace-layout.mjs';
 import {renderIcon} from '../../../src/assets/icons.mjs';
 export function setupMobileComputer({command,context,avatarView,notice}){
- const $=id=>document.getElementById(id),view=$('mobile-computer'),image=$('mobile-computer-screen');let visible=false,frameAt=0,queue=[],flushing=false,zoom=1,pan={x:0,y:0},pointers=new Map(),gesture=null,lastClick=0;
+ const $=id=>document.getElementById(id),view=$('mobile-computer'),image=$('mobile-computer-screen');let visible=false,frameAt=0,queue=[],flushing=false,zoom=1,pan={x:0,y:0},pointers=new Map(),gesture=null,lastClick=0,viewEpoch=0,closeJob=null;
  const current=()=>context(),human=()=>current().computer?.state?.control==='human';
  function paintTransform(){image.style.transform=`translate(${pan.x}px,${pan.y}px) scale(${zoom})`;}
  function update(){if(!visible)return;const c=current(),data=c.computer,state=data?.state||{status:'starting'},busy=c.posting;const waiting=c.online&&['starting','stopping'].includes(state.status);$('mobile-computer-offline').hidden=c.online;const error=state.error||(c.lastKind==='computer'&&c.receipt?.ok===false?c.receipt.detail:'');$('mobile-computer-error').hidden=!error;$('mobile-computer-error').textContent=error;
@@ -16,12 +16,18 @@ export function setupMobileComputer({command,context,avatarView,notice}){
   if(data?.clipboard!==null&&data?.clipboard!==undefined&&data.clipboard!==$('mobile-computer-clipboard').value)$('mobile-computer-clipboard').value=data.clipboard;
  }
  async function operation(op,extra={}){return command('computer',current().id,undefined,{computer:{operation:op,...extra}});}
- async function open(){visible=true;document.body.classList.add('computer-visible');view.hidden=false;frameAt=0;zoom=1;pan={x:0,y:0};paintTransform();update();if(current().protocol<6){$('mobile-computer-status').textContent='Update Gratis on your computer to use this computer.';return;}try{await drain();await operation('open');}catch(e){notice(e.message);}}
+ async function open(){const epoch=++viewEpoch;await closeJob;if(epoch!==viewEpoch)return;visible=true;document.body.classList.add('computer-visible');view.hidden=false;frameAt=0;zoom=1;pan={x:0,y:0};paintTransform();update();if(current().protocol<6){$('mobile-computer-status').textContent='Update Gratis on your computer to use this computer.';return;}try{await drain();if(epoch===viewEpoch)await operation('open');}catch(e){notice(e.message);}}
  async function flush(){if(flushing||!visible||!queue.length)return;if(current().posting){setTimeout(flush,80);return;}if(!human()){queue=[];return;}flushing=true;const batch=queue.splice(0,64),revision=current().computer.state.controlRevision;const accepted=await operation('input',{inputs:batch,revision});flushing=false;if(!accepted)queue=[];else if(queue.length)setTimeout(flush,80);}
  function sendBatch(inputs){if(!human()||!visible)return;queue.push(...inputs);if(queue.length>256){queue=[];notice('Too much input is waiting. Let the computer catch up.');return;}void flush();}
  function send(name,args){if(!human()||!visible)return;const prior=queue.at(-1);if(name==='type_text'&&prior?.name==='type_text'&&prior.args.text.length+args.text.length<=6000)prior.args.text+=args.text;else queue.push({name,args});if(queue.length>256){queue=[];notice('Too much input is waiting. Let the computer catch up.');return;}void flush();}
  async function drain(){const until=Date.now()+15000;while(queue.length||flushing||current().posting){void flush();if(Date.now()>until)throw Error('An input is still pending. Check the screen before giving control back.');await new Promise(r=>setTimeout(r,80));}}
- async function close(){try{await drain();await operation('close');}catch(e){notice(e.message);}visible=false;document.body.classList.remove('computer-visible');view.hidden=true;queue=[];pointers.clear();image.removeAttribute('src');}
+ function close(){
+  if(!visible)return closeJob||Promise.resolve();const id=current().id;viewEpoch++;visible=false;
+  document.body.classList.remove('computer-visible');view.hidden=true;queue=[];pointers.clear();gesture=null;
+  $('mobile-computer-text').blur();$('mobile-computer-tools').hidden=true;$('mobile-computer-keyboard-row').hidden=true;
+  if($('computer-help').open)$('computer-help').close();image.removeAttribute('src');
+  closeJob=(async()=>{try{const until=Date.now()+15000;while(flushing||current().posting){if(Date.now()>until||document.hidden)return;await new Promise(r=>setTimeout(r,80));}await command('computer',id,undefined,{computer:{operation:'close'}});}catch(e){notice(e.message);}finally{closeJob=null;}})();return closeJob;
+ }
  $('mobile-computer-back').onclick=close;$('mobile-computer-help').onclick=()=>$('computer-help').showModal();$('computer-help-close').onclick=()=>$('computer-help').close();
  $('mobile-computer-retry').onclick=()=>operation('open');$('mobile-computer-refresh').onclick=()=>operation('refresh');$('mobile-computer-restart').onclick=()=>operation('restart');$('mobile-computer-stop').onclick=()=>operation('stop');
  $('mobile-computer-control').onclick=async()=>{try{await drain();await operation('control',{human:!human()});}catch(e){notice(e.message);}};
