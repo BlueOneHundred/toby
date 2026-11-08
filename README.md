@@ -6,7 +6,11 @@ This private community edition builds on [Gratis Core](https://github.com/prompt
 
 ![Gratis using an entirely synthetic conversation](docs/screenshots/community-overview.png)
 
-## Start here
+## Download
+
+[Download the latest community release](https://github.com/promptadvisers/gratis-community/releases): Apple silicon Mac, Intel Mac, Windows x64 and Ubuntu x64. GitHub repository access is required. See [installation and platform support](docs/DOWNLOADS.md).
+
+## Run from source
 
 ```sh
 git clone https://github.com/promptadvisers/gratis-community.git
@@ -16,11 +20,11 @@ npm run setup:assets
 npm start
 ```
 
-You need repository access, macOS Apple Silicon, Node.js 22+ and npm. You can explore demo mode before connecting an eligible provider account. Provider limits and terms still apply. The app is called **Gratis**. Desktop and mobile use the existing Gratis workspace. Updating the app preserves your chats, credentials, memory and files.
+You need repository access, Node.js 22+ and npm on macOS, Windows or Ubuntu. You can explore demo mode before connecting an eligible provider account. Provider limits and terms still apply. The app is called **Gratis**. Desktop and mobile use the existing Gratis workspace. Updating the app preserves your chats, credentials, memory and files.
 
 ## Continue on your phone
 
-Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then approve the phone on the desktop. The mobile companion remembers the connection and syncs your chats while Gratis is running and your Mac is awake. Choose Claude or Codex and a model from the phone’s chat menu; replies use the subscriptions signed in on your Mac. Add it to your iPhone Home Screen for a standalone view. A relay must be provisioned first; see the [mobile setup and privacy guide](docs/MOBILE.md).
+Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then approve the phone on the desktop. The mobile companion remembers the connection and syncs your chats while Gratis is running and your computer is awake. Choose Claude or Codex and a model from the phone’s chat menu; replies use the subscriptions signed in on your computer. Add it to your iPhone Home Screen for a standalone view. A relay must be provisioned first; see the [mobile setup and privacy guide](docs/MOBILE.md).
 
 ![Mobile chat with synthetic test messages](docs/screenshots/mobile-chat.png)
 
@@ -48,7 +52,7 @@ These are optional role templates for community workflows. Existing profiles and
 
 The underlying tools and runtime remain shared. This repository adds deeper exercises and community features to the same Gratis app, with a private development line. Future community features belong here first. Shared improvements move to the public core only after deliberate review.
 
-This is not a hosted subscription, a preconnected set of private accounts or a promise of unlimited model use. Local schedules require the app running and the Mac awake. Integrations are optional and use your own accounts. See [Privacy](PRIVACY.md), [Security](SECURITY.md) and the [setup guide](docs/QUICKSTART.md).
+This is not a hosted subscription, a preconnected set of private accounts or a promise of unlimited model use. Local schedules require the app running and the computer awake. Integrations are optional and use your own accounts. See [Privacy](PRIVACY.md), [Security](SECURITY.md) and the [setup guide](docs/QUICKSTART.md).
 
 ## For maintainers
 

@@ -2,7 +2,7 @@
 
 ## 1. Install and launch
 
-Use a Mac with Apple Silicon, Node.js 22+ and npm. Clone the repository and run the four commands in the community README. `npm run setup:assets` downloads a fixed revision of the semantic memory encoder and a fixed Composio CLI release, verifies checksums, and installs them only inside this checkout. It does not copy your account configuration or sign you in.
+Download the installer for your computer from [GitHub Releases](https://github.com/promptadvisers/gratis-community/releases). For source development, use macOS, Windows or Ubuntu with Node.js 22+ and npm. Clone the repository and run the four commands in the community README. `npm run setup:assets` downloads a fixed revision of the semantic memory encoder and a fixed Composio CLI release, verifies checksums, and installs them only inside this checkout. It does not copy your account configuration or sign you in.
 
 `npm start` opens **Gratis**. The installed app uses the existing Gratis data folder. A fresh checkout starts with an empty demo conversation.
 
@@ -27,9 +27,11 @@ Create a group with two or more bots. The first bot coordinates the work. Most m
 
 ## 5. Add recurring work
 
-Open **+ → Scheduled tasks**, or ask: “Every weekday at 9 AM America/Toronto, summarize the open questions in this conversation.” Check the saved task, timezone and next run. Keep the Mac awake and Gratis running. You can pause, edit, delete or run the task now.
+Open **+ → Scheduled tasks**, or ask: “Every weekday at 9 AM America/Toronto, summarize the open questions in this conversation.” Check the saved task, timezone and next run. Keep the computer awake and Gratis running. You can pause, edit, delete or run the task now.
 
 ![A scheduled task using synthetic instructions](screenshots/community-schedules.png)
+
+See [platform support](DOWNLOADS.md) for native provider setup, Ubuntu dependencies, optional feature limits and unsigned build details.
 
 ## Optional voice input
 

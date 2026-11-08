@@ -1,3 +1,4 @@
+import {findExecutable} from './platform-runtime.mjs';
 import { access, mkdir, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { execFile } from 'node:child_process';
@@ -24,11 +25,7 @@ export function decodeAudio({ audioBase64, mimeType } = {}) {
 }
 
 async function findTool(name, env) {
-  for (const directory of [...new Set(env.PATH.split(':').filter(isAbsolute))]) {
-    const path = join(directory, name);
-    try { await access(path, constants.X_OK); return path; } catch {}
-  }
-  throw new Error(`Voice input needs ${name} installed on this Mac.`);
+  try{return await findExecutable(name,env);}catch{throw new Error(`Voice input needs ${name} installed on this computer.`);}
 }
 
 export async function voiceTools(language = 'en') {

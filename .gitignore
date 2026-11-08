@@ -24,3 +24,5 @@ packages/mobile/.tmp/
 packages/mobile/public/
 packages/mobile/worker-configuration.d.ts
 packages/mobile/.dev.vars
+
+dist/

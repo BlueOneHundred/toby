@@ -23,6 +23,7 @@ export class T3LocalHost {
  }
  async install(){
   const running=await this.running();if(running)return running;
+  if(process.platform==='win32')throw new Error('Automatic T3 installation is available on macOS and Linux. Connect an existing T3 MCP server in Advanced settings on Windows.');
   const binary=join(this.home,'bin/t3'),env={...process.env,T3CODE_HOME:this.home,T3CODE_VERSION:'0.1.7',T3CODE_INSTALL_BIN_DIR:join(this.home,'bin')};
   try{await access(binary);}catch{
    this.onProgress('Downloading and verifying T3…');await mkdir(this.home,{recursive:true,mode:0o700});const script=join(this.home,'install-t3.sh');await writeFile(script,await readFile(this.installer),{mode:0o700});

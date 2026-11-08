@@ -51,8 +51,8 @@ app.whenReady().then(async () => {
   }
   const { ChatService } = await import('./chat-service.mjs');
   const [{Connections},{WorkspaceFiles},{CloudComputer},{agentRuntime},{ComposioSignIn}] = await Promise.all([import('./connections.mjs'),import('./workspace-files.mjs'),import('./cloud-computer.mjs'),import('./agent-tools.mjs'),import('./composio-signin.mjs')]);
-  connections=await new Connections({directory:dataDir,encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw new Error('Secure storage is unavailable.');return safeStorage.encryptString(text);},decrypt:buffer=>safeStorage.decryptString(buffer)}).init();
-  signIn=new ComposioSignIn({directory:dataDir,binary:app.isPackaged?path.join(process.resourcesPath,'composio-cli','composio'):path.join(__dirname,'../assets/composio-cli/composio'),connections,openExternal:url=>shell.openExternal(url),onState:state=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:signin-state',state);}});
+  connections=await new Connections({directory:dataDir,encrypt:text=>{if(!safeStorage.isEncryptionAvailable()||(process.platform==='linux'&&safeStorage.getSelectedStorageBackend()==='basic_text'))throw new Error('Secure storage is unavailable.');return safeStorage.encryptString(text);},decrypt:buffer=>safeStorage.decryptString(buffer)}).init();
+  signIn=new ComposioSignIn({directory:dataDir,binary:process.platform==='darwin'?(app.isPackaged?path.join(process.resourcesPath,'composio-cli','composio'):path.join(__dirname,'../assets/composio-cli/composio')):null,connections,openExternal:url=>shell.openExternal(url),onState:state=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:signin-state',state);}});
   connections.onChange=()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:connections-changed');};
   const [{T3Connection},{T3Tasks},{T3LocalHost}]=await Promise.all([import('./t3-connection.mjs'),import('./t3-tasks.mjs'),import('./t3-local.mjs')]);
   const t3Changed=()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:t3-changed');};
@@ -110,7 +110,7 @@ app.whenReady().then(async () => {
       await service.updateBot({ id: primary.id, name: 'Gratis' });
   }
   window = new BrowserWindow({ width: 1496, height: 938, minWidth: 512, minHeight: 520, show: false,
-    title: edition.name, backgroundColor: '#121212', titleBarStyle: 'hiddenInset', trafficLightPosition: { x:16,y:15 },
+    title: edition.name, backgroundColor: '#121212', ...(process.platform==='darwin'?{titleBarStyle:'hiddenInset',trafficLightPosition:{x:16,y:15}}:{}),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false, sandbox: true } });
   let workspaceFullscreen=false,priorFullscreen=false,priorSimpleFullscreen=false;

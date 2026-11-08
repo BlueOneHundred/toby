@@ -1,3 +1,4 @@
+import {runtimeEnvironment,findExecutable} from './platform-runtime.mjs';
 import {withMemoryContext} from './memory-context.mjs';
 import {compactValue,traceValue} from './computer-checkpoint.mjs';
 import { access, mkdir } from 'node:fs/promises';
@@ -12,11 +13,8 @@ const exec = promisify(execFile);
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 export function claudeEnvironment(source = process.env) {
-  const env = {};
-  for (const key of ['HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'CLAUDE_CONFIG_DIR', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'NODE_EXTRA_CA_CERTS'])
-    if (source[key]) env[key] = source[key];
-  env.HOME ||= homedir();
-  env.PATH = [join(env.HOME, '.local/bin'), '/opt/homebrew/bin', '/usr/local/bin', source.PATH, '/usr/bin', '/bin'].filter(Boolean).join(':');
+  const env = runtimeEnvironment(source);
+  for(const key of ['CLAUDE_CONFIG_DIR','CLAUDE_CODE_GIT_BASH_PATH'])if(source[key])env[key]=source[key];
   env.CLAUDE_AGENT_SDK_CLIENT_APP = 'gratis-desktop';
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
   env.API_TIMEOUT_MS = '120000';
@@ -27,11 +25,7 @@ export function claudeEnvironment(source = process.env) {
 }
 
 export async function findClaudeExecutable(env = claudeEnvironment()) {
-  const candidates = [...new Set(env.PATH.split(':').filter(isAbsolute).map(dir => join(dir, 'claude')))];
-  for (const candidate of candidates) {
-    try { await access(candidate, constants.X_OK); return candidate; } catch {}
-  }
-  throw new Error('Claude Code was not found. Install Claude Code, sign in, then check the connection in Settings.');
+  try{return await findExecutable('claude',env);}catch{throw new Error('Claude Code was not found. Install the native Claude Code client, sign in, then check the connection in Settings.');}
 }
 
 export async function getClaudeStatus() {

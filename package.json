@@ -1,7 +1,7 @@
 {
   "name": "gratis-community",
   "productName": "Gratis",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "private": true,
   "description": "Gratis desktop and mobile companion, maintained in the private community repository",
   "type": "module",
@@ -14,12 +14,17 @@
     "verify:public": "node scripts/verify-public.mjs",
     "package:mac": "node scripts/package.mjs",
     "check": "npm run verify:public && npm test",
-    "postinstall": "node scripts/install-hooks.mjs"
+    "postinstall": "node scripts/install-hooks.mjs",
+    "dist": "electron-builder --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --x64 --publish never",
+    "dist:linux": "electron-builder --linux --x64 --publish never"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
     "@playwright/test": "^1.65.0",
-    "electron": "42.11.16"
+    "electron": "42.11.16",
+    "electron-builder": "26.18.0"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.319",
@@ -41,5 +46,6 @@
   "homepage": "https://github.com/promptadvisers/gratis-community",
   "bugs": {
     "url": "https://github.com/promptadvisers/gratis-community/issues"
-  }
+  },
+  "author": "PromptAdvisers"
 }

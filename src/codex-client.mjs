@@ -1,3 +1,4 @@
+import {runtimeEnvironment,findExecutable} from './platform-runtime.mjs';
 import {spawn,execFile} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {promisify} from 'node:util';
@@ -7,12 +8,10 @@ import {join,isAbsolute} from 'node:path';
 import {homedir} from 'node:os';
 const exec=promisify(execFile);
 export function codexEnvironment(source=process.env){
-  const env={};for(const key of ['HOME','USER','LOGNAME','SHELL','TMPDIR','LANG','LC_ALL','LC_CTYPE','CODEX_HOME','SSL_CERT_FILE','SSL_CERT_DIR','NODE_EXTRA_CA_CERTS'])if(source[key])env[key]=source[key];
-  env.HOME||=homedir();env.PATH=[join(env.HOME,'.local/bin'),'/opt/homebrew/bin','/usr/local/bin',source.PATH,'/usr/bin','/bin'].filter(Boolean).join(':');return env;
+  const env=runtimeEnvironment(source);if(source.CODEX_HOME)env.CODEX_HOME=source.CODEX_HOME;return env;
 }
 export async function findCodexExecutable(env=codexEnvironment()){
-  for(const candidate of [...new Set(env.PATH.split(':').filter(isAbsolute).map(dir=>join(dir,'codex')))])try{await access(candidate,constants.X_OK);return candidate;}catch{}
-  throw new Error('Install Codex, run “codex login” in Terminal, then check the connection again.');
+  try{return await findExecutable('codex',env);}catch{throw new Error('Install the native Codex client, run “codex login”, then check the connection again.');}
 }
 // An app-owned launcher keeps SDK runs independent of personal config, MCPs,
 // hooks and rules, while authentication stays with the installed Codex client.
