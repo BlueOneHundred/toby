@@ -15,8 +15,8 @@ chat.messages=[{id:'history',role:'assistant',content:'An earlier **saved** answ
 await writeFile(path.join(directory,'workspace.json'),JSON.stringify(state));
 const app=await electron.launch({...(process.env.GRATIS_TEST_APP?{executablePath:process.env.GRATIS_TEST_APP}:{args:[process.cwd()]}),env:{...process.env,GRATIS_DATA_DIR:directory,GRATIS_TEST_HIDDEN:'1'}});const errors=[];
 try{
- const page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));await page.locator('#new-bot').waitFor();await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1300,850));await page.locator('#home-bots .bot-tile').first().click();
- const capture=async name=>{await page.waitForTimeout(180);const bytes=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));await writeFile(path.join(output,name),Buffer.from(bytes,'base64'));};
+ const page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));await page.locator('#new-bot').waitFor();await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.webContents.setBackgroundThrottling(false);win.setSize(1300,850);});await page.locator('#home-bots .bot-tile').first().click();
+ const capture=async name=>{await page.locator('.select-menu:popover-open').evaluateAll(menus=>Promise.all(menus.flatMap(menu=>menu.getAnimations()).map(animation=>animation.finished)));await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));const bytes=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));await writeFile(path.join(output,name),Buffer.from(bytes,'base64'));};
  await page.evaluate(()=>{window.savedHistory=document.querySelector('[data-message-id="history"]');window.savedSidebar=document.querySelector('[data-bot-id]');});
  await page.locator('#prompt').fill('Check a streamed answer.');
  await page.evaluate(()=>{document.querySelector('#composer').requestSubmit();document.querySelector('#composer').requestSubmit();});
