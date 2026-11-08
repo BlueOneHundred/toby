@@ -1,4 +1,6 @@
-Gratis 0.18.2 smooths out sending, streaming and the computer preview:
+Gratis 0.18.3 fixes the duplicated custom-answer field in bot setup. “Something else” now focuses the main composer, so there is only one editable draft. Quick-answer buttons share the same send protection and Stop handling as typed messages.
+
+Includes the sending, streaming and computer-preview improvements from 0.18.2:
 
 - The circular Stop control appears as soon as a message is submitted. Rapid clicks no longer submit the same message twice, and failed sends preserve the draft.
 - Existing messages and sidebar rows stay in place while responses stream. Sidebar previews strip Markdown formatting, and background status updates no longer reorder chats.

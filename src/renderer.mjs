@@ -147,14 +147,12 @@ function updateView() {
 }
 function renderMessages(bot, conversation) {
   const container = $('messages'), stayBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 90;
-  const focused = document.activeElement?.dataset?.questionId;
-  const selection = focused ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
   if (!conversation.messages.length) {
     container.replaceChildren(); return;
   }
   const expanded=new Set([...container.querySelectorAll('details[open][data-activity-id]')].map(node=>node.dataset.activityId));
   const nodes = conversation.messages.map((m, index) => {
-    const signature=JSON.stringify(m)+(m.question?JSON.stringify([isStreaming(),dirtyDraft?.text,conversation.draft,conversation.messages.length]):'');
+    const signature=JSON.stringify(m)+(m.question?JSON.stringify([isStreaming(),conversation.messages.length]):'');
     const cached=messageViews.get(m.id);if(cached?.signature===signature)return cached.node;
     const item = el('article', `message ${m.role}`); item.dataset.messageId = m.id; item.dataset.status = m.status; item.dataset.kind = m.kind || 'chat';
     const speaker=m.botId?state.bots.find(b=>b.id===m.botId)||bot:bot;const content = el('div', 'message-content'); const provider = m.provider === 'demo' ? ' · local demo' : '';
@@ -169,17 +167,13 @@ function renderMessages(bot, conversation) {
       for (const [index, option] of choices.entries()) {
         const button = el('button','question-option');button.disabled=answered||isStreaming();
         button.append(el('span','option-key',String.fromCharCode(65+index)),el('span',null,option));
-        button.onclick = () => run(() => api.send({conversationId:conversation.id,text:option}));
+        button.onclick = () => submitMessage(option);
         options.append(button);
       }
       if (m.question.custom || hasLegacyCustom) {
-        const form=el('form','question-option custom-option');
-        const input=el('input');input.type='text';input.placeholder='Something else';input.setAttribute('aria-label','Other response');input.dataset.questionId=m.id;input.disabled=answered||isStreaming();
-        input.value = answered ? '' : dirtyDraft?.conversationId===conversation.id ? dirtyDraft.text : conversation.draft;
-        input.oninput=()=>{$('prompt').value=input.value;draftChanged();};
-        form.append(el('span','option-key',String.fromCharCode(65+choices.length)),input);
-        form.onsubmit=event=>{event.preventDefault();const value=input.value.trim();if(value){clearTimeout(draftTimer);dirtyDraft=null;run(()=>api.send({conversationId:conversation.id,text:value}));}};
-        options.append(form);
+        const button=el('button','question-option custom-option');button.type='button';button.disabled=answered||isStreaming();
+        button.append(el('span','option-key',String.fromCharCode(65+choices.length)),el('span',null,'Something else'));
+        button.onclick=()=>$('prompt').focus();options.append(button);
       }
       question.append(options);
       content.append(question);
@@ -209,7 +203,6 @@ function renderMessages(bot, conversation) {
   const stamp=`${dateLabel} ${date.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;
   if(!dateView||dateView.textContent!==stamp)dateView=el('div','date-separator',stamp);
   reconcileChildren(container,[dateView,...nodes]);
-  if (focused) {const input=[...container.querySelectorAll('[data-question-id]')].find(input=>input.dataset.questionId===focused);if(input&&!input.disabled){input.focus({preventScroll:true});input.setSelectionRange(...selection);}}
   if (stayBottom || previousConversation !== conversation.id) container.scrollTop = container.scrollHeight;
 }
 function renderAttention(root){
@@ -234,10 +227,10 @@ async function flushDraft() {
 async function navigate(fn) { if(workspaceUI&&await workspaceUI.beforeNavigate()===false)return;threadUI?.cancel();voiceInput?.cancel(); selects.close(); await flushDraft(); const result = await run(fn); if (!result) return; homeVisible = false; updateView(); $('messages').scrollTop = $('messages').scrollHeight; $('prompt').focus(); }
 $('prompt').addEventListener('input', draftChanged);
 $('prompt').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('composer').requestSubmit(); } });
-$('composer').onsubmit = async e => {
-  e.preventDefault(); const input=$('prompt').value.trim();if(!input||voiceInput?.active||submitting)return;
+async function submitMessage(value=$('prompt').value) {
+  const input=value.trim();if(!input||voiceInput?.active||submitting)return;
   const job={conversationId:state.activeConversationId,cancelled:false};submitting=job;
-  const original=$('prompt').value;clearTimeout(draftTimer);dirtyDraft=null;$('prompt').value='';$('notice').hidden=true;refreshComposer();
+  const original=value;clearTimeout(draftTimer);dirtyDraft=null;$('prompt').value='';$('notice').hidden=true;refreshComposer();
   try{
     if(threadUI?.composing)job.conversationId=await threadUI.commit();
     if(job.cancelled){if(state.activeConversationId===job.conversationId&&!$('prompt').value){$('prompt').value=original;draftChanged();}return;}
@@ -247,7 +240,8 @@ $('composer').onsubmit = async e => {
     if(result&&state.activeConversationId===job.conversationId)$('messages').scrollTop=$('messages').scrollHeight;
   }catch(error){notice(error);if(state.activeConversationId===job.conversationId&&!$('prompt').value){$('prompt').value=original;draftChanged();}}
   finally{if(submitting===job)submitting=null;refreshComposer();}
-};
+}
+$('composer').onsubmit=e=>{e.preventDefault();return submitMessage();};
 $('stop').onclick=()=>{if(submitting)submitting.cancelled=true;refreshComposer();return run(()=>api.stop({conversationId:submitting?.conversationId||state.activeConversationId}));};
 $('conversations').onchange = e => navigate(() => api.selectConversation({ id: e.target.value }));
 $('new-chat').onclick = async () => { await navigate(() => api.newConversation({ botId: state.activeBotId })); $('bot-dialog').close(); };
