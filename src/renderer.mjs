@@ -1,3 +1,4 @@
+import {setupMobile} from './mobile-ui.mjs';
 import {setupMentions} from './mentions-ui.mjs';
 import {sidebarItems} from './sidebar-items.mjs';
 import {setupThreads} from './threads-ui.mjs';
@@ -14,6 +15,7 @@ import { setupCreateBot } from './create-bot-ui.mjs';
 import { setupSelects } from './select-ui.mjs';
 const $ = id => document.getElementById(id);
 const api = window.orbit;
+setupMobile({api});
 const selects = setupSelects();
 
 document.querySelector('#attach-menu [data-icon]').dataset.icon='plus-filled';

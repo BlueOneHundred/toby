@@ -1,7 +1,7 @@
 {
   "name": "gratis-community",
   "productName": "Gratis Community",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "The community edition of Gratis, with guided starter roles and hands-on workflows",
   "type": "module",
@@ -30,6 +30,7 @@
     "dompurify": "3.4.17",
     "linkedom": "0.18.15",
     "marked": "18.1.3",
+    "qrcode": "1.5.4",
     "zod": "4.6.7"
   },
   "license": "MIT",

@@ -18,3 +18,9 @@ packages/cloud/.dev.vars
 coverage/
 playwright-report/
 test-results/
+
+packages/mobile/.wrangler/
+packages/mobile/.tmp/
+packages/mobile/public/
+packages/mobile/worker-configuration.d.ts
+packages/mobile/.dev.vars

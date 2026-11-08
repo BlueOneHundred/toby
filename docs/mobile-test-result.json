@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "checks": [
+    "QR claim plus explicit desktop trust",
+    "Phone-to-desktop message and streamed reply",
+    "Desktop-to-phone message",
+    "Lost command response does not duplicate the message",
+    "Reload remembers pairing",
+    "Desktop restart reconnects without QR",
+    "Offline status",
+    "Revocation denies old phone token",
+    "Chromium and WebKit paired messaging layouts",
+    "Create a chat from the phone"
+  ],
+  "latency": "bounded by active polling; no measured SLA"
+}

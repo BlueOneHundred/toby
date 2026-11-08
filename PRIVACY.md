@@ -4,6 +4,8 @@ The repository contains source code and synthetic examples. It does not contain 
 
 When you run the app, conversations and files are stored locally. Conversation JSON and bot files are plaintext on disk. Connection credentials, the memory vault, schedules and saved T3 dispatch metadata use Electron's platform-backed secure storage. The protection available depends on the operating system and user session.
 
+When you explicitly pair a phone, the configured mobile relay handles a bounded live projection of recent chat content and your phone commands. It persists authorization hashes and delivery receipts, not chat transcripts. Its operator can access content in transit; this is HTTPS transport, not end-to-end encryption. Pairing keys are encrypted on the Mac and kept in the phone browser storage. See [Mobile](docs/MOBILE.md) for limits and revocation.
+
 A live provider receives the conversation content and context needed to answer, including selected file contents, relevant memories and tool results. Composio receives requests for enabled integrations. A configured cloud browser and T3 environment receive the instructions and data necessary for their respective work. Those services have their own retention, access and privacy policies.
 
 Voice recording is transcribed by local Whisper. When enabled and available, transcript text is sent to Claude Haiku for punctuation cleanup. Original audio is not sent to Haiku by this implementation.

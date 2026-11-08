@@ -1,0 +1,2 @@
+export async function sha256Hex(value:string):Promise<string>{return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(b=>b.toString(16).padStart(2,'0')).join('');}
+export async function secureEqual(a:string,b:string):Promise<boolean>{const [left,right]=await Promise.all([sha256Hex(a),sha256Hex(b)]);let result=0;for(let i=0;i<left.length;i++)result|=left.charCodeAt(i)^right.charCodeAt(i);return result===0;}

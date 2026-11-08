@@ -16,7 +16,7 @@ const humanComputers=new Set(),computerControlEpochs=new Map(),computerControlRe
 function setHumanControl(id,human){if(humanComputers.has(id)!==human){human?humanComputers.add(id):humanComputers.delete(id);computerControlRevisions.set(id,(computerControlRevisions.get(id)||0)+1);}}
 const controlState=value=>({...value,control:humanComputers.has(value.conversationId)?'human':'bot',controlRevision:computerControlRevisions.get(value.conversationId)||0});
 const computerSnapshot=id=>{const snapshot=cloud.snapshot(id);return {...snapshot,state:controlState(snapshot.state)};};
-let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, closing = false, finishDraftFlush, voiceTask;
+let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, closing = false, finishDraftFlush, voiceTask;
 app.on('activate',()=>{if(window&&!window.isDestroyed()){window.show();window.focus();}});
 app.on('second-instance', () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } });
 async function shutdown() {
@@ -31,7 +31,7 @@ async function shutdown() {
   }
   const activeVoice = voiceTask;
   activeVoice?.controller.abort(new DOMException('App closed', 'AbortError'));
-  try { await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await cloud?.close(); } finally { app.exit(0); }
+  try { await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await cloud?.close(); } finally { app.exit(0); }
 }
 const actions = ['createBot', 'deleteBot', 'selectBot', 'newConversation', 'selectConversation', 'setDraft',
   'createThread','renameThread','updateThreadMembers','pinThread','deleteThread','updateSettings', 'updateBot', 'duplicateBot', 'respondApproval', 'updateQueue', 'send', 'stop', 'retry'];
@@ -40,6 +40,7 @@ function authorized(event) {
     throw new Error('Unknown renderer');
 }
 function broadcast(snapshot) {
+  mobile?.requestSync();
   if (window && !window.isDestroyed()) window.webContents.send('orbit:state', snapshot);
 }
 app.whenReady().then(async () => {
@@ -84,6 +85,9 @@ app.whenReady().then(async () => {
   await (await import('./edition-setup.mjs')).applyEdition(service,edition);
   const {Schedules}=await import('./schedules.mjs');
   schedules=await new Schedules({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:schedules-changed');}}).init();
+  const [{MobileBridge},{mobileSnapshot,executeMobile}]=await Promise.all([import('./mobile-bridge.mjs'),import('./mobile-projection.mjs')]);
+  mobile=await new MobileBridge({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,snapshot:id=>mobileSnapshot(service,id),execute:command=>executeMobile(service,command),onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:mobile-changed',value);}}).init();
+  try{const config=JSON.parse(await fs.readFile(path.join(dataDir,'mobile-provision.json'),'utf8'));if(!mobile.data.pairing)await mobile.configure(config);await fs.unlink(path.join(dataDir,'mobile-provision.json'));}catch(e){if(e.code!=='ENOENT')console.error('Mobile provisioning did not complete.');}
   schedules.start();
   t3Tasks.start();
   for(const c of service.snapshot().conversations)if(c.computerPause)setHumanControl(c.id,true);
@@ -107,10 +111,11 @@ app.whenReady().then(async () => {
     }else if(!priorFullscreen)window.setFullScreen(enabled);
     window.webContents.send('orbit:workspace-fullscreen',enabled);return enabled;
   }
+  for(const [name,fn]of Object.entries({status:()=>mobile.status(),configure:v=>mobile.configure(v),connect:()=>mobile.connect(),confirm:()=>mobile.confirm(),disconnect:()=>mobile.disconnect(),qr:async()=>{const value=mobile.status().inviteUrl;if(!value)throw new Error('Create a pairing link first.');return (await import('qrcode')).default.toDataURL(value,{width:320,margin:2,errorCorrectionLevel:'M'});}}))ipcMain.handle('orbit:mobile-'+name,async(e,value)=>{authorized(e);return fn(value);});
   ipcMain.handle('orbit:edition',e=>{authorized(e);return {id:edition.id,name:edition.name};});
   ipcMain.handle('orbit:workspace-fullscreen',(e,enabled)=>{authorized(e);if(typeof enabled!=='boolean')throw new Error('Invalid fullscreen mode.');return setWorkspaceFullscreen(enabled);});
   window.webContents.on('before-input-event',(event,input)=>{if(workspaceFullscreen&&input.type==='keyDown'&&['Escape','Esc'].includes(input.key)){event.preventDefault();setWorkspaceFullscreen(false);}});
-  window.on('close', e => { e.preventDefault(); if(schedules.items.some(i=>i.enabled)){window.hide();}else void shutdown(); });
+  window.on('close', e => { e.preventDefault(); if(schedules.items.some(i=>i.enabled)||mobile?.status().confirmed){window.hide();}else void shutdown(); });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   const pageURL = pathToFileURL(path.join(__dirname, 'index.html')).href;
   window.webContents.on('will-navigate', (e, url) => { if (url !== pageURL) e.preventDefault(); });

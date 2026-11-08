@@ -18,6 +18,12 @@ npm start
 
 You need repository access, macOS Apple Silicon, Node.js 22+ and npm. You can explore demo mode before connecting an eligible provider account. Provider limits and terms still apply. The app is called **Gratis Community** and uses its own data folder; it does not import a personal or core profile.
 
+## Continue on your phone
+
+Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then approve the phone on the desktop. The mobile companion remembers the connection and syncs your chats while Gratis Community is running and your Mac is awake. Add it to your iPhone Home Screen for a standalone view. A relay must be provisioned first; see the [mobile setup and privacy guide](docs/MOBILE.md).
+
+![Mobile chat with synthetic test messages](docs/screenshots/mobile-chat.png)
+
 ## Your starter team
 
 | Bot | What it helps with |
