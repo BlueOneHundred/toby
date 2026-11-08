@@ -9,7 +9,7 @@ async function body(request:Request,maximum=32000):Promise<Record<string,unknown
 export class PhoneRoom extends DurableObject<Env>{
  room:MobileRoom;
  constructor(ctx:DurableObjectState,env:Env){super(ctx,env);this.room=new MobileRoom(ctx.storage);}
- async fetch(request:Request){try{const url=new URL(request.url),value=await body(request,new URL(request.url).pathname==='/desktop'?1000000:32000),token=request.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
+ async fetch(request:Request){try{const url=new URL(request.url),value=await body(request,new URL(request.url).pathname==='/desktop'?1000000:new URL(request.url).pathname==='/command'?1500000:32000),token=request.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
   if(url.pathname==='/init'){await this.room.initialize(String(value.desktopHash),String(value.inviteHash));return json({ok:true});}
   if(!secret(token))return json({error:'Authorization required'},401);
   if(url.pathname==='/desktop')return json(this.room.desktop(await sha256Hex(token),value));
@@ -33,7 +33,7 @@ export default {async fetch(request:Request,env:Env){const url=new URL(request.u
  }
  const route=url.pathname.match(/^\/api\/([a-f0-9]{32})\/(desktop|claim|poll|command|forget)$/);
  if(route){if(request.method!=='POST')return json({error:'POST required'},405);if(route[2]!=='desktop'&&request.headers.get('Origin')!==url.origin)return json({error:'Invalid phone origin'},403);
-  if(!secret(request.headers.get('Authorization')?.replace(/^Bearer /,'')))return json({error:'Authorization required'},401);const value=await body(request,route[2]==='desktop'?1000000:32000);return env.ROOMS.getByName(route[1]).fetch(new Request('https://room/'+route[2],{method:'POST',headers:{Authorization:request.headers.get('Authorization')||''},body:JSON.stringify(value)}));}
+  if(!secret(request.headers.get('Authorization')?.replace(/^Bearer /,'')))return json({error:'Authorization required'},401);const value=await body(request,route[2]==='desktop'?1000000:route[2]==='command'?1500000:32000);return env.ROOMS.getByName(route[1]).fetch(new Request('https://room/'+route[2],{method:'POST',headers:{Authorization:request.headers.get('Authorization')||''},body:JSON.stringify(value)}));}
  if(url.pathname.startsWith('/api/'))return json({error:'Not found'},404);
- const response=await env.ASSETS.fetch(request),secured=new Response(response.body,response);for(const[k,v]of Object.entries(headers))secured.headers.set(k,v);secured.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");secured.headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');return secured;
+ const response=await env.ASSETS.fetch(request),secured=new Response(response.body,response);for(const[k,v]of Object.entries(headers))secured.headers.set(k,v);secured.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");secured.headers.set('Permissions-Policy','camera=(), microphone=(self), geolocation=()');return secured;
  }catch(error){return json({error:error instanceof Error?error.message:'Request failed'},400);}}};

@@ -1,9 +1,9 @@
 {
   "name": "gratis-community",
-  "productName": "Gratis Community",
-  "version": "0.3.0",
+  "productName": "Gratis",
+  "version": "0.13.1",
   "private": true,
-  "description": "The community edition of Gratis, with guided starter roles and hands-on workflows",
+  "description": "Gratis desktop and mobile companion, maintained in the private community repository",
   "type": "module",
   "main": "src/main.cjs",
   "scripts": {

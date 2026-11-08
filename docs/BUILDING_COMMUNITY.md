@@ -1,12 +1,12 @@
 # Building community features
 
-This repository is the default development target for community work. The personal app and the public core checkout are separate.
+This repository is the default development target for community work. The app is called Gratis. This private repository is the destination for community changes; it updates the same installed app and existing workspace. The public core checkout remains separate.
 
 ## Where changes belong
 
 - Shared application code lives in `src/`.
-- Community identity and starter roles live in `edition.json`.
-- Community visual tokens live in `src/edition.css`.
+- The Gratis app name, bundle ID and data folder live in `edition.json`. Keep them compatible with the existing installation.
+- Shared visual tokens live in `src/edition.css`. Desktop and mobile belong to the same product.
 - Member exercises, recipes and screenshots live in `docs/` and `examples/`.
 - Unit and synthetic desktop tests live in `test/`.
 
@@ -27,7 +27,7 @@ A pre-push hook blocks this checkout from pushing to the public core. It is inst
 git fetch upstream
 ```
 
-Review the incoming commits before merging. Preserve the community edition identity, starter roles and documentation. Resolve conflicts deliberately and rerun the tests. Fetching does not publish private code.
+Review the incoming commits before merging. Preserve the Gratis app identity, existing workspace and community documentation. Resolve conflicts deliberately and rerun the tests. Fetching does not publish private code.
 
 ## Contributing a fix to the public core
 

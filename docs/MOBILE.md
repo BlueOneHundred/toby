@@ -2,7 +2,7 @@
 
 ## Pair once
 
-1. Keep Gratis Community running on an awake Mac.
+1. Keep Gratis running on an awake Mac.
 2. Open **Connect phone** in the desktop sidebar.
 3. Scan the QR code with the iPhone camera and open the link in Safari. The invitation expires after two minutes and can be claimed once.
 4. Click **Trust this phone** on the desktop. Chats are not shared until this approval.
@@ -18,9 +18,15 @@ Messages use the same desktop chat runtime and subscriptions. In a chat, open th
 
 New workspaces start in the explicitly labeled demo mode until a provider is selected. Demo history stays labeled Demo after switching; new replies identify the real provider/model.
 
-The phone does not need a separate Claude or Codex login. It sends the message to your running Mac, which performs the subscription-backed request and streams the same response into the shared conversation. The phone does not receive provider API keys. File uploads, connection settings, approvals, native voice recording and remote computer control remain desktop features in this release.
+The phone does not need a separate Claude or Codex login. It sends the message to your running Mac, which performs the subscription-backed request and streams the same response into the shared conversation. The phone does not receive provider API keys. File uploads, connection settings, approvals and remote computer control remain desktop features in this release.
 
 If the Mac is offline, the composer keeps your draft but does not queue new work. A command accepted just before a network failure is tracked by its sequence and content digest. Retries cannot execute it twice. If a restart interrupts delivery at an ambiguous point, the phone asks you to check the chat rather than silently replaying it.
+
+## Voice input
+
+Tap the microphone to record, then tap stop. A waveform shows that audio is being captured. The phone sends the recording to the Mac for transcription and Haiku cleanup; the result appears in the composer for review before sending. Microphone permission is required. The Mac needs the voice dependencies described in [Quickstart](QUICKSTART.md). Recordings are limited to two minutes and 1 MB.
+
+Audio travels through the same relay as chat commands and is processed by the Mac. The relay operator can access in-flight audio. The waveform control also starts a recording; it is not a continuous voice-call feature.
 
 ## Hosting the relay
 

@@ -94,7 +94,7 @@ function render(next) {
   }));
   const local = state.settings.provider === 'local', claude = state.settings.provider === 'claude',codex=state.settings.provider==='codex';
   $('backend-label').textContent = claude ? `Claude · ${state.settings.model}` : codex?`Codex · ${state.settings.model}`:local ? `Local AI server · ${state.settings.model}` : 'Local demo · scripted responses, no AI model';
-  $('footer-note').textContent = claude ? 'Claude uses your signed-in plan limits. Check important information.' : codex?'Codex uses your ChatGPT plan limits. Check important information.':local ? 'Responses come from your local AI server. Check important information.' : 'Demo mode illustrates the chat workflow. It does not use Grok or generate AI answers.';
+  $('footer-note').textContent = claude ? 'Claude uses your signed-in plan limits. Check important information.' : codex?'Codex uses your ChatGPT plan limits. Check important information.':local ? 'Responses come from your local AI server. Check important information.' : 'Demo mode illustrates the chat workflow. Choose Claude or Codex in settings for AI replies.';
   $('settings-button').title = `Settings · ${claude ? 'Claude' : codex?'Codex':local ? 'local AI server' : 'local demo'}`;
   $('chat-model').hidden = !claude&&!codex;
   syncChatModels(bot);

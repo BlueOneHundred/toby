@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, nativeTheme, Menu, systemPreferences, shell, clipboard, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, Menu, systemPreferences, shell, clipboard, safeStorage, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
@@ -6,7 +6,7 @@ const { pathToFileURL } = require('node:url');
 
 const edition=require('../edition.json');
 app.setName(edition.name);
-const dataOverride = process.env.GRATIS_DATA_DIR;
+const dataOverride = process.env.GRATIS_DATA_DIR || process.env.ORBIT_BOT_DATA_DIR;
 const dataDir = dataOverride || (app.isPackaged
   ? path.join(app.getPath('appData'), edition.dataFolder, 'data') : path.resolve(__dirname, '../data'));
 app.setPath('userData', path.join(dataDir, 'electron'));
@@ -16,7 +16,7 @@ const humanComputers=new Set(),computerControlEpochs=new Map(),computerControlRe
 function setHumanControl(id,human){if(humanComputers.has(id)!==human){human?humanComputers.add(id):humanComputers.delete(id);computerControlRevisions.set(id,(computerControlRevisions.get(id)||0)+1);}}
 const controlState=value=>({...value,control:humanComputers.has(value.conversationId)?'human':'bot',controlRevision:computerControlRevisions.get(value.conversationId)||0});
 const computerSnapshot=id=>{const snapshot=cloud.snapshot(id);return {...snapshot,state:controlState(snapshot.state)};};
-let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, closing = false, finishDraftFlush, voiceTask;
+let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, mobileDictation, closing = false, finishDraftFlush, voiceTask;
 app.on('activate',()=>{if(window&&!window.isDestroyed()){window.show();window.focus();}});
 app.on('second-instance', () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } });
 async function shutdown() {
@@ -31,7 +31,7 @@ async function shutdown() {
   }
   const activeVoice = voiceTask;
   activeVoice?.controller.abort(new DOMException('App closed', 'AbortError'));
-  try { await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await cloud?.close(); } finally { app.exit(0); }
+  try { await mobileDictation?.close(); await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await cloud?.close(); } finally { app.exit(0); }
 }
 const actions = ['createBot', 'deleteBot', 'selectBot', 'newConversation', 'selectConversation', 'setDraft',
   'createThread','renameThread','updateThreadMembers','pinThread','deleteThread','updateSettings', 'updateBot', 'duplicateBot', 'respondApproval', 'updateQueue', 'send', 'stop', 'retry'];
@@ -44,6 +44,11 @@ function broadcast(snapshot) {
   if (window && !window.isDestroyed()) window.webContents.send('orbit:state', snapshot);
 }
 app.whenReady().then(async () => {
+  if (app.isPackaged && !dataOverride) {
+    await fs.mkdir(dataDir, { recursive: true, mode: 0o700 });
+    try { await fs.copyFile(path.join(app.getPath('appData'), 'Orbit Bot', 'data', 'workspace.json'), path.join(dataDir, 'workspace.json'), constants.COPYFILE_EXCL); }
+    catch (error) { if (!['ENOENT', 'EEXIST'].includes(error.code)) throw error; }
+  }
   const { ChatService } = await import('./chat-service.mjs');
   const [{Connections},{WorkspaceFiles},{CloudComputer},{agentRuntime},{ComposioSignIn}] = await Promise.all([import('./connections.mjs'),import('./workspace-files.mjs'),import('./cloud-computer.mjs'),import('./agent-tools.mjs'),import('./composio-signin.mjs')]);
   connections=await new Connections({directory:dataDir,encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw new Error('Secure storage is unavailable.');return safeStorage.encryptString(text);},decrypt:buffer=>safeStorage.decryptString(buffer)}).init();
@@ -85,10 +90,11 @@ app.whenReady().then(async () => {
   await (await import('./edition-setup.mjs')).applyEdition(service,edition);
   const {Schedules}=await import('./schedules.mjs');
   schedules=await new Schedules({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:schedules-changed');}}).init();
-  const [{MobileBridge},{mobileSnapshot,executeMobile}]=await Promise.all([import('./mobile-bridge.mjs'),import('./mobile-projection.mjs')]);
+  const [{MobileBridge},{mobileSnapshot,executeMobile},{mobileAvatarThumbnails}]=await Promise.all([import('./mobile-bridge.mjs'),import('./mobile-projection.mjs'),import('./mobile-avatars.mjs')]);
+  mobileDictation=new (await import('./mobile-dictation.mjs')).MobileDictation({service,directory:dataDir,onChange:()=>mobile?.requestSync(),available:()=>!voiceTask});
   mobileProviders=new (await import('./mobile-providers.mjs')).MobileProviders({onChange:()=>mobile?.requestSync()});
   void mobileProviders.refresh().catch(()=>{});
-  mobile=await new MobileBridge({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,snapshot:id=>mobileSnapshot(service,id,mobileProviders.snapshot()),execute:async command=>command.kind==='model'?mobileProviders.select(service,command):command.kind==='providers'?(await mobileProviders.refresh(true),command.conversationId):executeMobile(service,command),onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:mobile-changed',value);}}).init();
+  mobile=await new MobileBridge({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,snapshot:id=>{const snapshot=mobileSnapshot(service,id,mobileProviders.snapshot());snapshot.avatars=mobileAvatarThumbnails(service,nativeImage,snapshot.selected?.id);if(snapshot.selected)snapshot.voice=mobileDictation.snapshot(snapshot.selected.id);return snapshot;},execute:async command=>command.kind==='voice'?mobileDictation.start(command):command.kind==='voice-cancel'?mobileDictation.cancel(command):command.kind==='model'?mobileProviders.select(service,command):command.kind==='providers'?(await mobileProviders.refresh(true),command.conversationId):executeMobile(service,command),onChange:value=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:mobile-changed',value);}}).init();
   try{const config=JSON.parse(await fs.readFile(path.join(dataDir,'mobile-provision.json'),'utf8'));if(!mobile.data.pairing)await mobile.configure(config);await fs.unlink(path.join(dataDir,'mobile-provision.json'));}catch(e){if(e.code!=='ENOENT')console.error('Mobile provisioning did not complete.');}
   schedules.start();
   t3Tasks.start();
@@ -171,7 +177,7 @@ app.whenReady().then(async () => {
   for(const [name,operation]of Object.entries({view:v=>schedules.snapshot(v.conversationId),create:v=>schedules.create(v),update:v=>schedules.update(v),remove:v=>schedules.remove(v),run:v=>schedules.runNow(v)}))ipcMain.handle('orbit:schedules-'+name,async(e,value)=>{authorized(e);service._conversation(value?.conversationId);return operation(value);});
   ipcMain.handle('orbit:t3-view',(e,value)=>{authorized(e);const c=t3Scope(value);return{connection:t3Connection.snapshot(),binding:t3Connection.data.bindings?.[c.botId]||null,jobs:t3Tasks.snapshot(c.id)};});
   ipcMain.handle('orbit:t3-connect',async(e,value)=>{authorized(e);return t3Connection.connect({endpoint:value?.endpoint});});
-  ipcMain.handle('orbit:t3-local',async e=>{authorized(e);throw new Error('Connect a T3 environment using its address. This edition does not install or replace a system T3 service.');});
+  ipcMain.handle('orbit:t3-local',async e=>{authorized(e);const host=await t3Host.setup();if(t3Connection.data.endpoint===host.endpoint){try{await t3Connection.client();return t3Connection.snapshot();}catch{}}return t3Connection.connectLocal({endpoint:host.endpoint,local:host,token:await t3Host.authorize(host)});});
   ipcMain.handle('orbit:t3-options',async(e,value)=>{authorized(e);t3Scope(value);const [projects,capabilities]=await Promise.all([t3Connection.call('t3_project_list',{limit:100}),t3Connection.call('orchestrator_capabilities',{})]);return{projects:projects.projects,providers:capabilities.providers};});
   ipcMain.handle('orbit:t3-threads',async(e,value)=>{authorized(e);t3Scope(value);if(typeof value.projectId!=='string')throw new Error('Choose a project.');const result=await t3Connection.call('t3_thread_list',{projectId:value.projectId,includeSubagents:false,limit:100});return result.threads.map(({threadId,title,status})=>({threadId,title,status}));});
   ipcMain.handle('orbit:t3-project',async(e,value)=>{authorized(e);t3Scope(value);if(!t3Connection.data.local)throw new Error('Add remote folders in T3, then refresh projects.');const picked=await dialog.showOpenDialog(window,{title:'Choose a project folder for T3',properties:['openDirectory']});if(picked.canceled)return null;const folder=await fs.realpath(picked.filePaths[0]);let result=await t3Connection.call('t3_project_list',{limit:100});let project=result.projects.find(p=>p.workspaceRoot===folder);if(!project){await t3Host.registerProject(t3Connection.data.local,folder);result=await t3Connection.call('t3_project_list',{limit:100});project=result.projects.find(p=>p.workspaceRoot===folder);}if(!project)throw new Error('T3 registered the folder, but it is not visible yet. Refresh projects.');return project;});

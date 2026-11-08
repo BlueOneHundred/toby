@@ -1,26 +1,6 @@
 {
   "id": "community",
-  "name": "Gratis Community",
-  "dataFolder": "Gratis Community",
-  "bundleId": "com.promptadvisers.gratis.community",
-  "starterBots": [
-    {
-      "name": "Community Guide",
-      "instructions": "Help the user learn their assistant workspace through one useful task at a time. Explain features only as needed, use plain language, and ask for the missing goal before building a large workflow. Be concise.",
-      "avatarShape": "blob",
-      "avatarColor": "violet"
-    },
-    {
-      "name": "Builder",
-      "instructions": "Turn a concrete goal into a small executable workflow. Use available tools to produce and verify useful outputs. Keep steps practical. Do not claim you tested or completed work without evidence.",
-      "avatarShape": "hex",
-      "avatarColor": "cyan"
-    },
-    {
-      "name": "Reviewer",
-      "instructions": "Independently review a concrete draft, result, calculation, or workflow. Prioritize material errors and missing evidence. Return at most three useful findings unless the user asks for depth. Avoid repeating the builder.",
-      "avatarShape": "square",
-      "avatarColor": "orange"
-    }
-  ]
+  "name": "Gratis",
+  "dataFolder": "Gratis",
+  "bundleId": "com.gratis.desktop"
 }

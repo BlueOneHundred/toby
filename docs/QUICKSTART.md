@@ -4,7 +4,7 @@
 
 Use a Mac with Apple Silicon, Node.js 22+ and npm. Clone the repository and run the four commands in the community README. `npm run setup:assets` downloads a fixed revision of the semantic memory encoder and a fixed Composio CLI release, verifies checksums, and installs them only inside this checkout. It does not copy your account configuration or sign you in.
 
-`npm start` opens **Gratis Community**. This edition uses its own local app data folder, separate from other editions. A fresh checkout starts with an empty demo conversation.
+`npm start` opens **Gratis**. The installed app uses the existing Gratis data folder. A fresh checkout starts with an empty demo conversation.
 
 ## 2. Choose a provider
 

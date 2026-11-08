@@ -1,10 +1,8 @@
-# Gratis Community development
+# Gratis development
 
-- This private repository is the default target for all ongoing feature work in this workspace.
-- `origin` must point to `promptadvisers/gratis-community`. `upstream` is the public `promptadvisers/gratis` repository and is for fetching reviewed shared changes.
-- Never push this branch or its community-only content to the public repository. Port a deliberately selected, sanitized fix from a separate public checkout when requested.
-- Preserve the separate app identity, data folder, starter roles and community documentation.
-- Never copy the personal installation's data, credentials, chats, memory, screenshots or service endpoints into this repository.
-- Use synthetic test profiles and screenshots. Keep provider calls mocked in unit tests.
-- Run `npm run check` and relevant desktop checks. Source is in `src/`; generated `release/`, downloaded assets and runtime `data/` are not source.
-- Do not modify the personal app in `/Applications/Gratis.app` as part of community work unless explicitly requested.
+- All ongoing feature work and pushes belong to this private `promptadvisers/gratis-community` repository. Never push these changes to the public core.
+- There is one installed application: `/Applications/Gratis.app`, using bundle ID `com.gratis.desktop` and the existing `Gratis` data directory. Community is the code repository, not a second app, palette or user profile.
+- Preserve the original Gratis desktop UI and all existing user chats, settings, memory, files and credentials when updating the app. Do not replace the profile with starter roles or test data.
+- Never copy personal runtime data, credentials, private chats or screenshots into this repository. Test using isolated synthetic profiles.
+- Keep `origin` on `promptadvisers/gratis-community`; `upstream` is fetch-only public core.
+- Run `npm run check`, relevant desktop/mobile checks and a package identity check.

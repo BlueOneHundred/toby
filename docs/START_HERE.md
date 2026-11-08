@@ -6,9 +6,9 @@ The goal is a result you would use again, not a large team of bots talking to on
 
 Follow the [setup guide](QUICKSTART.md). Choose an eligible Claude or Codex account. Keep optional integrations disconnected until your task needs them.
 
-## 2. Start with the Community Guide
+## 2. Give your assistant a clear role
 
-Try: “Help me create a weekly reading brief about a topic I follow. Ask only what you need to know first.” Choose a narrow topic and a short output format.
+Use Gratis or create a bot with a guide role. Try: “Help me create a weekly reading brief about a topic I follow. Ask only what you need to know first.” Choose a narrow topic and a short output format.
 
 ## 3. Produce a small first result
 
@@ -16,7 +16,7 @@ Ask for one brief with a few sources. Read the source links and check that the s
 
 ## 4. Bring in a reviewer when useful
 
-Create a group with the guide, Builder and Reviewer. Ask for an independent check of a specific claim or workflow. You can address `@Reviewer` directly. An ordinary greeting should not wake the whole team.
+Create a group with your guide and optional Builder and Reviewer bots. Ask for an independent check of a specific claim or workflow. You can address `@Reviewer` directly. An ordinary greeting should not wake the whole team.
 
 ## 5. Save a preference, then make it recurring
 
@@ -24,4 +24,4 @@ Tell the bot an enduring preference explicitly, such as the topics or reading de
 
 ![Community recurring task example](screenshots/community-schedules.png)
 
-Keep the Mac awake and Gratis Community running. The task can wait for you if an external action needs approval. Do not schedule an untested workflow and assume the timer makes it reliable.
+Keep the Mac awake and Gratis running. The task can wait for you if an external action needs approval. Do not schedule an untested workflow and assume the timer makes it reliable.

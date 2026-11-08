@@ -1,5 +1,13 @@
-.avatar-motion{position:relative;display:block;width:100%;height:100%;flex:none;border-radius:24%;transition:transform 180ms ease,box-shadow 180ms ease}
-.avatar-motion img{display:block;width:100%;height:100%;object-fit:contain;border-radius:inherit}
-.avatar-motion.is-selected{box-shadow:0 0 0 2px var(--accent,#247c75)}
-.avatar-photo img{object-fit:cover}
-@media(prefers-reduced-motion:no-preference){button:hover .avatar-motion{transform:translateY(-2px)}.avatar-motion[data-mode=streaming]{animation:gratis-working 1.5s ease-in-out infinite}@keyframes gratis-working{50%{transform:scale(.91);opacity:.65}}}
+.avatar-motion{position:relative;display:block;width:100%;height:100%;isolation:isolate;flex:none;overflow:visible}
+.avatar-motion>.avatar-static,.avatar-motion>.avatar-drawing,.avatar-motion>.avatar-ghost{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain}
+.avatar-motion>.avatar-drawing{overflow:visible;visibility:hidden}
+.avatar-motion[data-ready=true]>.avatar-drawing{visibility:visible}
+.avatar-motion[data-ready=true]>.avatar-static{visibility:hidden}
+.avatar-ghost{pointer-events:none;z-index:1;overflow:visible}
+.avatar-body{transition:fill 160ms linear}
+.avatar.generated-avatar{overflow:visible}
+.bot-tile-avatar.avatar-motion{border-radius:0}
+.avatar-photo>.avatar-static{border-radius:50%;object-fit:cover}
+@media(prefers-reduced-motion:no-preference){.avatar-photo{transition:transform 150ms ease}.bot-tile:hover .avatar-photo,.current-bot:hover .avatar-photo{transform:translateY(-1px) scale(1.025)}}
+@media(prefers-reduced-motion:reduce){.avatar-body{transition:none}.avatar-photo{transition:none!important;transform:none!important}}
+@media(prefers-reduced-motion:no-preference){.profile-button .profile-avatar{transition:transform 150ms ease}.profile-button:hover .profile-avatar{transform:translateY(-1px) scale(1.025)}}

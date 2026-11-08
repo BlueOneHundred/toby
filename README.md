@@ -1,10 +1,10 @@
-# Gratis Community
+# Gratis
 
 **Build one useful assistant workflow. Then make it repeatable.**
 
-This private community edition builds on [Gratis Core](https://github.com/promptadvisers/gratis). It includes the shared runtime, a separate application identity, three guided starter roles, community exercises and a workspace for future member features.
+This private community edition builds on [Gratis Core](https://github.com/promptadvisers/gratis). It includes the shared desktop and mobile runtime, community exercises and a workspace for member features. There is one app and one workspace.
 
-![Gratis Community using an entirely synthetic conversation](docs/screenshots/community-overview.png)
+![Gratis using an entirely synthetic conversation](docs/screenshots/community-overview.png)
 
 ## Start here
 
@@ -16,15 +16,15 @@ npm run setup:assets
 npm start
 ```
 
-You need repository access, macOS Apple Silicon, Node.js 22+ and npm. You can explore demo mode before connecting an eligible provider account. Provider limits and terms still apply. The app is called **Gratis Community** and uses its own data folder; it does not import a personal or core profile.
+You need repository access, macOS Apple Silicon, Node.js 22+ and npm. You can explore demo mode before connecting an eligible provider account. Provider limits and terms still apply. The app is called **Gratis**. Desktop and mobile use the existing Gratis workspace. Updating the app preserves your chats, credentials, memory and files.
 
 ## Continue on your phone
 
-Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then approve the phone on the desktop. The mobile companion remembers the connection and syncs your chats while Gratis Community is running and your Mac is awake. Choose Claude or Codex and a model from the phone’s chat menu; replies use the subscriptions signed in on your Mac. Add it to your iPhone Home Screen for a standalone view. A relay must be provisioned first; see the [mobile setup and privacy guide](docs/MOBILE.md).
+Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then approve the phone on the desktop. The mobile companion remembers the connection and syncs your chats while Gratis is running and your Mac is awake. Choose Claude or Codex and a model from the phone’s chat menu; replies use the subscriptions signed in on your Mac. Add it to your iPhone Home Screen for a standalone view. A relay must be provisioned first; see the [mobile setup and privacy guide](docs/MOBILE.md).
 
 ![Mobile chat with synthetic test messages](docs/screenshots/mobile-chat.png)
 
-## Your starter team
+## Optional team roles
 
 | Bot | What it helps with |
 | --- | --- |
@@ -32,7 +32,7 @@ Open **Connect phone** in the desktop sidebar, scan its temporary QR code, then 
 | Builder | Produce a practical workflow and verify its result |
 | Reviewer | Find material gaps without repeating the whole answer |
 
-These roles are installed only in a new, empty community profile. Existing profiles and custom bots are preserved. The first bot in a group coordinates; it does not automatically make every bot answer.
+These are optional role templates for community workflows. Existing profiles and custom bots are preserved. The first bot in a group coordinates; it does not automatically make every bot answer.
 
 ## Choose your path
 
@@ -46,7 +46,7 @@ These roles are installed only in a new, empty community profile. Existing profi
 
 ## What is different from the public core?
 
-The underlying tools and runtime remain shared. This edition adds a community starter experience, its own indigo visual identity, deeper exercises and a private development line. Future community features belong here first. Shared improvements move to the public core only after deliberate review.
+The underlying tools and runtime remain shared. This repository adds deeper exercises and community features to the same Gratis app, with a private development line. Future community features belong here first. Shared improvements move to the public core only after deliberate review.
 
 This is not a hosted subscription, a preconnected set of private accounts or a promise of unlimited model use. Local schedules require the app running and the Mac awake. Integrations are optional and use your own accounts. See [Privacy](PRIVACY.md), [Security](SECURITY.md) and the [setup guide](docs/QUICKSTART.md).
 

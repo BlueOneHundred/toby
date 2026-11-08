@@ -11,12 +11,12 @@
   <link rel="apple-touch-icon" href="/icon.png">
   <link rel="stylesheet" href="/style.css">
   <title>Gratis</title>
-</head>
+<link rel="stylesheet" href="/avatar-motion.css"></head>
 <body>
   <section id="pair-screen">
     <img class="pair-logo" src="/icon.png" alt="Gratis">
     <h1>Connect your phone</h1>
-    <p id="pair-status">Open Connect phone in Gratis Community on your computer.</p>
+    <p id="pair-status">Open Connect phone in Gratis on your computer.</p>
     <div class="pair-card">
       <span class="step">1</span><p>Scan the code on your computer.</p>
       <span class="step">2</span><p>Choose <strong>Trust this phone</strong> on your computer.</p>
@@ -27,12 +27,12 @@
   <div id="app" hidden>
     <header>
       <button id="back" class="icon-button" aria-label="Back to chats" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-      <div class="heading"><div class="title-pill"><img id="heading-avatar" alt="" hidden><h1 id="heading">Gratis</h1></div></div>
+      <div class="heading"><div class="title-pill"><span id="heading-avatar" aria-hidden="true" hidden></span><h1 id="heading">Gratis</h1></div></div>
       <button id="new-chat" class="icon-button" aria-label="New chat"><span data-icon="plus"></span></button>
       <button id="menu-button" class="icon-button" aria-label="Connection options" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
     </header>
     <div class="connection-state" role="status"><span id="status-dot"></span><span id="connection-status">Connecting…</span></div>
-    <div id="menu" hidden><button id="choose-model" type="button"><span id="current-model-label">Choose provider and model</span><span data-icon="chevron-down"></span></button><p>This phone is paired with your computer.</p><p>Keep Gratis Community running and your Mac awake.</p><p>Add to Home Screen from Safari’s Share menu.</p><button id="disconnect" type="button">Disconnect this phone</button></div>
+    <div id="menu" hidden><button id="choose-model" type="button"><span id="current-model-label">Choose provider and model</span><span data-icon="chevron-down"></span></button><p>This phone is paired with your computer.</p><p>Keep Gratis running and your Mac awake.</p><p>Add to Home Screen from Safari’s Share menu.</p><button id="disconnect" type="button">Disconnect this phone</button></div>
     <section id="list-view">
       <div class="search-wrap"><span data-icon="search"></span><input id="search" type="search" placeholder="Search" aria-label="Find a conversation"></div>
       <div id="conversations"></div>
@@ -46,7 +46,7 @@
       <form id="composer">
         <button id="compose-menu" class="composer-circle" type="button" aria-label="Chat actions" aria-expanded="false"><span data-icon="plus"></span></button>
         <textarea id="prompt" rows="1" maxlength="6000" placeholder="Message your assistant" aria-label="Message your assistant"></textarea>
-        <button id="send" class="composer-circle" type="submit" aria-label="Send message"><span data-icon="arrow-up"></span></button>
+        <div id="voice-inline" hidden><span id="voice-status"></span><canvas id="voice-wave" width="120" height="24" aria-hidden="true"></canvas><span id="voice-time"></span><button id="voice-cancel" type="button" aria-label="Cancel recording">×</button></div><button id="microphone" class="composer-circle" type="button" aria-label="Dictate a message"><span id="microphone-icon" data-icon="mic"></span></button><button id="voice-call" class="composer-circle" type="button" aria-label="Record a voice message"><span data-icon="waveform"></span></button><button id="send" class="composer-circle" type="submit" aria-label="Send message"><span data-icon="arrow-up"></span></button>
       </form>
       <div class="bottom-note"><span id="delivery-status" role="status">Connected</span><button id="stop" type="button" hidden><span class="stop-square"></span>Stop</button></div>
     </section>
