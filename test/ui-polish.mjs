@@ -1,0 +1,55 @@
+import {_electron as electron} from '@playwright/test';
+import {createServer} from 'node:http';
+import {mkdtemp,writeFile,mkdir,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {initialState} from '../src/store.mjs';
+const directory=await mkdtemp(path.join(tmpdir(),'gratis-polish-')),output=path.resolve(process.env.UI_REVIEW_OUTPUT||'.cache/ui-polish');await mkdir(output,{recursive:true});
+let requests=0;
+const server=createServer((req,res)=>{if(req.url!=='/v1/chat/completions'){res.writeHead(404).end();return;}requests++;let body='';req.on('data',b=>body+=b);req.on('end',()=>{res.writeHead(200,{'Content-Type':'text/event-stream'});let index=0;const parts=['## A useful answer\n\n','**First** step.\n\n',...Array(32).fill('More useful text. ')];const timer=setInterval(()=>{if(index<parts.length)res.write('data: '+JSON.stringify({choices:[{delta:{content:parts[index++]}}]})+'\n\n');else{clearInterval(timer);res.end('data: [DONE]\n\n');}},80);res.on('close',()=>clearInterval(timer));});});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const state=initialState(),bot=state.bots[0],chat=state.conversations[0];bot.promptMode='manual';bot.promptGenerated=true;bot.name='UI check';
+state.settings={...state.settings,provider:'local',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,model:'ui-fixture',appearance:'dark'};
+chat.messages=[{id:'history',role:'assistant',content:'An earlier **saved** answer.',status:'complete',createdAt:Date.now()-1000}];
+await writeFile(path.join(directory,'workspace.json'),JSON.stringify(state));
+const app=await electron.launch({...(process.env.GRATIS_TEST_APP?{executablePath:process.env.GRATIS_TEST_APP}:{args:[process.cwd()]}),env:{...process.env,GRATIS_DATA_DIR:directory,GRATIS_TEST_HIDDEN:'1'}});const errors=[];
+try{
+ const page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));await page.locator('#new-bot').waitFor();await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1300,850));await page.locator('#home-bots .bot-tile').first().click();
+ const capture=async name=>{const bytes=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));await writeFile(path.join(output,name),Buffer.from(bytes,'base64'));};
+ await page.evaluate(()=>{window.savedHistory=document.querySelector('[data-message-id="history"]');window.savedSidebar=document.querySelector('[data-bot-id]');});
+ await page.locator('#prompt').fill('Check a streamed answer.');
+ await page.evaluate(()=>{document.querySelector('#composer').requestSubmit();document.querySelector('#composer').requestSubmit();});
+ await page.locator('#stop').waitFor({state:'visible'});assert.equal(await page.locator('#send').isVisible(),false);
+ const stop=await page.locator('#stop').boundingBox();assert.ok(Math.abs(stop.width-28)<.1);assert.ok(Math.abs(stop.height-28)<.1);assert.equal(await page.locator('#stop svg').count(),1);
+ await page.waitForFunction(()=>document.querySelector('.message[data-status="streaming"] .markdown'));
+ assert.equal(requests,1);assert.equal(await page.evaluate(()=>window.savedHistory===document.querySelector('[data-message-id="history"]')),true);assert.equal(await page.evaluate(()=>window.savedSidebar===document.querySelector('[data-bot-id]')),true);
+ await capture('streaming-response.png');
+ await page.locator('#stop').click();await page.waitForFunction(()=>!document.querySelector('.message[data-status="streaming"]'));
+ assert.equal(await page.locator('#stop').isVisible(),false);
+ await capture('stopped-chat.png');
+ await page.locator('#prompt').fill('Finish a reply.');await page.locator('#composer').evaluate(form=>form.requestSubmit());await page.locator('#stop').waitFor({state:'visible'});await page.locator('#stop').waitFor({state:'hidden'});assert.ok(await page.locator('#messages h2').count());
+ // Delay the IPC acceptance path to exercise Stop before send has resolved.
+ await app.evaluate(({app})=>{const require=process.getBuiltinModule('module').createRequire(app.getAppPath()+'/package.json');const {ChatService}=require(app.getAppPath()+'/src/chat-service.mjs');const original=ChatService.prototype.send;
+  ChatService.prototype.send=async function(value){const mode=globalThis.uiSendMode;globalThis.uiSendMode=null;if(mode==='fail')throw new Error('Synthetic send failure');if(mode==='delay')await new Promise(resolve=>setTimeout(resolve,150));const result=await original.call(this,value);if(mode==='delay')await new Promise(resolve=>setTimeout(resolve,150));return result;};globalThis.uiSendMode='delay';});
+ await page.locator('#prompt').fill('Cancel immediately.');await page.locator('#composer').evaluate(form=>form.requestSubmit());await page.locator('#stop').click();await page.locator('#stop').waitFor({state:'hidden'});
+ assert.equal(await page.locator('.message[data-status="streaming"]').count(),0);
+ await app.evaluate(()=>{globalThis.uiSendMode='fail';});await page.locator('#prompt').fill('Keep this draft if sending fails.');await page.locator('#composer').evaluate(form=>form.requestSubmit());await page.locator('#notice').waitFor({state:'visible'});assert.equal(await page.locator('#prompt').inputValue(),'Keep this draft if sending fails.');
+ await page.locator('#prompt').fill('');await page.locator('#prompt').dispatchEvent('input');
+ await page.locator('#settings-button').click();await page.locator('#provider-trigger').click();const options=page.locator('#provider-menu [role="option"]');assert.equal(await options.count(),4);assert.ok((await options.first().boundingBox()).height>=40);await capture('provider-menu.png');await page.keyboard.press('Escape');await page.locator('#settings-dialog .dialog-heading .close-dialog').click();
+ await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('orbit:mobile-status');ipcMain.handle('orbit:mobile-status',()=>({configured:true,paired:true,confirmed:true,endpoint:'https://phone.example.com'}));ipcMain.removeHandler('orbit:copy-text');ipcMain.handle('orbit:copy-text',(_event,value)=>{globalThis.uiCopied=value;return true;});});
+ await page.locator('#connect-phone').click();await page.locator('#mobile-copy-address').click();assert.equal(await app.evaluate(()=>globalThis.uiCopied),'https://phone.example.com');await page.locator('#mobile-dialog .close-dialog').click();
+ // Mock only isolated computer transport; no live accounts or remote browsers.
+ await app.evaluate(({app})=>{const require=process.getBuiltinModule('module').createRequire(app.getAppPath()+'/package.json');const {CloudComputer}=require(app.getAppPath()+'/src/cloud-computer.mjs');const {Connections}=require(app.getAppPath()+'/src/connections.mjs');
+ Connections.prototype.status=function(){return {cloud:true,composio:false,cloudEndpoint:'https://example.com'};};
+ CloudComputer.prototype.watch=function(){};CloudComputer.prototype.start=async function({conversationId}){return this.snapshot(conversationId);};
+ CloudComputer.prototype.snapshot=function(id){globalThis.uiTestCloud=this;return {state:{conversationId:id,status:'ready',live:true},frame:globalThis.uiTestFrame||{conversationId:id,url:'about:blank',at:1,dataUrl:'data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><path fill="white" d="M0 0h800v500H0z"/></svg>').toString('base64')}};};});
+ await page.locator('#show-computer').click();await page.locator('#work-panel').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#computer-state').textContent==='Ready');assert.equal(await page.locator('#computer-screen').isVisible(),false);assert.equal(await page.locator('#computer-placeholder').isVisible(),true);assert.equal(await page.locator('#computer-go').isEnabled(),true);
+ await page.evaluate(async()=>{window.uiChatId=(await window.orbit.snapshot()).activeConversationId;});const id=await page.evaluate(()=>window.uiChatId);
+ await app.evaluate((_electron,id)=>{const image='data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="#172a37"/><text x="30" y="60" fill="white" font-size="24">Synthetic browser page</text></svg>').toString('base64');globalThis.uiTestFrame={conversationId:id,url:'https://example.com',at:2,dataUrl:image};globalThis.uiTestCloud.onFrame(globalThis.uiTestFrame);},id);
+ await page.locator('#computer-screen').waitFor({state:'visible'});const before=await page.locator('#computer-screen').getAttribute('src');
+ await app.evaluate((_electron,id)=>{globalThis.uiTestCloud.onFrame({conversationId:id,url:'about:blank',at:3,dataUrl:'data:image/png;base64,broken'});},id);assert.equal(await page.locator('#computer-screen').getAttribute('src'),before);await capture('computer-preview.png');
+ await page.locator('#new-bot').click();await page.locator('#new-bot-name').fill('New UI bot');await page.locator('#create-bot-submit').click();await page.waitForFunction(()=>document.querySelector('#bot-name').textContent==='New UI bot');assert.equal(await page.locator('#work-panel').isVisible(),false);
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(760,640));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);assert.deepEqual(errors,[]);
+ console.log(JSON.stringify({passed:true,checks:['single dispatch on rapid submit','stable circular Stop and cancellation','Stop before IPC acceptance','failed send preserves draft','preserved history/sidebar nodes','completed Markdown','readable provider menu','remembered phone address','blank-frame suppression','ready browser can navigate without preview','last useful preview preserved','new bot does not open pane','narrow layout'],rendererErrors:errors}));
+}finally{await app.close();await new Promise(resolve=>server.close(resolve));await rm(directory,{recursive:true,force:true});}

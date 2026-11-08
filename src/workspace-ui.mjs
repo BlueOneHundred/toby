@@ -1,3 +1,4 @@
+import {isBlankComputerFrame,computerNotice} from './computer-preview.mjs';
 import {setupSchedulesUI} from './schedules-ui.mjs';
 import {setupT3UI} from './t3-ui.mjs';
 import {setupMemoryUI} from './memory-ui.mjs';
@@ -7,7 +8,7 @@ import {setupWorkspaceLayout,computerPoint} from './workspace-layout.mjs';
 const $=id=>document.getElementById(id);
 export function setupWorkspace({api,getState,run,avatar,onOpenSource}){
   let tab=null,refreshing=false,refreshAgain=false,catalog=[],frame=null,searchTimer,linked=false,cursor=null,catalogSequence=0,lastRefresh=0,lastConversation;
-  let watchId=null,livePreview=false,viewEpoch=0;
+  let watchId=null,livePreview=false,viewEpoch=0,previewGeneration=0,lastComputerState=null;
   let humanControl=false,controlRevision=-1,handingBack=false,changingControl=false;
   let selectedSeat=null,sourceRoot=null;
   const state=()=>{const value=getState(),seat=selectedSeat&&value?.conversations.find(c=>c.id===selectedSeat&&!c.inactiveTeamMember&&(c.id===value.activeConversationId||c.parentThreadId===value.activeConversationId));return seat?{...value,activeConversationId:seat.id,activeBotId:seat.botId}:value;},bot=()=>state()?.bots.find(b=>b.id===state().activeBotId);
@@ -20,7 +21,7 @@ export function setupWorkspace({api,getState,run,avatar,onOpenSource}){
   const xray=setupXray({container:$('workspace-xray'),getState,avatar,onOpenComputer:id=>openComputerFor(id),onApproval:(id,allow)=>api.respondApproval({id,allow})});
   function showError(error){$('workspace-error').textContent=error.message||String(error);$('workspace-error').hidden=false;}
   async function refresh(){
-    if(!tab||!bot())return;if(refreshing){refreshAgain=true;return;}refreshing=true;$('workspace-error').hidden=true;
+    if(!tab||!bot())return;if(refreshing){refreshAgain=true;return;}const requestedTab=tab,requestedId=state()?.activeConversationId,requestedEpoch=viewEpoch;const current=()=>tab===requestedTab&&state()?.activeConversationId===requestedId&&viewEpoch===requestedEpoch;refreshing=true;$('workspace-error').hidden=true;
     try{
       if(tab==='memory'){await memoryUI.refresh();return;}
       if(tab==='t3'){await t3UI.refresh();return;}
@@ -29,14 +30,25 @@ export function setupWorkspace({api,getState,run,avatar,onOpenSource}){
       if(tab==='files'){
         const owner=bot().id,files=await api.files({botId:owner});if(owner!==bot()?.id||tab!=='files'){refreshAgain=true;return;}$('workspace-file-list').replaceChildren(...files.map(file=>{const row=document.createElement('div');row.className='workspace-file';const label=document.createElement('span');label.textContent=file.path;const meta=document.createElement('small');meta.textContent=file.bytes<1024?`${file.bytes} B`:`${Math.ceil(file.bytes/1024)} KB`;const save=document.createElement('button');save.textContent='Save';save.onclick=()=>api.exportFile({botId:bot().id,path:file.path}).catch(showError);row.append(label,meta,save);return row;}));$('workspace-files-empty').hidden=files.length>0;
       }else{
-        const connection=await api.connections();$('computer-disconnected').hidden=connection.cloud;$('computer-controls').hidden=!connection.cloud;
+        const connection=await api.connections();if(!current())return;$('computer-disconnected').hidden=connection.cloud;$('computer-controls').hidden=!connection.cloud;
         if(connection.cloud){const id=state().activeConversationId,snapshot=await api.computerState({conversationId:id});if(tab!=='computer'||id!==state().activeConversationId)return;draw(snapshot.frame);renderComputerState(snapshot.state);}
       }
-    }catch(error){showError(error);}finally{refreshing=false;if(refreshAgain){refreshAgain=false;void refresh();}}
+    }catch(error){if(current())showError(error);}finally{refreshing=false;if(refreshAgain){refreshAgain=false;void refresh();}}
   }
-  function draw(next){if(next&&next.conversationId!==state().activeConversationId)return;if(next&&next.conversationId===state().activeConversationId){if(frame?.at>next.at)return;frame=next;$('computer-screen').src=next.dataUrl;$('computer-screen').hidden=false;$('computer-placeholder').hidden=true;$('computer-current-url').textContent=next.url?.endsWith('/start')?'Your computer':next.url||next.title||'Cloud computer';}else{frame=null;$('computer-screen').removeAttribute('src');$('computer-screen').hidden=true;$('computer-placeholder').hidden=false;$('computer-current-url').textContent='Your private cloud computer';}}
+  function draw(next){
+    if(next&&next.conversationId!==state()?.activeConversationId)return;
+    if(isBlankComputerFrame(next))return;
+    if(!next){previewGeneration++;frame=null;$('computer-screen').removeAttribute('src');$('computer-screen').hidden=true;$('computer-placeholder').hidden=false;$('computer-current-url').textContent='Your private cloud computer';return;}
+    if(frame?.at>next.at)return;
+    const caption=()=>{$('computer-current-url').textContent=next.url?.endsWith('/start')?'Your computer':next.url||next.title||'Cloud computer';};
+    if(frame?.dataUrl===next.dataUrl){frame=next;caption();return;}
+    const generation=++previewGeneration,id=next.conversationId,image=new Image();
+    image.onload=()=>{if(generation!==previewGeneration||id!==state()?.activeConversationId||tab!=='computer')return;frame=next;$('computer-screen').src=next.dataUrl;$('computer-screen').hidden=false;$('computer-placeholder').hidden=true;caption();if(lastComputerState)renderComputerState(lastComputerState);};
+    image.onerror=()=>{if(generation===previewGeneration&&id===state()?.activeConversationId&&tab==='computer')showError(new Error('The latest computer preview could not be displayed. Try Refresh.'));};
+    image.src=next.dataUrl;
+  }
   function renderComputerState(value){
-    if(value.conversationId!==state()?.activeConversationId)return;
+    if(value.conversationId!==state()?.activeConversationId)return;lastComputerState=value;
     if(value.controlRevision!==undefined&&value.controlRevision<controlRevision)return;
     if(value.controlRevision!==undefined)controlRevision=value.controlRevision;
     if(value.control)humanControl=value.control==='human';input.sync();
@@ -47,10 +59,13 @@ export function setupWorkspace({api,getState,run,avatar,onOpenSource}){
     $('computer-state').textContent=({idle:'Not started',starting:'Starting your computer…',ready:'Ready',working:'Bot is using the computer',stopping:'Stopping…',stopped:'Stopped',attention:'Needs attention',error:'Could not start'})[status]||'Not started';
     if(humanControl&&value.live)$('computer-state').textContent='You have control';
     if(humanControl&&!value.live&&['connecting','reconnecting'].includes(value.liveStatus))$('computer-state').textContent='Reconnecting controls…';
-    if(value.notice){$('computer-state').textContent='Page partially loaded';$('workspace-error').textContent=value.notice;$('workspace-error').hidden=false;}else if(!value.error)$('workspace-error').hidden=true;
-    $('computer-placeholder').textContent=status==='starting'?'Starting your computer. This can take a moment.':status==='error'?(value.error||'Could not start. Try again.'):'Start your computer to browse and work with your bot.';
+    const visibleNotice=computerNotice(value.notice,frame);
+    if(visibleNotice){$('computer-state').textContent='Page partially loaded';$('workspace-error').textContent=visibleNotice;$('workspace-error').hidden=false;}else if(!value.error)$('workspace-error').hidden=true;
+    $('computer-placeholder').textContent=status==='starting'?'Starting your computer. This can take a moment.':status==='error'?(value.error||'Could not start. Try again.'):status==='ready'?'Your computer is ready. Open a website or ask your bot to browse.':'Start your computer to browse and work with your bot.';
     $('computer-placeholder').classList.toggle('is-starting',status==='starting');
-    for(const id of ['computer-go','computer-type','computer-refresh'])$(id).disabled=busy||!frame;
+    // A ready browser can navigate before its first useful preview arrives.
+    $('computer-go').disabled=busy||!['ready','attention'].includes(status);
+    for(const id of ['computer-type','computer-refresh'])$(id).disabled=busy||!frame;
     $('computer-stop').disabled=status==='stopping'||['idle','stopped'].includes(status);
     if((status==='error'||status==='attention')&&value.error)showError(new Error(value.error));
   }
@@ -89,7 +104,7 @@ export function setupWorkspace({api,getState,run,avatar,onOpenSource}){
   }
   $('computer-take-control').onclick=()=>void control(!humanControl);
   async function flushInput(){try{await input.flush();return true;}catch(error){showError(error);return false;}}
-  async function open(next){const epoch=viewEpoch;if(!await flushInput()||epoch!==viewEpoch)return;if(tab==='computer'&&humanControl&&!await control(false))return;if(epoch!==viewEpoch)return;await layout.exit();if(epoch!==viewEpoch)return;tab=tab===next?null:next;layout.sync(!!tab,tab||'computer');$('work-panel').hidden=!tab;document.querySelector('main').classList.toggle('workspace-open',!!tab);$('workspace-title').textContent=tab==='files'?'Files':tab==='xray'?'X-ray':tab==='memory'?'Memory':tab==='t3'?'Tasks':tab==='schedules'?'Scheduled tasks':'Computer';$('workspace-files').hidden=tab!=='files';$('workspace-computer').hidden=tab!=='computer';$('workspace-xray').hidden=tab!=='xray';$('workspace-memory').hidden=tab!=='memory';$('workspace-t3').hidden=tab!=='t3';$('workspace-schedules').hidden=tab!=='schedules';$('show-t3').setAttribute('aria-pressed',String(tab==='t3'));if(tab==='memory')$('show-memory').classList.remove('has-update');$('show-memory').setAttribute('aria-pressed',String(tab==='memory'));$('workspace-agent-row').hidden=['xray','memory','t3','schedules'].includes(tab)||!(getState()?.conversations.find(c=>c.id===getState().activeConversationId)?.participantIds?.length>1);$('show-files').setAttribute('aria-pressed',String(tab==='files'));$('show-computer').setAttribute('aria-pressed',String(tab==='computer'));$('show-xray').setAttribute('aria-pressed',String(tab==='xray'));syncWatch();void refresh();if(tab==='computer')void ensureComputer();}
+  async function open(next){const epoch=viewEpoch;if(!await flushInput()||epoch!==viewEpoch)return;if(tab==='computer'&&humanControl&&!await control(false))return;if(epoch!==viewEpoch)return;await layout.exit();if(epoch!==viewEpoch)return;previewGeneration++;lastComputerState=null;$('workspace-error').hidden=true;tab=tab===next?null:next;layout.sync(!!tab,tab||'computer');$('work-panel').hidden=!tab;document.querySelector('main').classList.toggle('workspace-open',!!tab);$('workspace-title').textContent=tab==='files'?'Files':tab==='xray'?'X-ray':tab==='memory'?'Memory':tab==='t3'?'Tasks':tab==='schedules'?'Scheduled tasks':'Computer';$('workspace-files').hidden=tab!=='files';$('workspace-computer').hidden=tab!=='computer';$('workspace-xray').hidden=tab!=='xray';$('workspace-memory').hidden=tab!=='memory';$('workspace-t3').hidden=tab!=='t3';$('workspace-schedules').hidden=tab!=='schedules';$('show-t3').setAttribute('aria-pressed',String(tab==='t3'));if(tab==='memory')$('show-memory').classList.remove('has-update');$('show-memory').setAttribute('aria-pressed',String(tab==='memory'));$('workspace-agent-row').hidden=['xray','memory','t3','schedules'].includes(tab)||!(getState()?.conversations.find(c=>c.id===getState().activeConversationId)?.participantIds?.length>1);$('show-files').setAttribute('aria-pressed',String(tab==='files'));$('show-computer').setAttribute('aria-pressed',String(tab==='computer'));$('show-xray').setAttribute('aria-pressed',String(tab==='xray'));syncWatch();void refresh();if(tab==='computer')void ensureComputer();}
   $('show-t3').onclick=()=>open('t3');
   $('show-memory').onclick=()=>open('memory');$('show-files').onclick=()=>open('files');$('show-xray').onclick=()=>open('xray');$('show-computer').onclick=()=>open('computer');$('close-workspace').onclick=()=>open(tab);$('refresh-workspace').onclick=refresh;
   $('computer-go').onclick=()=>{if(handingBack)return;const input=$('computer-url').value.trim();if(!input)return;const url=/^https?:\/\//i.test(input)?input:input.includes('.')&&!input.includes(' ')?'https://'+input:'https://www.google.com/search?q='+encodeURIComponent(input);void action('browse_url',{url});};

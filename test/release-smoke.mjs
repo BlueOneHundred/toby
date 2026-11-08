@@ -8,6 +8,7 @@ import {_electron as electron} from '@playwright/test';
 const candidates=process.platform==='darwin'?['dist/mac-arm64/Gratis.app/Contents/MacOS/Gratis','dist/mac/Gratis.app/Contents/MacOS/Gratis']:process.platform==='win32'?['dist/win-unpacked/Gratis.exe']:['dist/linux-unpacked/gratis','dist/linux-unpacked/Gratis'];
 const executable=process.env.GRATIS_TEST_APP||candidates.find(existsSync);if(!executable)throw Error('Packaged Gratis executable not found.');
 execFileSync(process.execPath,['test/package-edition.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});
+execFileSync(process.execPath,['test/ui-polish.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});
 const directory=await mkdtemp(path.join(tmpdir(),'gratis-release-'));
 let app;
 try{
