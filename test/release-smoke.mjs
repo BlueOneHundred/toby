@@ -1,6 +1,22 @@
 import {existsSync} from 'node:fs';
+import {mkdtemp,rm} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
+import {tmpdir} from 'node:os';
 import path from 'node:path';
+import assert from 'node:assert/strict';
+import {_electron as electron} from '@playwright/test';
 const candidates=process.platform==='darwin'?['dist/mac-arm64/Gratis.app/Contents/MacOS/Gratis','dist/mac/Gratis.app/Contents/MacOS/Gratis']:process.platform==='win32'?['dist/win-unpacked/Gratis.exe']:['dist/linux-unpacked/gratis','dist/linux-unpacked/Gratis'];
 const executable=candidates.find(existsSync);if(!executable)throw Error('Packaged Gratis executable not found.');
 execFileSync(process.execPath,['test/package-edition.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});
+const directory=await mkdtemp(path.join(tmpdir(),'gratis-release-'));
+let app;
+try{
+ const launch=()=>electron.launch({executablePath:path.resolve(executable),env:{...process.env,GRATIS_DATA_DIR:directory,GRATIS_TEST_HIDDEN:'1'}});
+ app=await launch();let page=await app.firstWindow();await page.locator('#new-bot').waitFor();
+ await page.evaluate(async()=>{const state=await window.orbit.snapshot();await window.orbit.updateBot({id:state.bots[0].id,name:'Release smoke test',promptMode:'manual',instructions:'Reply briefly.'});await window.orbit.send({conversationId:state.conversations[0].id,text:'Test the packaged chat.'});});
+ await page.waitForFunction(async()=>{const state=await window.orbit.snapshot();return state.conversations[0].messages.some(m=>m.role==='assistant'&&m.status==='complete'&&m.content);});
+ await app.close();app=null;
+ app=await launch();page=await app.firstWindow();await page.locator('#new-bot').waitFor();
+ const state=await page.evaluate(()=>window.orbit.snapshot());assert.equal(state.bots[0].name,'Release smoke test');assert.ok(state.conversations[0].messages.some(m=>m.content==='Test the packaged chat.'));
+ console.log(JSON.stringify({packagedChat:true,restartPersistence:true,platform:process.platform,arch:process.arch}));
+}finally{await app?.close();await rm(directory,{recursive:true,force:true});}
