@@ -35,3 +35,5 @@ execFileSync(process.execPath,['test/recovery-desktop.mjs'],{env:{...process.env
 
 execFileSync(process.execPath,['test/community-sharing-desktop.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});
 execFileSync(process.execPath,['test/pages-desktop.mjs'],{stdio:'inherit',env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},timeout:90000});
+
+execFileSync(process.execPath,['test/slack-desktop.mjs'],{stdio:'inherit',env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},timeout:90000});

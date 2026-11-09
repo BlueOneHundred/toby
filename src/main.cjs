@@ -17,7 +17,7 @@ const humanComputers=new Set(),computerControlEpochs=new Map(),computerControlRe
 function setHumanControl(id,human){if(humanComputers.has(id)!==human){human?humanComputers.add(id):humanComputers.delete(id);computerControlRevisions.set(id,(computerControlRevisions.get(id)||0)+1);}}
 const controlState=value=>({...value,control:humanComputers.has(value.conversationId)?'human':'bot',controlRevision:computerControlRevisions.get(value.conversationId)||0});
 const computerSnapshot=id=>{const snapshot=cloud.snapshot(id);return {...snapshot,state:controlState(snapshot.state)};};
-let rendererPagesReady=false;let pendingPageLink;let deliverPageLink;app.on('open-url',(event,url)=>{event.preventDefault();if(deliverPageLink)deliverPageLink(url);else pendingPageLink=url;});
+let messaging,messagingStartupError;let rendererPagesReady=false;let pendingPageLink;let deliverPageLink;app.on('open-url',(event,url)=>{event.preventDefault();if(deliverPageLink)deliverPageLink(url);else pendingPageLink=url;});
 let phonePage=null,phonePageSelection=0,phonePagesMeta=[],refreshPhonePages;let pages,pageStore,pageBrowser;const pageTickets=new Map();
 let mobileTeamSelected,teamRefresh,teamRefreshVersion=0,teamConnection,teamExecutor,releaseDataLock, window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, mobileDictation, computerControl, mobileComputer, closing = false, finishDraftFlush, voiceTask;
 app.on('activate',()=>{if(window&&!window.isDestroyed()){window.show();window.focus();}});
@@ -34,7 +34,7 @@ async function shutdown() {
   }
   const activeVoice = voiceTask;
   activeVoice?.controller.abort(new DOMException('App closed', 'AbortError'));
-  try { mobileComputer?.close(); await mobileDictation?.close(); await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await teamExecutor?.close();await teamConnection?.close(); await pageStore?.close();await pageBrowser?.close(); await cloud?.close(); } finally { await releaseDataLock?.(); app.exit(0); }
+  try { await messaging?.close(); mobileComputer?.close(); await mobileDictation?.close(); await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await teamExecutor?.close();await teamConnection?.close(); await pageStore?.close();await pageBrowser?.close(); await cloud?.close(); } finally { await releaseDataLock?.(); app.exit(0); }
 }
 const actions = ['createBot', 'deleteBot', 'selectBot', 'newConversation', 'selectConversation', 'setDraft',
   'createThread','renameThread','updateThreadMembers','pinThread','deleteThread','updateSettings', 'updateBot', 'duplicateBot', 'respondApproval', 'updateQueue', 'send', 'stop', 'retry'];
@@ -44,7 +44,7 @@ function authorized(event) {
 }
 function broadcast(snapshot) {
   if(pages){const ids=new Set(snapshot.bots.map(b=>b.id));phonePagesMeta=phonePagesMeta.filter(p=>p.remote||ids.has(p.botId)).map(p=>p.remote?p:{...p,agent:pages.agent(p.botId)});if(phonePage&&!phonePage.remote)phonePage=ids.has(phonePage.botId)?{...phonePage,agent:pages.agent(phonePage.botId)}:null;}
-  mobile?.requestSync();
+  mobile?.requestSync();void messaging?.changed().catch(()=>{});
   if (window && !window.isDestroyed()) window.webContents.send('orbit:state', snapshot);
 }
 app.whenReady().then(async () => {
@@ -90,8 +90,9 @@ app.whenReady().then(async () => {
         ...retained.map(async seat=>{if(connections.status().cloud&&(humanComputers.has(seat.conversationId)||cloud.serverOwners.get(seat.conversationId))){await cloud.whenIdle(seat.conversationId);await cloud.control(seat.botId,seat.conversationId,false);}setHumanControl(seat.conversationId,false);if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-state',computerSnapshot(seat.conversationId).state);}),
       ]);
       if(results.some(r=>r.status==='rejected'))throw new Error('Could not finish stopping a group computer. Your member changes have not been saved. Try again.');
-    },runtimeFactory:args=>agentRuntime({...args,files,cloud,connections,canUseComputer:()=>!humanComputers.has(args.conversationId),t3:t3Agent(args),schedules:scheduleAgent(args),pages:pages?.tools({botId:args.bot.id,conversationId:args.conversationId})}) });
+    },runtimeFactory:args=>agentRuntime({...args,files,cloud,connections,canUseComputer:()=>!humanComputers.has(args.conversationId),t3:service._conversation(args.conversationId).messaging&&!service._conversation(args.conversationId).messaging.allowTools?undefined:t3Agent(args),schedules:service._conversation(args.conversationId).messaging&&!service._conversation(args.conversationId).messaging.allowTools?undefined:scheduleAgent(args),pages:service._conversation(args.conversationId).messaging?undefined:pages?.tools({botId:args.bot.id,conversationId:args.conversationId})}) });
   await service.init();
+  try{const {MessagingRouter}=await import('./messaging-router.mjs');messaging=await new MessagingRouter({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:slack-changed');}}).init();}catch{messagingStartupError='Saved Slack settings could not be opened. Existing data was preserved.';}
   const [{PageStore},{PageController},{PageBrowser},{pageDocument,pageStandalone,PAGE_CSP}]=await Promise.all([import('./pages.mjs'),import('./page-controller.mjs'),import('./page-browser.mjs'),import('./page-document.mjs')]);
   const pagesChanged=()=>{void refreshPhonePages?.();mobile?.requestSync();if(window&&!window.isDestroyed())window.webContents.send('orbit:pages-changed');};
   pageStore=await new PageStore({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,onChange:pagesChanged}).init();
@@ -178,7 +179,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('orbit:template-export',async(e,{botId})=>{authorized(e);const bot=service._bot(botId),value=exportTemplate(bot);const result=await dialog.showSaveDialog(window,{title:'Export bot template',defaultPath:'bot.gratis.json',filters:[{name:'Gratis bot template',extensions:['json']}]});if(result.canceled)return false;await fs.writeFile(result.filePath,JSON.stringify(value,null,2),{mode:0o600});return true;});
   ipcMain.handle('orbit:template-preview',async e=>{authorized(e);const result=await dialog.showOpenDialog(window,{title:'Review a bot template',properties:['openFile'],filters:[{name:'Gratis bot template',extensions:['json']}]});if(result.canceled)return null;const path=result.filePaths[0];if((await fs.stat(path)).size>2100000)throw new Error('Choose a template under 2.1 MB.');const bot=parseTemplate(await fs.readFile(path,'utf8'));if(bot.avatarDataUrl){const image=nativeImage.createFromDataURL(bot.avatarDataUrl);if(image.isEmpty()||image.getSize().width>2048||image.getSize().height>2048)throw new Error('Invalid template avatar.');bot.avatarDataUrl=image.toPNG().toString('base64');bot.avatarDataUrl='data:image/png;base64,'+bot.avatarDataUrl;}templateReviews.clear();const token=require('node:crypto').randomUUID();templateReviews.set(token,{bot,expires:Date.now()+600000});return {token,bot};});
   ipcMain.handle('orbit:template-import',async(e,{token})=>{authorized(e);const review=templateReviews.get(token);templateReviews.delete(token);if(!review||review.expires<Date.now())throw new Error('Template review expired. Open it again.');return importTemplate(service,review.bot);});
-  ipcMain.handle('orbit:recovery-checkpoint',async e=>{authorized(e);if(service.tasks.size)throw new Error('Stop active responses before creating a recovery checkpoint.');await service.store.flush();await memory.vault.tail;await schedules.persist;await t3Tasks.persist;await pageStore.close();const checkpoint=await safety.createCheckpoint(dataDir);return checkpoint;});
+  ipcMain.handle('orbit:recovery-checkpoint',async e=>{authorized(e);if(service.tasks.size)throw new Error('Stop active responses before creating a recovery checkpoint.');await service.store.flush();await memory.vault.tail;await schedules.persist;await t3Tasks.persist;await pageStore.close();await messaging?.store.close();const checkpoint=await safety.createCheckpoint(dataDir);return checkpoint;});
   ipcMain.handle('orbit:recovery-folder',async e=>{authorized(e);const directory=path.join(dataDir,'checkpoints');await fs.mkdir(directory,{recursive:true,mode:0o700});await shell.openPath(directory);return true;});
   ipcMain.handle('orbit:snapshot', e => { authorized(e); return service.snapshot(); });
   ipcMain.handle('orbit:open-external', async (e,value) => {authorized(e);const url=new URL(value);if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new Error('Only web links can be opened.');await shell.openExternal(url.href);});
@@ -218,6 +219,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('orbit:signin-state', e=>{authorized(e);return signIn.state();});
   ipcMain.handle('orbit:signin-cancel', e=>{authorized(e);return signIn.cancel();});
   ipcMain.handle('orbit:signin-open', e=>{authorized(e);return signIn.reopen();});
+  const {SLACK_MANIFEST}=await import('./slack-transport.mjs');
+  for(const [name,operation]of Object.entries({status:()=>messaging?messaging.status():{connected:false,state:messagingStartupError},manifest:()=>SLACK_MANIFEST,configure:value=>messaging.configure(value),link:()=>messaging.linkCode(),channels:()=>messaging.channels(),disconnect:()=>messaging.disconnect(),review:()=>messaging.reviewDeliveries()}))ipcMain.handle('orbit:slack-'+name,(e,value)=>{authorized(e);if(!messaging&&name!=='status'&&name!=='manifest')throw Error(messagingStartupError);return operation(value);});
   ipcMain.handle('orbit:connections', async e => {authorized(e);return connections.status();});
   ipcMain.handle('orbit:configure-connections', async (e,value) => {authorized(e);return connections.configure(value);});
   ipcMain.handle('orbit:connection-catalog', async (e,search) => {authorized(e);return connections.catalog(search);});

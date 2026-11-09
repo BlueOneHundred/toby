@@ -1,3 +1,4 @@
+import {setupMessaging} from './messaging-ui.mjs';
 import {setupPages} from './pages-ui.mjs';
 import {setupTeamUI} from './team-ui.mjs';
 import {DEFAULT_RUN_LIMITS} from './run-limits.mjs';
@@ -465,6 +466,7 @@ $('dropzone').ondrop = e => { e.preventDefault(); $('dropzone').classList.remove
 $('avatar-dialog').addEventListener('paste', e => { if (e.target.matches('input,textarea')) return; const item = [...e.clipboardData.items].find(x => x.type.startsWith('image/')); if (item) { e.preventDefault(); fromFile(item.getAsFile()); } });
 $('avatar-dialog').addEventListener('close', () => { imageSequence++; pointer = null; });
 workspaceUI=setupWorkspace({api,getState:()=>state,run,avatar:bot=>makeAvatar(bot,false,'workspace'),onOpenSource:id=>navigate(()=>api.selectConversation({id}))});
+setupMessaging({api,getState:()=>state});
 setupTeamUI({api,getState:()=>state,refreshSelects:()=>selects.sync()});
 pagesUI=setupPages({api,getState:()=>state,navigate,beforeOpen:async()=>{await flushDraft();if(await workspaceUI.beforeNavigate()===false)return false;homeVisible=false;},onError:notice,updateView:()=>{document.querySelector('main').classList.toggle('has-page',!!pagesUI?.current);}});
 selects.refresh();

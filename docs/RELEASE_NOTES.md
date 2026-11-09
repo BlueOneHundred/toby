@@ -1,15 +1,12 @@
-# Gratis 0.22.3 community preview
+# Gratis 0.23.0 community preview
 
-This update aligns mobile Pages with the observed iPhone reference and keeps them connected to the existing Gratis agents.
+- Added optional Slack Socket Mode messaging with a manifest-based setup, encrypted credentials and single-use account linking.
+- Routes owner DMs and allowed-channel mentions to separate conversations under an existing agent, without changing desktop selection.
+- Channel requests exclude private memory and tools. Owner DM memory and tools require separate opt-ins.
+- Saves receipts before acknowledging events; maintains ordered delivery, rate-limit handling and uncertain-delivery review.
+- Added request-owner Stop and scoped, expiring approval buttons. Sensitive action details remain in Gratis.
+- Retains the mobile Pages and profile-photo fixes from the previous source build.
 
-- Open Pages from the agent's Library or from a Page card in its chat. The Library contains that agent's own Pages and files.
-- The phone viewer uses circular close/share controls and a full-height document. Sharing opens a rounded sheet with actual access choices, a copyable address and an Edit in chat action.
-- Edit in chat targets the same saved Page and existing agent. Avatar updates do not reset the document's controls.
-- Small, encrypted Page previews appear in the phone transcript. Preview frames remain isolated from the app and cannot access its credentials or network.
-- Closing a Page invalidates outstanding refreshes, preventing a late response from reopening it. Actions wait for pending requests rather than dropping a fast tap.
+This is a one-owner, one-workspace pilot. The desktop must stay online. Hosted OAuth, multi-user Slack execution, inbound files and public Page links are not included. See [Slack setup and verification](SLACK.md). Synthetic transport and packaged UI checks are separate from a live Slack workspace test.
 
-Verified with synthetic profiles in Chromium and WebKit, including interactive controls, phone edits, desktop synchronization, live avatar updates and two-person sharing/revocation. The desktop test suite and package identity checks also run before release.
-
-Sharing remains authenticated to a team space; anonymous public links are not implemented. The physical iPhone reference was inspected, but final on-device verification of the updated Gratis build is pending. This release does not claim complete pixel-for-pixel parity.
-
-Mac builds use ad-hoc integrity signatures rather than Apple notarization; Windows builds remain unsigned. See [Pages documentation](https://github.com/earlyaidopters/gratis-community/blob/v0.22.3/docs/PAGES.md).
+Mac builds remain ad-hoc signed, not Apple-notarized. Windows builds remain unsigned.
