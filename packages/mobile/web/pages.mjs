@@ -12,15 +12,20 @@ export function setupPhonePages({context, command, notice, canSend, editPage}) {
   function renderLibrary(data) {
     const list = $('phone-page-list');
     list.replaceChildren();
-    const pages = (data?.items || []).filter(page => !libraryScope?.botId || page.botId === libraryScope.botId || page.agent?.id === libraryScope.botId);
-    if (pages.length) {
-      const heading = document.createElement('p'); heading.className = 'phone-library-date'; heading.textContent = 'Pages'; list.append(heading);
-    }
+    const pages = (data?.items || []).filter(page => !libraryScope?.botId || page.botId === libraryScope.botId || page.agent?.id === libraryScope.botId).sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate()-1);
+    let lastGroup;
     for (const page of pages) {
+      const at=page.updatedAt||page.createdAt, date=new Date(at), valid=Number.isFinite(date.getTime());
+      const group=!valid?'Pages':date>=today?'Today':date>=yesterday?'Yesterday':date.toLocaleDateString(undefined,{month:'short',day:'numeric',...(date.getFullYear()!==today.getFullYear()?{year:'numeric'}:{})});
+      if(group!==lastGroup){const heading=document.createElement('p');heading.className='phone-library-date';heading.textContent=group;list.append(heading);lastGroup=group;}
       const button = document.createElement('button'); button.type = 'button'; button.className = 'phone-page-card';
       button.dataset.pageId = page.id; button.disabled = !canSend();
       const content = document.createElement('span'), title = document.createElement('strong'), detail = document.createElement('small');
-      title.textContent = page.title; detail.textContent = 'Page · ' + (page.remote || page.shared ? 'Shared' : 'Private');
+      const minutes=Math.max(0,Math.floor((Date.now()-date.getTime())/60000));
+      const age=!valid?'':minutes<1?'Now':minutes<60?minutes+'m':minutes<1440?Math.floor(minutes/60)+'h':Math.floor(minutes/1440)+'d';
+      title.textContent = page.title; detail.textContent = 'Page · ' + (page.remote || page.shared ? 'Shared' : 'Private') + (age?' · '+age:'');
       content.append(title, detail); button.append(icon('copy'), content);
       button.onclick = () => void command('pages', undefined, undefined, {pages:{action:'open',id:page.id,remote:!!page.remote}});
       list.append(button);
