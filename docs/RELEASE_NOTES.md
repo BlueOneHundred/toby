@@ -1,4 +1,4 @@
-# Gratis 0.22.1 community preview
+# Gratis 0.22.2 community preview
 
 This release adds interactive Pages to the existing Gratis app.
 
@@ -14,4 +14,4 @@ Tests use synthetic provider responses, temporary desktop profiles and mock keyc
 
 The private team service and paired desktop must be available for remote operations. Public anonymous hosting, automatic live data refresh and simultaneous source editing are not included. Mac builds use ad-hoc integrity signatures rather than Apple notarization; Windows builds remain unsigned.
 
-See [Pages documentation](https://github.com/earlyaidopters/gratis-community/blob/v0.22.1/docs/PAGES.md).
+See [Pages documentation](https://github.com/earlyaidopters/gratis-community/blob/v0.22.2/docs/PAGES.md).
