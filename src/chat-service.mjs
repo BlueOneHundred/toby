@@ -274,7 +274,7 @@ export class ChatService {
     assistant.runLimitWarning='This response pauses after '+limits.minutes+' minutes or '+limits.toolCalls+' tool calls. Partial work is retained.';
     assistant.status='streaming';assistant.provider=this.state.settings.provider;delete assistant.error;delete assistant.pauseReason;delete assistant.limitReached;
     let bot = structuredClone(this._bot(c.botId)); const settings = {...structuredClone(this.state.settings),...(this.state.settings.provider==='claude'&&bot.model?{model:bot.model}:this.state.settings.provider==='codex'&&bot.codexModel?{model:bot.codexModel}:{})};
-    const turnMemory=bot.teamManaged?null:this.memory;
+    const turnMemory=bot.teamManaged?null:this.memory;if(bot.teamManaged)bot.memory='';
     if(!resumeMessage)c.messages.push(assistant); c.updatedAt = Date.now();
     const task = { controller, promise: null, assistantId:assistant.id }; task.ready = new Promise(resolve => { task.started = resolve; }); this.tasks.set(c.id, task);
     try { await this._changed(); }
