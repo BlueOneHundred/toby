@@ -1,4 +1,4 @@
-import {_electron as electron} from '@playwright/test';
+import {launchTestApp} from './electron-fixture.mjs';
 import {mkdtemp,writeFile,readFile,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {resolve,join} from 'node:path';
@@ -9,7 +9,7 @@ const executable=process.env.GRATIS_TEST_APP;if(!executable)throw new Error('Set
 const dir=await mkdtemp(join(tmpdir(),'gratis-avatars-')),state=initialState();
 state.bots[0].name='Avatar verification';state.bots[0].avatarShape='sphere';state.bots[0].avatarColor='white';
 await writeFile(join(dir,'workspace.json'),JSON.stringify(state));
-const app=await electron.launch({executablePath:resolve(executable),env:{...process.env,GRATIS_DATA_DIR:dir,GRATIS_TEST_HIDDEN:'1'}});
+const app=await launchTestApp({directory:dir,executablePath:resolve(executable)});
 try{
  const page=await app.firstWindow(),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.locator('#home-bots .bot-tile').first().waitFor();

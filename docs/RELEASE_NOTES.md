@@ -1,11 +1,8 @@
-Gratis 0.18.4 repairs macOS bundle signing and adds checks against the actual downloaded installer contents.
+Gratis 0.19.0 adds custom schedules and file-library filtering while retaining the installer fixes from 0.18.4.
 
-- Mac apps receive a complete ad-hoc signature, including nested binaries and sealed resources. This fixes the incomplete Electron signature found in 0.18.3. It is not Developer ID signing or Apple notarization; macOS may still require approval for an unidentified developer.
-- Both the DMG builder and local Mac packaging command sign and verify the final app. Release checks mount the DMG and test the app inside it. Modified signed resources fail verification.
-- Local packaging excludes existing build output directories.
-- Settings now show the app name, version, operating system and architecture, making wrong-edition or outdated-build reports easier to diagnose.
-- Changing Reduce Motion now immediately uses the static avatar, even when an animation frame is pending. Packaged tests verify that community avatars animate, respond to the cursor and honor reduced motion. The reported avatar mismatch has not been reproduced with a confirmed affected artifact.
+- Choose Custom cron in Scheduled tasks for monthly, weekday and other five-field schedules. The chat tools can create the same schedules when requested. Invalid expressions do not replace a saved schedule.
+- Filter Files by name or folder path, and sort by recent changes, name or size. Search stays within the selected bot's workspace.
+- macOS apps receive complete ad-hoc signatures, including nested code and sealed resources. Both packaging paths verify the result, and release checks mount and test the actual DMG. These builds are not Developer ID signed or notarized, so macOS approval may still be required. Windows builds remain unsigned.
+- Settings show app name, version, platform and architecture. Reduce Motion immediately shows a static avatar.
 
-Includes 0.18.3's single custom-answer editor, rapid-send protection, immediate Stop handling, preserved drafts on errors, stable streamed Markdown, and computer previews that close when returning Home. These behaviors are exercised in the packaged app, using isolated synthetic profiles.
-
-Downloads are community previews for Apple silicon Mac, Intel Mac, Windows x64 and Ubuntu x64. Windows builds are unsigned. Existing Gratis workspace data is preserved. No accounts, credentials, chats or private relay configuration are supplied. See [Downloads](DOWNLOADS.md) for platform limits and installation checks.
+The existing Stop, duplicate-send, single-editor, Markdown, computer-Home-close and data-preserving upgrade checks remain in place. Tests use isolated synthetic workspaces; downloads contain no accounts or chat data. See [Downloads](DOWNLOADS.md), [User guide](USER_GUIDE.md), and the [additional capability review](PARITY_REVIEW.md).
