@@ -1,0 +1,4 @@
+import {resolve,join} from 'node:path';import {writeFile} from 'node:fs/promises';import {randomBytes,createHash} from 'node:crypto';import {TeamStore} from './store.mjs';
+const directory=process.argv[2];if(!directory)throw new Error('Usage: node packages/team/owner-access.mjs PRIVATE_TEAM_DATA_DIRECTORY');
+const root=resolve(directory),store=new TeamStore(root),code=randomBytes(32).toString('hex');
+try{store.transaction(s=>{const person=s.people.find(p=>p.role==='owner'&&p.active);if(!person)throw new Error('No active owner. Start the server normally for first-time setup.');s.invites.push({hash:createHash('sha256').update(code).digest('hex'),role:'owner',personId:person.id,bootstrap:true,expires:Date.now()+3600000});});await writeFile(join(root,'owner-renewal.txt'),code,{mode:0o600});console.log('One-hour, single-use owner renewal saved to owner-renewal.txt in the private data directory. Existing data and identities were preserved.');}finally{store.close();}

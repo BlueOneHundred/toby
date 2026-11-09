@@ -1,7 +1,7 @@
 {
   "name": "gratis-community",
   "productName": "Gratis",
-  "version": "0.19.1",
+  "version": "0.20.0",
   "private": true,
   "description": "Gratis desktop and mobile companion, maintained in the public community repository",
   "type": "module",
@@ -13,12 +13,14 @@
     "setup:assets": "node scripts/setup-assets.mjs",
     "verify:public": "node scripts/verify-public.mjs",
     "package:mac": "node scripts/package.mjs",
-    "check": "npm run verify:public && npm test",
+    "check": "npm run verify:public && npm test && npm run test:team",
     "postinstall": "node scripts/install-hooks.mjs",
     "dist": "electron-builder --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:win": "electron-builder --win --x64 --publish never",
-    "dist:linux": "electron-builder --linux --x64 --publish never"
+    "dist:linux": "electron-builder --linux --x64 --publish never",
+    "test:team": "node --test packages/team/test/*.test.mjs",
+    "team:start": "node packages/team/cli.mjs"
   },
   "devDependencies": {
     "@electron/osx-sign": "2.7.2",

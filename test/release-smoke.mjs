@@ -30,3 +30,7 @@ try{
  const state=await page.evaluate(()=>window.orbit.snapshot());assert.equal(state.bots[0].name,'Release smoke test');assert.ok(state.conversations[0].messages.some(m=>m.content==='Test the packaged chat.'));
  console.log(JSON.stringify({packagedChat:true,restartPersistence:true,computerClosesOnHome:true,platform:process.platform,arch:process.arch}));
 }finally{await app?.close();await rm(directory,{recursive:true,force:true});}
+
+execFileSync(process.execPath,['test/recovery-desktop.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});
+
+execFileSync(process.execPath,['test/community-sharing-desktop.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});

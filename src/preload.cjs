@@ -6,6 +6,11 @@ async function invoke(channel, value) {
 }
 for (const name of ['snapshot','createBot','deleteBot','selectBot','newConversation','selectConversation','setDraft',
   'createThread','renameThread','updateThreadMembers','pinThread','deleteThread','updateSettings','updateBot','duplicateBot','respondApproval', 'updateQueue','send','stop','retry']) api[name] = value => invoke('orbit:' + name, value);
+api.recoveryCheckpoint=()=>invoke('orbit:recovery-checkpoint');
+api.recoveryFolder=()=>invoke('orbit:recovery-folder');
+for(const name of ['preview','import','export'])api['template'+name[0].toUpperCase()+name.slice(1)]=value=>invoke('orbit:template-'+name,value);
+for(const name of ['view','join','call','share','run','leave'])api['team'+name[0].toUpperCase()+name.slice(1)]=value=>invoke('orbit:team-'+name,value);
+api.openFilesFolder=value=>invoke('orbit:files-folder',value);
 api.edition = () => invoke('orbit:edition');
 api.pickImage = options => invoke('orbit:pick-image', options);
 api.openExternal = value => invoke('orbit:open-external', value);

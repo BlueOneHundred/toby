@@ -1,3 +1,5 @@
+import {setupTeamUI} from './team-ui.mjs';
+import {DEFAULT_RUN_LIMITS} from './run-limits.mjs';
 import {reconcileChildren} from './ui-dom.mjs';
 import {setupCharacterPicker} from './character-picker.mjs';
 import {resolveTheme} from './theme.mjs';
@@ -249,6 +251,11 @@ $('show-bots').onclick = async () => {threadUI?.cancel(); await flushDraft(); vo
 $('search-bots').onclick = () => { $('bot-filter').hidden = !$('bot-filter').hidden; if (!$('bot-filter').hidden) $('bot-filter').focus(); };
 $('bot-filter').oninput = () => render(state);
 $('workspace-profile').onclick = () => openSettings();
+$('create-checkpoint').onclick=()=>run(async()=>{const path=await api.recoveryCheckpoint();$('recovery-status').textContent=path?'Recovery checkpoint saved. Open the recovery folder to find it.':'No saved workspace yet.';});
+$('open-checkpoints').onclick=()=>run(()=>api.recoveryFolder());
+let templateReviewToken;
+$('import-bot-template').onclick=()=>run(async()=>{const review=await api.templatePreview();if(!review)return;templateReviewToken=review.token;$('template-name').textContent=review.bot.name;$('template-instructions').value=review.bot.instructions;$('template-user-prompt').value=review.bot.userPromptTemplate;$('template-tools').textContent='Suggested tools: '+(review.bot.requiredCapabilities.join(', ')||'none')+'. Enable only the tools you want after importing.';$('template-error').hidden=true;$('settings-dialog').close();$('template-dialog').showModal();});
+$('template-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const next=await api.templateImport({token:templateReviewToken});$('template-dialog').close();homeVisible=false;render(next);}catch(error){$('template-error').textContent=error.message;$('template-error').hidden=false;}finally{button.disabled=false;}};
 $('export-workspace').onclick = () => run(() => api.exportData('workspace'));
 $('share-conversation').onclick = () => run(() => api.exportData('conversation'));
 $('attach-menu').onclick = () => run(()=>api.attachFiles({conversationId:state.activeConversationId}));
@@ -293,6 +300,7 @@ function confirmDeleteBot(botId) {
 async function openBotMenu(botId) {
   const action = await run(() => api.botMenu({id:botId}));
   if (action === 'delete') confirmDeleteBot(botId);
+  if(action==='export-template')await run(()=>api.templateExport({botId}));
   if (action === 'duplicate') await run(()=>api.duplicateBot({id:botId}));
   if (action === 'pin') await run(()=>api.updateBot({id:botId,pinned:!state.bots.find(b=>b.id===botId)?.pinned}));
   if (action === 'edit') { await flushDraft(); const selected = await run(() => api.selectBot({id:botId})); if (selected) openBotDialog(true); }
@@ -323,6 +331,7 @@ function openSettings() {
   fillModels($('codex-model'),codexModels,state.settings.provider==='codex'?state.settings.model:state.settings.providerDefaults?.codex?.model);
   $('claude-effort').value = state.settings.provider==='claude'?state.settings.effort||'medium':state.settings.providerDefaults?.claude?.effort||'medium';
   syncCodexEffort(state.settings.provider==='codex'?state.settings.effort:state.settings.providerDefaults?.codex?.effort);
+  for(const [key,value] of Object.entries({...DEFAULT_RUN_LIMITS,...state.settings.runLimits}))$('limit-'+key).value=value;
   $('voice-language').value = state.settings.voiceLanguage || 'en';
   $('claude-model').onchange();
   $('appearance').value = state.settings.appearance??localStorage.getItem('orbit-appearance')??'system'; $('provider').onchange(); $('settings-dialog').showModal(); selects.sync();
@@ -358,7 +367,7 @@ async function checkCodexConnection(){
 $('check-codex').onclick=checkCodexConnection;
 $('settings-button').onclick = openSettings; $('configure-backend').onclick = openSettings;
 $('settings-form').onsubmit = async e => { e.preventDefault();
-  const result = await run(() => api.updateSettings({ appearance:$('appearance').value,profileAvatarDataUrl: pendingProfileAvatar, displayName: $('profile-name').value.trim(), provider: $('provider').value, baseUrl: $('base-url').value.trim(), model: $('provider').value === 'claude' ? $('claude-model').value : $('provider').value==='codex'?$('codex-model').value:$('model').value.trim(), effort: $('provider').value==='codex'?$('codex-effort').value:$('claude-effort').value, voiceCleanup: true, voiceLanguage: $('voice-language').value }));
+  const result = await run(() => api.updateSettings({ runLimits:Object.fromEntries(Object.keys(DEFAULT_RUN_LIMITS).map(key=>[key,Number($('limit-'+key).value)])),appearance:$('appearance').value,profileAvatarDataUrl: pendingProfileAvatar, displayName: $('profile-name').value.trim(), provider: $('provider').value, baseUrl: $('base-url').value.trim(), model: $('provider').value === 'claude' ? $('claude-model').value : $('provider').value==='codex'?$('codex-model').value:$('model').value.trim(), effort: $('provider').value==='codex'?$('codex-effort').value:$('claude-effort').value, voiceCleanup: true, voiceLanguage: $('voice-language').value }));
   if (result) { localStorage.setItem('orbit-appearance', $('appearance').value); applyTheme(await api.systemDark()); $('settings-dialog').close(); }
 };
 function applyTheme(systemDark){systemIsDark=systemDark;document.documentElement.dataset.theme=resolveTheme(state?.settings.appearance??localStorage.getItem('orbit-appearance')??'system',systemDark);if(state)render(state);}
@@ -454,6 +463,7 @@ $('dropzone').ondrop = e => { e.preventDefault(); $('dropzone').classList.remove
 $('avatar-dialog').addEventListener('paste', e => { if (e.target.matches('input,textarea')) return; const item = [...e.clipboardData.items].find(x => x.type.startsWith('image/')); if (item) { e.preventDefault(); fromFile(item.getAsFile()); } });
 $('avatar-dialog').addEventListener('close', () => { imageSequence++; pointer = null; });
 workspaceUI=setupWorkspace({api,getState:()=>state,run,avatar:bot=>makeAvatar(bot,false,'workspace'),onOpenSource:id=>navigate(()=>api.selectConversation({id}))});
+setupTeamUI({api,getState:()=>state,refreshSelects:()=>selects.sync()});
 selects.refresh();
 threadUI=setupThreads({api,getState:()=>state,navigate,avatar:(bot,location='thread')=>makeAvatar(bot,false,location),onCreated:render,onDeleted:render,beforeDelete:async conversationId=>{if(conversationId===state.activeConversationId){voiceInput?.cancel();selects.close();}await flushDraft();},beforeCompose:async()=>{voiceInput?.cancel();selects.close();await flushDraft();return workspaceUI.beforeNavigate();},onModeChange:()=>{homeVisible=false;updateView();refreshComposer();},onError:notice});
 setupMentions({getState:()=>state});

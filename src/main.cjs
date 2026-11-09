@@ -16,7 +16,7 @@ const humanComputers=new Set(),computerControlEpochs=new Map(),computerControlRe
 function setHumanControl(id,human){if(humanComputers.has(id)!==human){human?humanComputers.add(id):humanComputers.delete(id);computerControlRevisions.set(id,(computerControlRevisions.get(id)||0)+1);}}
 const controlState=value=>({...value,control:humanComputers.has(value.conversationId)?'human':'bot',controlRevision:computerControlRevisions.get(value.conversationId)||0});
 const computerSnapshot=id=>{const snapshot=cloud.snapshot(id);return {...snapshot,state:controlState(snapshot.state)};};
-let window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, mobileDictation, computerControl, mobileComputer, closing = false, finishDraftFlush, voiceTask;
+let teamConnection,teamExecutor,releaseDataLock, window, service, connections, files, cloud, signIn, memory, t3Connection, t3Tasks, t3Host, schedules, mobile, mobileProviders, mobileDictation, computerControl, mobileComputer, closing = false, finishDraftFlush, voiceTask;
 app.on('activate',()=>{if(window&&!window.isDestroyed()){window.show();window.focus();}});
 app.on('second-instance', () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } });
 async function shutdown() {
@@ -31,7 +31,7 @@ async function shutdown() {
   }
   const activeVoice = voiceTask;
   activeVoice?.controller.abort(new DOMException('App closed', 'AbortError'));
-  try { mobileComputer?.close(); await mobileDictation?.close(); await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await cloud?.close(); } finally { app.exit(0); }
+  try { mobileComputer?.close(); await mobileDictation?.close(); await mobile?.close(); await activeVoice?.promise?.catch(() => {}); await signIn?.cancel({preserve:true}); await schedules?.close(); await t3Tasks?.close(); await t3Connection?.close(); await service?.close(); await teamExecutor?.close(); await cloud?.close(); } finally { await releaseDataLock?.(); app.exit(0); }
 }
 const actions = ['createBot', 'deleteBot', 'selectBot', 'newConversation', 'selectConversation', 'setDraft',
   'createThread','renameThread','updateThreadMembers','pinThread','deleteThread','updateSettings', 'updateBot', 'duplicateBot', 'respondApproval', 'updateQueue', 'send', 'stop', 'retry'];
@@ -44,6 +44,7 @@ function broadcast(snapshot) {
   if (window && !window.isDestroyed()) window.webContents.send('orbit:state', snapshot);
 }
 app.whenReady().then(async () => {
+  const safety=await import('./storage-safety.mjs');releaseDataLock=await safety.acquireDataLock(dataDir);await safety.prepareStorage(dataDir);
   if (app.isPackaged && !dataOverride) {
     await fs.mkdir(dataDir, { recursive: true, mode: 0o700 });
     try { await fs.copyFile(path.join(app.getPath('appData'), 'Orbit Bot', 'data', 'workspace.json'), path.join(dataDir, 'workspace.json'), constants.COPYFILE_EXCL); }
@@ -58,7 +59,7 @@ app.whenReady().then(async () => {
   const t3Changed=()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:t3-changed');};
   t3Connection=await new T3Connection({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,openExternal:url=>shell.openExternal(url),onState:t3Changed}).init();
   t3Host=new T3LocalHost({home:dataOverride?path.join(dataDir,'t3-host'):path.join(app.getPath('appData'),edition.dataFolder,'t3'),installer:path.join(__dirname,'assets/t3-install.sh'),onProgress:message=>t3Connection.update('installing',message)});
-  t3Tasks=await new T3Tasks({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,connection:t3Connection,onChange:t3Changed,onResult:async job=>{
+  t3Tasks=await new T3Tasks({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,connection:t3Connection,onChange:t3Changed,limits:()=>service?.state?.settings?.runLimits,onResult:async job=>{
     if(closing||!service?.state)return;const c=service.state.conversations.find(c=>c.id===job.conversationId);if(!c)return;
     if(!c.messages.some(m=>m.sourceT3JobId===job.id)){c.messages.push({id:require('node:crypto').randomUUID(),role:'assistant',kind:'t3-result',botId:job.botId,status:'complete',createdAt:Date.now(),sourceT3JobId:job.id,content:'**T3 task '+(job.status==='completed'?'finished':job.status)+': '+job.title+'**\n\n'+(job.result||job.error||'Open Tasks to review the T3 run.')});c.updatedAt=Date.now();await service._changed();}
   }}).init();
@@ -137,6 +138,23 @@ app.whenReady().then(async () => {
   window.webContents.session.webRequest.onBeforeRequest((details, cb) => {
     cb({ cancel: !['file:', 'data:', 'devtools:'].some(p => details.url.startsWith(p)) });
   });
+  const {exportTemplate,parseTemplate,importTemplate}=await import('./bot-template.mjs');
+  const templateReviews=new Map();
+  const {TeamConnection}=await import('./team-connection.mjs'),{TeamExecutor}=await import('./team-executor.mjs');
+  teamConnection=await new TeamConnection({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt}).init();
+  teamExecutor=await new TeamExecutor({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,connection:teamConnection,service}).init();
+  ipcMain.handle('orbit:team-view',async e=>{authorized(e);const status=teamConnection.status();return status.connected?{...status,...await teamConnection.call('view'),executions:teamExecutor.status()}:status;});
+  ipcMain.handle('orbit:team-join',async(e,value)=>{authorized(e);await teamConnection.join(value);return teamConnection.status();});
+  ipcMain.handle('orbit:team-call',async(e,{method,args})=>{authorized(e);if(method==='cancel'){const local=teamExecutor.status().find(r=>r.jobId===args?.jobId);if(local?.conversationId)await service.stop({conversationId:local.conversationId});}return teamConnection.call(method,args);});
+  ipcMain.handle('orbit:team-share',async(e,{botId})=>{authorized(e);return teamConnection.call('createBot',{template:exportTemplate(service._bot(botId)).bot});});
+  ipcMain.handle('orbit:team-run',async(e,{jobId})=>{authorized(e);return teamExecutor.start(jobId);});
+  ipcMain.handle('orbit:team-leave',async e=>{authorized(e);if(teamExecutor.active.size)throw new Error('Stop active team tasks before disconnecting.');return teamConnection.disconnect();});
+
+  ipcMain.handle('orbit:template-export',async(e,{botId})=>{authorized(e);const bot=service._bot(botId),value=exportTemplate(bot);const result=await dialog.showSaveDialog(window,{title:'Export bot template',defaultPath:'bot.gratis.json',filters:[{name:'Gratis bot template',extensions:['json']}]});if(result.canceled)return false;await fs.writeFile(result.filePath,JSON.stringify(value,null,2),{mode:0o600});return true;});
+  ipcMain.handle('orbit:template-preview',async e=>{authorized(e);const result=await dialog.showOpenDialog(window,{title:'Review a bot template',properties:['openFile'],filters:[{name:'Gratis bot template',extensions:['json']}]});if(result.canceled)return null;const path=result.filePaths[0];if((await fs.stat(path)).size>2100000)throw new Error('Choose a template under 2.1 MB.');const bot=parseTemplate(await fs.readFile(path,'utf8'));if(bot.avatarDataUrl){const image=nativeImage.createFromDataURL(bot.avatarDataUrl);if(image.isEmpty()||image.getSize().width>2048||image.getSize().height>2048)throw new Error('Invalid template avatar.');bot.avatarDataUrl=image.toPNG().toString('base64');bot.avatarDataUrl='data:image/png;base64,'+bot.avatarDataUrl;}templateReviews.clear();const token=require('node:crypto').randomUUID();templateReviews.set(token,{bot,expires:Date.now()+600000});return {token,bot};});
+  ipcMain.handle('orbit:template-import',async(e,{token})=>{authorized(e);const review=templateReviews.get(token);templateReviews.delete(token);if(!review||review.expires<Date.now())throw new Error('Template review expired. Open it again.');return importTemplate(service,review.bot);});
+  ipcMain.handle('orbit:recovery-checkpoint',async e=>{authorized(e);if(service.tasks.size)throw new Error('Stop active responses before creating a recovery checkpoint.');await service.store.flush();await memory.vault.tail;await schedules.persist;await t3Tasks.persist;const checkpoint=await safety.createCheckpoint(dataDir);return checkpoint;});
+  ipcMain.handle('orbit:recovery-folder',async e=>{authorized(e);const directory=path.join(dataDir,'checkpoints');await fs.mkdir(directory,{recursive:true,mode:0o700});await shell.openPath(directory);return true;});
   ipcMain.handle('orbit:snapshot', e => { authorized(e); return service.snapshot(); });
   ipcMain.handle('orbit:open-external', async (e,value) => {authorized(e);const url=new URL(value);if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new Error('Only web links can be opened.');await shell.openExternal(url.href);});
   ipcMain.handle('orbit:copy-text', (e,value) => {authorized(e);if(typeof value!=='string'||value.length>2000000)throw new Error('Invalid clipboard text.');clipboard.writeText(value);});
@@ -146,6 +164,7 @@ app.whenReady().then(async () => {
     return new Promise(resolve => {
       const menu = Menu.buildFromTemplate([
         { id: 'edit', label: 'Edit bot', click: () => resolve('edit') },
+        { label: 'Export bot template…', click: () => resolve('export-template') },
         { label: 'Duplicate bot', click: () => resolve('duplicate') },
         { label: service.snapshot().bots.find(b=>b.id===value.id)?.pinned?'Unpin bot':'Pin bot', click: () => resolve('pin') },
         { type: 'separator' },
@@ -198,6 +217,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('orbit:computer-watch',(e,{conversationId,visible})=>{authorized(e);const c=service._conversation(conversationId);if(visible)service._threadOpen(c);cloud.watch(c.botId,conversationId,!!visible);return true;});
   ipcMain.handle('orbit:computer-control',(e,value)=>{authorized(e);return computerControl.control(value);});
   ipcMain.handle('orbit:computer-stop',(e,value)=>{authorized(e);return computerControl.stop(value);});
+  ipcMain.handle('orbit:files-folder',async(e,{botId})=>{authorized(e);service._bot(botId);await shell.openPath(await files.target(botId));return true;});
   ipcMain.handle('orbit:files', async(e,{botId})=>{authorized(e);service._bot(botId);return files.list(botId);});
   ipcMain.handle('orbit:attach-files', async(e,{conversationId})=>{authorized(e);const c=service._conversation(conversationId);const result=await dialog.showOpenDialog(window,{properties:['openFile','multiSelections'],title:'Attach files to this bot'});if(result.canceled)return service.snapshot();const added=await files.import(c.botId,result.filePaths);c.draftAttachments=[...(c.draftAttachments||[]),...added].slice(0,10);return service._changed();});
   ipcMain.handle('orbit:remove-attachment', async(e,{conversationId,path:attachment})=>{authorized(e);const c=service._conversation(conversationId);c.draftAttachments=(c.draftAttachments||[]).filter(f=>f.path!==attachment);return service._changed();});
@@ -279,7 +299,7 @@ app.whenReady().then(async () => {
   window.webContents.setZoomFactor(1.2);
   if (process.env.GRATIS_TEST_HIDDEN !== '1') window.show();
 }).catch(async error => {
-  console.error(error);
+  await releaseDataLock?.();console.error(error);
   dialog.showErrorBox('Gratis could not start', error.message);
   app.exit(1);
 });

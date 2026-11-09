@@ -1,8 +1,14 @@
-Gratis 0.19.1 adds custom schedules and file-library filtering while retaining the installer fixes from 0.18.4.
+# Gratis 0.20.0 community preview
 
-- Choose Custom cron in Scheduled tasks for monthly, weekday and other five-field schedules. The chat tools can create the same schedules when requested. Invalid expressions do not replace a saved schedule.
-- Filter Files by name or folder path, and sort by recent changes, name or size. Search stays within the selected bot's workspace.
-- macOS apps receive complete ad-hoc signatures, including nested code and sealed resources. Both packaging paths verify the result, and release checks mount and test the actual DMG. These builds are not Developer ID signed or notarized, so macOS approval may still be required. Windows builds remain unsigned.
-- Settings show app name, version, platform and architecture. Reduce Motion immediately shows a static avatar.
+This release adds reliability limits, recovery checkpoints and an optional private team pilot.
 
-The existing Stop, duplicate-send, single-editor, Markdown, computer-Home-close and data-preserving upgrade checks remain in place. Tests use isolated synthetic workspaces; downloads contain no accounts or chat data. See [Downloads](DOWNLOADS.md), [User guide](USER_GUIDE.md), and the [additional capability review](PARITY_REVIEW.md).
+- Configure local response duration, tool-call and failure limits. Pauses preserve partial work and leave queued messages paused; Retry continues from saved progress.
+- Bound per-bot file storage and rotate metadata-only diagnostic logs. Open the Files folder to manage saved files.
+- Cap automatic T3 reconnection and monitoring separately from remote execution. Resume monitoring keeps the same task identity.
+- Verify local recovery checkpoints, reject unknown data versions, and recover from interrupted or corrupted workspace restores. Encrypted credentials stay encrypted. See [recovery instructions](https://github.com/earlyaidopters/gratis-community/blob/v0.20.0/docs/RELIABILITY.md).
+- Export/import reviewed bot templates without chats, memory, files or credentials. Imported tools and personal recall start disabled.
+- The opt-in [team pilot](https://github.com/earlyaidopters/gratis-community/blob/v0.20.0/docs/TEAM_PILOT.md) supports per-person sessions, private bots with explicit grants, private per-person team chats, local subscription execution, explicit shared notes, revocation, approval records, and redacted audit metadata. It is not intended for public Internet hosting.
+
+Phone integration, public business bots, external team-tool execution and payments are not added by the team pilot. Existing personal data is not migrated into a team database. Phone and team code remain community-only; selected reliability and recovery changes are also in public core.
+
+Tests use isolated synthetic profiles and mock provider streams. macOS builds have ad-hoc integrity signatures and are not notarized; Windows builds remain unsigned. The installed app and private data are not replaced by publishing this preview.

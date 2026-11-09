@@ -10,6 +10,14 @@ Gratis is a community-developed desktop app for focused assistants, group chats,
 
 ![Gratis with a synthetic example conversation](docs/screenshots/community-overview.png)
 
+## Optional sharing and team pilot
+
+[Bot templates](docs/BOT_TEMPLATES.md) share reviewed configuration without private data. The [private team pilot](docs/TEAM_PILOT.md) adds explicit bot grants and per-person text chats using each person's own local provider. It is community-only, opt-in, and not intended for public hosting. See its documented limitations before enabling it.
+
+## Reliability and recovery
+
+Configure run limits, preserve partial work, and create verified local checkpoints in Settings. See [limits and recovery](docs/RELIABILITY.md) for the exact behavior, storage limits and restore commands.
+
 ## Choose your starting point
 
 | What you want | Start here |
