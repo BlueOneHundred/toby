@@ -38,3 +38,5 @@ npx vitest run
 These checks generate local type declarations and use test doubles. Deploy only to an account you control, after configuring the authentication secrets and reviewing expected costs.
 
 GUI tests use a shared launcher that requires a profile under the system temporary directory and passes Chromium’s mock-keychain flag on macOS. They must not access the installed app’s login-keychain item. Production encryption is unchanged; mock-keychain tests do not establish real Keychain permission or notarization behavior.
+
+Linux GUI tests require an unlocked Secret Service. Release CI creates a disposable keyring inside its own D-Bus session and verifies it before launching the app; it does not enable the plaintext storage fallback.

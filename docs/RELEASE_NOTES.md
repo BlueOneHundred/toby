@@ -1,4 +1,4 @@
-Gratis 0.19.0 adds custom schedules and file-library filtering while retaining the installer fixes from 0.18.4.
+Gratis 0.19.1 adds custom schedules and file-library filtering while retaining the installer fixes from 0.18.4.
 
 - Choose Custom cron in Scheduled tasks for monthly, weekday and other five-field schedules. The chat tools can create the same schedules when requested. Invalid expressions do not replace a saved schedule.
 - Filter Files by name or folder path, and sort by recent changes, name or size. Search stays within the selected bot's workspace.

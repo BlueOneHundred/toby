@@ -52,8 +52,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ./dist/*.deb
-          GRATIS_TEST_APP=/opt/Gratis/gratis xvfb-run -a dbus-run-session -- node test/release-smoke.mjs
+          sudo apt-get install -y gnome-keyring libsecret-tools ./dist/*.deb
+          GRATIS_TEST_APP=/opt/Gratis/gratis xvfb-run -a dbus-run-session -- bash scripts/test-linux-desktop.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Gratis-${{ matrix.target }}-${{ matrix.arch }}
