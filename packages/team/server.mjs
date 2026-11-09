@@ -1,12 +1,14 @@
+import {createHash} from 'node:crypto';
 import {createServer} from 'node:http';
 export function teamServer(store){
  const rates=new Map();
+ const limited=(key,max,now)=>{let rate=rates.get(key);if(!rate||rate.until<=now){if(rates.size>=1000){for(const [k,v]of rates)if(v.until<=now)rates.delete(k);if(rates.size>=1000)return true;}rate={count:0,until:now+60000};rates.set(key,rate);}return ++rate.count>max;};
  const server=createServer(async(req,res)=>{
   res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
   const reply=(status,value)=>{res.writeHead(status);res.end(JSON.stringify(value));};
   try{
    if(req.headers.origin)throw new Error('Use the native Gratis connection. Browser requests are not enabled.');
-   const ip=req.socket.remoteAddress||'local',now=Date.now(),prior=rates.get(ip);const rate=prior&&prior.until>now?prior:{count:0,until:now+60000};rates.set(ip,rate);if(++rate.count>120){reply(429,{error:'Wait a minute before trying again.'});return;}if(rates.size>1000)for(const [key,v] of rates)if(v.until<=now)rates.delete(key);
+   const ip=req.socket.remoteAddress||'local',now=Date.now(),authorization=req.headers.authorization||'',caller=/^Bearer [a-f0-9]{64}$/.test(authorization)?'session:'+createHash('sha256').update(authorization).digest('hex'):'anonymous:'+ip;if(limited('ip:'+ip,600,now)||limited(caller,120,now)){reply(429,{error:'Wait a minute before trying again.'});return;}
    if(req.method==='GET'&&req.url==='/health'){reply(200,{service:'gratis-team',version:1});return;}
    if(req.method!=='POST'||!['/join','/call'].includes(req.url))throw new Error('Unsupported endpoint.');
    if(!String(req.headers['content-type']||'').startsWith('application/json'))throw new Error('Use JSON.');

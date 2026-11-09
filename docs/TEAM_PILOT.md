@@ -1,6 +1,6 @@
 # Private team pilot
 
-This optional feature is community-only and off until you connect it. It is a bounded text-first pilot, not a hardened public multi-tenant service. Keep it on loopback or a private authenticated network. The server operator is trusted with plaintext team content. Existing personal chats, memory and credentials are not uploaded or migrated.
+Each server data directory is one workspace; roles apply within that workspace. This optional feature is community-only and off until you connect it. It is a bounded text-first pilot, not a hardened public multi-tenant service. Keep it on loopback or a private authenticated network. The server operator is trusted with plaintext team content. Existing personal chats, memory and credentials are not uploaded or migrated.
 
 ## Start a private server
 

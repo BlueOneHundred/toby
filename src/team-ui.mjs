@@ -3,7 +3,7 @@ export function setupTeamUI({api,getState,refreshSelects}){
  const $=id=>document.getElementById(id);let state=null,selected=null,busy=false,timer;
  const error=e=>{$('team-error').textContent=e.message;$('team-error').hidden=false;};
  const button=(label,action)=>{const b=document.createElement('button');b.type='button';b.className='quiet-button';b.textContent=label;b.onclick=()=>void action().catch(error);return b;};
- let refreshing=false;async function refresh(){if(refreshing)return;refreshing=true;try{state=await api.teamView();render();if(state.connected)await renderNotes();}catch(e){error(e);}finally{refreshing=false;}}
+ let refreshing=false;async function refresh(){if(refreshing)return;refreshing=true;try{state=await api.teamView();render();if(state.connected&&[...$('team-dialog').querySelectorAll('details')].some(d=>d.open))await renderNotes();}catch(e){error(e);}finally{refreshing=false;}}
  function render(){
   $('team-join').hidden=state.connected;$('team-connected').hidden=!state.connected;if(!state.connected)return;
   const noteBot=$('team-note-bot'),noteId=noteBot.value;noteBot.replaceChildren(...state.bots.map(b=>new Option(b.template.name,b.id)));if(state.bots.some(b=>b.id===noteId))noteBot.value=noteId;
@@ -17,6 +17,7 @@ export function setupTeamUI({api,getState,refreshSelects}){
   $('team-send').disabled=!selected||busy;refreshSelects();
  }
  async function renderNotes(){const id=$('team-note-bot').value,list=$('team-notes');list.replaceChildren();if(id)for(const note of await api.teamCall({method:'notes',args:{botId:id}})){const row=document.createElement('div');row.className='team-card';const content=document.createElement('span');content.textContent=note.content+' — '+note.source;row.append(content);if(note.ownerId===state.person.id)row.append(button('Revoke',async()=>{await api.teamCall({method:'revokeNote',args:{id:note.id}});await renderNotes();}));list.append(row);}const approvals=$('team-approvals');approvals.replaceChildren();for(const request of await api.teamCall({method:'approvals'})){const row=document.createElement('div');row.className='team-card';const content=document.createElement('pre');content.textContent=JSON.stringify(request.action,null,2);row.append(content,...[true,false].map(allow=>button(allow?'Approve':'Decline',async()=>{await api.teamCall({method:'approve',args:{id:request.id,allow}});await renderNotes();})));approvals.append(row);}}
+ for(const detail of $('team-dialog').querySelectorAll('details'))detail.addEventListener('toggle',()=>{if(detail.open&&state?.connected)void renderNotes().catch(error);});
  $('team-note-bot').onchange=()=>void renderNotes().catch(error);
  $('team-note-publish').onclick=async()=>{try{await api.teamCall({method:'publishNote',args:{botId:$('team-note-bot').value,content:$('team-note-content').value,source:$('team-note-source').value}});$('team-note-content').value='';await renderNotes();}catch(e){error(e);}};
  $('open-team').onclick=()=>{ $('team-name').value=getState()?.settings.displayName||'';$('team-error').hidden=true;$('team-dialog').showModal();void refresh();timer=setInterval(()=>{if($('team-dialog').open)void refresh();},4000);};
