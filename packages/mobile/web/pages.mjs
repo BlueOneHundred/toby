@@ -4,7 +4,8 @@ import {renderIcon} from '../../../src/assets/icons.mjs';
 export function setupPhonePages({context, command, notice, canSend, editPage}) {
   const $ = id => document.getElementById(id);
   let current = null, libraryScope = null, editTarget = null;
-  const previews=new Set();
+  const previews=new Set(), previewViewports=new Set();
+  const previewSizes=new ResizeObserver(entries=>{for(const {target,contentRect} of entries)target.style.setProperty('--preview-scale',String(contentRect.width/900));});
   let signature = '', avatarSignature = '', nonce = '', delivered = false;
   const pageLink = page => 'gratis://page/' + (page.remote || page.shared ? 'team/' : 'local/') + (page.remote ? page.id : page.shared?.id || page.id);
   function icon(name) { const span = document.createElement('span'); renderIcon(span, name); return span; }
@@ -30,6 +31,7 @@ export function setupPhonePages({context, command, notice, canSend, editPage}) {
     $('phone-pages-empty').hidden = !!list.children.length;
   }
   function update() {
+    for(const viewport of previewViewports)if(!viewport.isConnected){previewSizes.unobserve(viewport);previewViewports.delete(viewport);}
     const data = context();
     document.querySelectorAll('.phone-chat-page').forEach(button=>button.disabled=!canSend());
     $('phone-page-close').disabled=!canSend();$('phone-page-edit').disabled=!canSend();
@@ -104,6 +106,6 @@ export function setupPhonePages({context, command, notice, canSend, editPage}) {
     editTarget = current; $('phone-page-sharing').close();
     if (!await command('pages', undefined, undefined, {pages:{action:'close'}})) editTarget = null;
   };
-  function card(page){const button=document.createElement('button');button.type='button';button.className='phone-chat-page';button.setAttribute('aria-label','Open Page: '+page.title);const previewDocument=context()?.previews?.[page.id];if(previewDocument){const frame=window.document.createElement('iframe'),nonce=crypto.randomUUID();frame.title=page.title+' preview';frame.setAttribute('sandbox','allow-scripts');frame.setAttribute('tabindex','-1');frame.setAttribute('aria-hidden','true');frame.src='/page-frame#'+nonce;previews.add({frame,nonce,document:previewDocument});button.append(frame);}const label=window.document.createElement('span'),title=window.document.createElement('strong'),caption=window.document.createElement('small');title.textContent=page.title;caption.textContent='Page';label.append(title,caption);button.append(icon('chart'),label);button.onclick=()=>void command('pages',undefined,undefined,{pages:{action:'open',id:page.id}});return button;}
+  function card(page){const button=document.createElement('button');button.type='button';button.className='phone-chat-page';button.setAttribute('aria-label','Open Page: '+page.title);const previewDocument=context()?.previews?.[page.id];if(previewDocument){const frame=window.document.createElement('iframe'),nonce=crypto.randomUUID();frame.title=page.title+' preview';frame.setAttribute('sandbox','allow-scripts');frame.setAttribute('tabindex','-1');frame.setAttribute('aria-hidden','true');frame.src='/page-frame#'+nonce;const viewport=window.document.createElement('span');viewport.className='phone-page-preview';viewport.append(frame);previewSizes.observe(viewport);previewViewports.add(viewport);previews.add({frame,nonce,document:previewDocument});button.append(viewport);}const label=window.document.createElement('span'),title=window.document.createElement('strong'),caption=window.document.createElement('small');title.textContent=page.title;caption.textContent='Page';label.append(title,caption);button.append(icon('chart'),label);button.onclick=()=>void command('pages',undefined,undefined,{pages:{action:'open',id:page.id}});return button;}
   return {update, openLibrary, card};
 }

@@ -43,7 +43,7 @@ function renderProviderChoices(){
 }
 function openModels(){$('menu').hidden=true;closeTools();renderProviderChoices();$('model-picker-error').hidden=true;if(!$('model-dialog').open)$('model-dialog').showModal();}
 function views(){
- $('account-button').hidden=!showList||allChats;const profilePhoto=snapshot?.avatars?.__profile;if(profilePhoto&&$('account-button').dataset.photo!==profilePhoto){const photo=document.createElement('img');photo.src=profilePhoto;photo.alt=snapshot?.userProfile?.name||'Your profile';$('account-button').replaceChildren(photo);$('account-button').dataset.photo=profilePhoto;}
+ $('account-button').hidden=!showList||allChats;const profilePhoto=snapshot?.avatars?.__profile||'';if(($('account-button').dataset.photo||'')!==profilePhoto){$('account-button').replaceChildren();if(profilePhoto){const photo=document.createElement('img');photo.src=profilePhoto;photo.alt=snapshot?.userProfile?.name||'Your profile';$('account-button').append(photo);}else renderIcon($('account-button'),'person');$('account-button').dataset.photo=profilePhoto;}
  for(const id of ['menu-profile','menu-find','menu-share','menu-delete'])$(id).hidden=showList;for(const id of ['menu-new','menu-all-chats','choose-model'])$(id).hidden=!showList;
  $('menu-button').hidden=showList&&!allChats&&!snapshot?.team?.connected&&!snapshot?.pages?.items?.length;
  if(showList){chatSearch?.close();void computerUI?.close();}
