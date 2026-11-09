@@ -1,39 +1,62 @@
-# Private team pilot
+# Shared team workspace pilot
 
-Each server data directory is one workspace; roles apply within that workspace. This optional feature is community-only and off until you connect it. It is a bounded text-first pilot, not a hardened public multi-tenant service. Keep it on loopback or a private authenticated network. The server operator is trusted with plaintext team content. Existing personal chats, memory and credentials are not uploaded or migrated.
+This optional, community-only service supports nested client/project spaces and live human conversations. It is a text-first pilot for a private network, not a managed Internet-facing multi-tenant service. The team server operator is trusted with plaintext team content. Existing desktop chats, memory and credentials are never automatically uploaded.
 
-## Start a private server
+## Start the server
 
 Use Node.js 22.16 or newer. From the community repository:
 
 ```sh
+npm ci
 npm run team:start -- "PATH_TO_PRIVATE_TEAM_DATA" 8788
 ```
 
-The server binds only `127.0.0.1`. On first launch it writes `owner-invitation.txt` with private filesystem permissions in the chosen data directory. Open that file locally, then open Gratis Settings → **Team workspace · pilot**. Enter `http://127.0.0.1:8788`, your name and the invitation code. The invitation is single-use and expires after 24 hours. Session tokens expire after seven days and are saved encrypted by the desktop app. Owner-created member/guest invitations are also single-use. An authenticated person can renew their own access without creating a second identity. Owners can remove a member to revoke all their sessions, but cannot mint a member’s login or read their private chats through the API. A server operator who loses the owner login can run `node packages/team/owner-access.mjs PRIVATE_TEAM_DATA_DIRECTORY` locally; this writes a one-hour owner-renewal code to a private file, without modifying chats. Disconnect revokes the current server session when reachable; an offline disconnect reports that remote revocation remains outstanding.
+The service binds to `127.0.0.1`. On first launch it writes a single-use owner invitation to `owner-invitation.txt` with private filesystem permissions. Open that file locally. In Gratis, choose Settings → **Team workspace · pilot**, enter `http://127.0.0.1:8788`, your name and the invitation. Invitations expire after 24 hours; sessions expire after seven days. **Renew my access** preserves your identity and conversations. Disconnect revokes the session when the server is reachable.
 
-For another device, put the loopback service behind your own private HTTPS tunnel, such as Tailscale Serve. Use application invitations in addition to private network membership. This repository does not create a tunnel, open a public port or provision a hosting bill automatically. Keep the server running for availability. Back up the SQLite database and its WAL consistently, or stop the server before copying the data directory. Do not store it in the repository.
+For other computers, use a private HTTPS endpoint, for example your own authenticated private-network tunnel. Invitations are required in addition to network access. This repository does not create a tunnel, expose a port or purchase hosting. Keep the service running. Stop it before copying its data directory, or use a SQLite-aware backup that includes its WAL. Never put this directory in Git.
 
-## Use it
+Lost owner access can be recovered by the server operator with `node packages/team/owner-access.mjs PRIVATE_TEAM_DATA_DIRECTORY`. The command writes a short-lived renewal invitation locally; it does not change chat contents.
 
-1. The owner creates an invitation for a member or guest and shares it privately.
-2. A member selects a local bot and chooses **Publish privately**. Only reviewed configuration is copied. It remains visible only to its creator until they choose a person and **Allow use**.
-3. Each person starts their own chat with a permitted bot. Even the bot owner does not gain access to another person's conversations through the application.
-4. **Send using this computer** queues a durable job and executes it through that person's local Gratis provider. No Claude or Codex token is uploaded to the team service. The result returns to their team chat. This creates a local bot with tools and personal-profile recall disabled.
-5. Explicit shared notes belong to a bot. Only its owner can publish or revoke them. They are supplied as untrusted context to new jobs. Revocation blocks stale in-flight result commits. It cannot erase already downloaded copies or earlier messages.
+## Spaces and access
 
-A job has a stable request ID and one execution lease. A lost connection never automatically launches a second local run. Completed results can be delivered again idempotently. An interrupted or expired execution requires review. Cancellation stops an active local task on the connected desktop; a disconnected worker must observe the cancellation before stopping. No guarantees are made about third-party actions already accepted.
+1. The owner selects Workspace and creates a child space for a client. Create project spaces inside that client as needed (up to eight levels).
+2. Select the intended space before creating a member or guest invitation. Members can create bots; guests can use shared bots and chat. Access is inherited down the space tree, never sideways to another client.
+3. Each person also has a private personal space. Even a workspace owner cannot browse another person's personal space through the API. The server operator still has filesystem access.
+4. **Publish privately** copies a local bot's reviewed instructions, avatar and model preferences into your personal space. It does not copy chats, files, credentials or personal memory. **Move to this space** moves the published configuration and its explicitly published notes into the selected space.
+5. A bot in a business space belongs to that space. Its creator is recorded, but the bot and shared conversations remain when that creator leaves. Removing membership removes access and cancels that person's queued/running tasks in inaccessible spaces. Membership inherited from a parent must be removed at the parent.
+6. Owners set **Allowed AI services** for each space. Restrictions intersect with ancestor restrictions. They apply to new claims and are checked while a response is running and before committing its result.
 
-The service implements owner/member/guest membership, explicit use grants, session/member revocation, private conversation ownership, a metadata-only audit log, bounded daily job creation, and exact-action expiring one-use approvals. The approval queue is viewable in the UI. External tools are disabled in this pilot, so approval records are not advertised as an integrated business-action executor.
+## Live human chats and optional AI
 
-## Remaining gates
+Choose **New chat** beside a bot in the selected space. Everyone with access to that space can see the shared conversation. Human messages sync without starting an AI job. Select **Ask the assistant to reply** when you want an answer. The sender's desktop runs the request using their selected provider and subscription; provider credentials stay there. Other people see the same partial and completed answer, with speaker labels. A second AI request waits for the earlier response in that room.
 
-- Existing personal memory is not migrated into the team service. Shared notes do not replace the local memory system.
-- Account recovery is operator-mediated. There is no managed identity provider, email recovery, MFA, or self-service organization administration.
-- Relay-blind phone transport, team access from the phone, Slack/Mattermost, public business bots/MCP, ePOS, hosted billing and payments are not enabled by this pilot.
-- No enterprise identity provider, independent penetration test, production service-level commitment or Internet-facing hardening is claimed.
-- Do not expose the service publicly. HTTP bearer sessions are acceptable only on loopback; remote clients require HTTPS and your private network controls.
+The server records messages and events transactionally. Event streams reconnect using a monotonically increasing cursor. Request IDs prevent duplicate sends. Jobs use one execution lease and idempotent result delivery. An ambiguous interrupted job is not blindly executed again. Existing version-1 per-person conversations remain private after migration; the server creates a mode-0600 database backup before upgrading to version 2.
 
-The UI uses synthetic fixtures in automated checks; a real multi-device pilot is still required before broader rollout.
+Shared notes are explicit, scoped context, not automatic personal-memory sharing. Retrieval filters authorized space IDs in SQL before returning content, with no sibling-space search. Revocation removes notes from future retrieval and invalidates stale in-flight context. It cannot erase content already downloaded or incorporated in earlier replies.
 
-Run `npm run test:team` for server boundary tests and `node test/community-sharing-desktop.mjs` for the isolated native UI exercise.
+## Phone access
+
+Pair the phone with your own desktop using the current private QR flow described in [Mobile](MOBILE.md). Open **Team chats** in the phone menu. Choose a space and room; send human messages or check **Ask the assistant to reply**. The phone uses the desktop's existing team identity. It cannot name another acting person or bypass space membership. Phone packets are encrypted end to end between that browser profile and its desktop; the separate team server still stores shared content in plaintext.
+
+## Current limits and next phases
+
+- Keep the team service on a private network. No managed identity provider, MFA, SSO, tenant billing, public guest links or service-level promise is included.
+- The sender's desktop must be awake and connected for its AI jobs. A separate always-on runner and failover ownership are future work.
+- Team AI runs with external tools and personal-memory recall disabled. Exact-action approvals exist as a primitive; space-owned connectors and an integrated external-action executor are future work.
+- Files/connectors have space-ownership extension points; full shared file storage, transport adapters, public business bots/MCP, audit export/retention controls and whole-space export/deletion remain later phases.
+- The shared chat API supports explicit participant lists. The UI currently shares rooms with all authorized space members.
+- A server operator can read the service database. Shared team storage itself is not end-to-end encrypted.
+
+## Verification
+
+```sh
+npm run check
+node test/community-sharing-desktop.mjs
+# In another terminal, start an isolated local phone relay first:
+# cd packages/mobile && npx wrangler dev --local --port 18879 --var MOBILE_ENROLLMENT_KEY:<64-character-test-secret>
+node test/shared-human-phone.mjs
+node test/mobile-sync.mjs
+node test/mobile-screens.mjs
+```
+
+The phone fixtures default to a synthetic enrollment secret (`a` repeated 64 times), only for an isolated local test relay. Never use it on a deployed relay. Tests use temporary desktop profiles and a mock keychain. The shared-phone check exercises two people, two browser profiles, streamed/queued responses, human-only messaging and membership revocation. It uses a synthetic provider, not paid live subscriptions.

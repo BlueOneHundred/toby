@@ -1,13 +1,15 @@
-import { mobileCommandSchema, type MobileCommand, type MobileReceipt, type MobileSnapshot } from "./protocol";
+import {validatePhonePacket} from "../../../src/phone-crypto.mjs";
+type Packet={version:1;roomId:string;channel:string;sequence:number;iv:string;ciphertext:string};
 import { sha256Hex, secureEqual } from "./crypto";
 
-interface State { desktopHash: string; inviteHash: string; inviteExpires: number; phoneHash?: string; confirmed: boolean; revoked: boolean; seq: number; digest?: string; receipt?: MobileReceipt }
+interface State { roomId?:string; privacy?:string; desktopHash: string; inviteHash: string; inviteExpires: number; phoneHash?: string; confirmed: boolean; revoked: boolean; seq: number; digest?: string; hello?:Packet; receipt?: {seq:number;packet?:Packet;ok?:boolean;detail?:string} }
 /** Only authorization and command identities are durable. Chat content is an ephemeral projection. */
 export class MobileRoom {
-  private latest?: MobileSnapshot;
+  private latest?: Packet;
+  private refreshAfter = 0;
   private heartbeat = 0;
   private revision = "";
-  private pending?: MobileCommand;
+  private pending?: {seq:number;packet:Packet};
   private pendingUntil = 0;
   constructor(private readonly storage: DurableObjectStorage) {}
   private get(allowRevoked = false): State {
@@ -18,21 +20,23 @@ export class MobileRoom {
     return state;
   }
   private save(s: State): void { this.storage.sql.exec("INSERT OR REPLACE INTO mobile VALUES (1, ?)", JSON.stringify(s)); }
-  async initialize(desktopHash: string, inviteHash: string): Promise<void> {
+  async initialize(desktopHash: string, inviteHash: string, roomId?:string): Promise<void> {
     this.storage.sql.exec("CREATE TABLE IF NOT EXISTS mobile (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)");
     if (this.storage.sql.exec("SELECT id FROM mobile").toArray().length) {const current=this.get(true);if(current.desktopHash!==desktopHash||current.inviteHash!==inviteHash)throw new Error("Connection already exists");return;}
-    this.save({ desktopHash, inviteHash, inviteExpires: Date.now() + 120_000, confirmed: false, revoked: false, seq: 0 });
+    this.save({ roomId,privacy:roomId?"sealed-v1":undefined,desktopHash, inviteHash, inviteExpires: Date.now() + 120_000, confirmed: false, revoked: false, seq: 0 });
     await this.storage.setAlarm(Date.now() + 120_000);
   }
-  async claim(invite: string): Promise<{ token: string }> {
+  async claim(invite: string, hello?:Packet): Promise<{ token: string }> {
     const digest = await sha256Hex(invite);
     const token = crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", "");
     const phoneHash = await sha256Hex(token);
     const state = this.get();
+    if(state.privacy!=="sealed-v1")throw new Error("Private phone pairing requires a fresh code from the desktop.");
+    validatePhonePacket(hello,{roomId:state.roomId,channel:"hello",sequence:0});
     if (state.phoneHash || Date.now() >= state.inviteExpires || !await secureEqual(digest, state.inviteHash)) throw new Error("Pairing link expired or already used");
     const fresh = this.get();
     if (fresh.phoneHash || Date.now() >= fresh.inviteExpires) throw new Error("Pairing link expired or already used");
-    this.save({ ...fresh, phoneHash, inviteHash: "" });
+    this.save({ ...fresh, phoneHash, inviteHash: "",hello });
     return { token };
   }
   private async authorize(token: string): Promise<State> {
@@ -41,29 +45,32 @@ export class MobileRoom {
     if (!state.phoneHash || !await secureEqual(hash, state.phoneHash)) throw new Error("Phone authorization failed");
     return this.get();
   }
-  desktop(desktopHash: string, body: { snapshot?: MobileSnapshot; confirm?: boolean; revoke?: boolean; offline?: boolean; ack?: MobileReceipt }): unknown {
+  desktop(desktopHash: string, body: { snapshot?: Packet; confirm?: boolean; revoke?: boolean; offline?: boolean; ack?: {seq:number;packet:Packet} }): unknown {
     const s = this.get(true);
     const previous = JSON.stringify(s);
     if (s.desktopHash !== desktopHash) throw new Error("Desktop authorization failed");
     if (body.revoke) { this.save({ ...s, revoked: true }); this.latest = undefined; this.pending = undefined; return { revoked: true }; }
+    if(s.privacy!=="sealed-v1")throw new Error("Private phone pairing requires a fresh code from the desktop.");
     if (s.revoked || (!s.confirmed && Date.now() >= s.inviteExpires)) return { claimed: false, confirmed: false, revoked: true };
     if (body.confirm && s.phoneHash) s.confirmed = true;
-    if (body.ack?.seq === s.seq) { s.receipt = { seq: s.seq, ok: Boolean(body.ack.ok), detail: String(body.ack.detail).slice(0, 300) }; this.pending = undefined; }
+    if (body.ack?.seq === s.seq) { validatePhonePacket(body.ack.packet,{roomId:s.roomId,channel:"receipt",sequence:s.seq});s.receipt = body.ack; this.pending = undefined; }
     if (JSON.stringify(s) !== previous) this.save(s);
     if (body.offline) { this.heartbeat = 0; this.latest = undefined; this.pending = undefined; }
-    else { if (s.confirmed && body.snapshot) { this.latest = body.snapshot; this.revision = crypto.randomUUID(); } this.heartbeat = Date.now(); }
+    else { if (s.confirmed && body.snapshot) { validatePhonePacket(body.snapshot,{roomId:s.roomId,channel:"snapshot"});this.latest = body.snapshot; this.revision = crypto.randomUUID(); } this.heartbeat = Date.now(); }
     if (this.pendingUntil < Date.now()) this.pending = undefined;
-    return { claimed: Boolean(s.phoneHash), confirmed: s.confirmed, needsSnapshot: !this.latest, command: s.confirmed ? this.pending : undefined };
+    return { claimed: Boolean(s.phoneHash), confirmed: s.confirmed, needsSnapshot: !this.latest || this.latest.sequence <= this.refreshAfter, hello:s.hello,command: s.confirmed ? this.pending : undefined };
   }
-  async poll(token: string, revision?: string): Promise<unknown> {
+  async poll(token: string, revision?: string, afterSequence?:number): Promise<unknown> {
     const s = await this.authorize(token);
+    if(afterSequence!==undefined&&this.latest&&this.latest.sequence<=afterSequence)this.refreshAfter=Math.max(this.refreshAfter,afterSequence);
     const online = this.heartbeat > Date.now() - 15_000;
-    return { protocol: 6, confirmed: s.confirmed, online, nextSeq: s.seq + 1, revision: this.revision, snapshot: online && s.confirmed && revision !== this.revision ? this.latest : undefined,
+    return { protocol: 7, privacy:"sealed-v1", confirmed: s.confirmed, online, nextSeq: s.seq + 1, revision: this.revision, snapshot: online && s.confirmed && revision !== this.revision && (afterSequence===undefined||!this.latest||this.latest.sequence>afterSequence) ? this.latest : undefined,
       receipt: s.receipt ?? (s.seq && !this.pending ? { seq: s.seq, ok: false, detail: "Outcome unknown. Check the chat before sending again." } : undefined) };
   }
   async command(token: string, raw: unknown): Promise<unknown> {
     await this.authorize(token);
-    const command = mobileCommandSchema.parse(raw);
+    const command=raw as {seq:number;packet:Packet};if(!command||Object.keys(command).some(k=>!["seq","packet"].includes(k)))throw new Error("Encrypted command required");
+    const identity=this.get();validatePhonePacket(command.packet,{roomId:identity.roomId,channel:"command",sequence:command.seq});
     const digest = await sha256Hex(JSON.stringify(command));
     const s = this.get();
     if (!s.confirmed || this.heartbeat <= Date.now() - 15_000 || !this.latest) throw new Error("Gratis is offline or the phone is not confirmed");

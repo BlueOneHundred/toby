@@ -12,7 +12,7 @@ Gratis is a community-developed desktop app for focused assistants, group chats,
 
 ## Optional sharing and team pilot
 
-[Bot templates](docs/BOT_TEMPLATES.md) share reviewed configuration without private data. The [private team pilot](docs/TEAM_PILOT.md) adds explicit bot grants and per-person text chats using each person's own local provider. It is community-only, opt-in, and not intended for public hosting. See its documented limitations before enabling it.
+[Bot templates](docs/BOT_TEMPLATES.md) share reviewed configuration without private data. The [private team pilot](docs/TEAM_PILOT.md) adds nested client/project spaces, live shared human chats and optional AI replies using the sender's local provider. It is community-only, opt-in, and not intended for public hosting. See its documented limitations before enabling it.
 
 ## Reliability and recovery
 
@@ -128,7 +128,7 @@ The phone is a companion to the same desktop workspace, not an independent hoste
 4. Open the link in Safari. Optionally use **Share → Add to Home Screen**; a separate browser storage profile may require pairing again.
 5. Send a test message on the phone. Check it and the reply on desktop, then send one from desktop and check the phone. Confirm the same agent name and avatar on both.
 
-The remembered connection survives normal reloads. Disconnecting the phone revokes it. The relay operator can access relayed content; HTTPS is not end-to-end encryption. If the desktop is offline, the phone keeps your draft but cannot execute the request. See [Mobile](docs/MOBILE.md) for limits, credentials and disconnection.
+The remembered connection survives normal reloads. Disconnecting the phone revokes it. Current phone transport encrypts messages, audio and screen snapshots between your desktop and phone. The QR fragment carries the key; upgrading an older pairing requires a fresh code. The relay still serves the phone application and sees routing metadata; see the trust boundary in [Mobile](docs/MOBILE.md#private-transport-and-trust-boundary). If the desktop is offline, the phone keeps your draft but cannot execute the request. See [Mobile](docs/MOBILE.md) for limits, credentials and disconnection.
 
 ![Mobile chat using synthetic test messages](docs/screenshots/mobile-chat.png)
 

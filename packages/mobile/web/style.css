@@ -236,3 +236,25 @@ body.all-chats .heading{display:block}
 body.computer-visible::before{content:'';position:fixed;inset:0;background:#000;z-index:15}
 #mobile-computer-keyboard-row{position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;overflow:hidden;padding:0}
 #mobile-computer-text{width:1px;min-width:1px;padding:0;border:0}
+#team-panel{width:min(680px,100vw);height:92dvh;max-height:92dvh;padding:18px;border:1px solid var(--line,#333);border-radius:22px;background:var(--bg,#131313);color:var(--text,#eee)}.phone-team-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.phone-team-heading h2{font-size:20px;margin:0}#phone-team-body{display:flex;flex-direction:column;gap:12px;min-height:0}#phone-team-body select,#phone-team-prompt{width:100%;background:var(--card,#222);color:inherit;border:1px solid var(--line,#444);border-radius:14px;padding:12px;font:inherit}.phone-team-room{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px;border-radius:16px;color:inherit;background:var(--card,#222)}.phone-team-room>svg,.phone-team-room>.avatar{width:36px;height:36px;flex:none}#phone-team-rooms{display:grid;gap:8px;max-height:20vh;overflow:auto}#phone-team-messages{overflow:auto;max-height:37vh;min-height:12vh;display:grid;gap:12px}.phone-team-message{background:var(--card,#222);padding:14px;border-radius:18px;overflow-wrap:anywhere}.phone-team-message[data-role=user]{margin-left:30px}#phone-team-form{display:flex;gap:10px}#phone-team-form textarea{min-width:0;resize:none}#phone-team-form button{background:var(--text,#eee);color:var(--bg,#131313);border-radius:50%;width:44px;height:44px;flex:none}#phone-team-new{padding:10px;color:inherit;border:1px solid var(--line,#444);border-radius:16px}
+
+.phone-team-new-row{display:flex;gap:8px;align-items:center}.phone-team-new-row select{flex:1;min-width:0}
+/* Keep shared conversations aligned with the same compact Gratis controls. */
+#team-panel{width:min(680px,calc(100vw - 24px));height:calc(100dvh - 24px);max-height:calc(100dvh - 24px);padding:16px;overflow:hidden}
+#team-panel[open]{display:flex;flex-direction:column;gap:12px}
+#team-panel .phone-team-heading{height:44px;padding:0;background:transparent;flex:none}
+#close-phone-team{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;font-size:23px;color:var(--muted)}
+#phone-team-body{flex:1;overflow:hidden}
+#phone-team-rooms{max-height:110px;flex:none}
+.phone-team-room>.avatar-motion{width:36px;height:36px;flex:none}
+.phone-team-room>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#phone-team-messages{flex:1;max-height:none;display:flex;flex-direction:column;min-height:80px;overscroll-behavior:contain}
+.phone-team-message{flex:none;font-size:16px;line-height:1.5}
+.phone-team-message small{font-size:12px;color:var(--muted)}
+.phone-team-message p:first-child{margin-top:8px}.phone-team-message p:last-child{margin-bottom:0}
+.phone-team-message[data-role=user]{background:var(--user);color:var(--on-user)}
+.phone-team-message[data-role=user] small{color:var(--on-user);opacity:.65}
+#phone-team-form{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:end;gap:10px;flex:none;padding-bottom:env(safe-area-inset-bottom)}
+#phone-team-form label{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+#phone-team-ask{margin:0;width:16px;height:16px;accent-color:var(--text)}
+#phone-team-prompt{font-size:16px;min-height:44px;max-height:120px}

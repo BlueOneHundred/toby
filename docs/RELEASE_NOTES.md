@@ -1,16 +1,18 @@
-# Gratis 0.20.5 community preview
+# Gratis 0.21.0 community preview
 
-This release adds reliability limits, recovery checkpoints and an optional private team pilot.
+This release adds private phone transport and shared human conversations in nested team spaces. Phone and team features remain exclusive to the community repository.
 
-- Preserve early tool receipts on long runs; hitting the record limit pauses instead of discarding completed steps.
-- Configure local response duration, tool-call and failure limits. Pauses preserve partial work and leave queued messages paused; Retry continues from saved progress.
-- Bound per-bot file storage and rotate metadata-only diagnostic logs. Open the Files folder to manage saved files.
-- Cap automatic T3 reconnection and monitoring separately from remote execution. Resume monitoring keeps the same task identity.
-- Verify local recovery checkpoints, reject unknown data versions, and recover from interrupted or corrupted workspace restores. Encrypted credentials stay encrypted. See [recovery instructions](https://github.com/earlyaidopters/gratis-community/blob/v0.20.5/docs/RELIABILITY.md).
-- Export/import reviewed bot templates without chats, memory, files or credentials. Imported tools and personal recall start disabled.
-- Active team jobs recheck grants and cancellation while running, so a revoked or cancelled job stops local work.
-- The opt-in [team pilot](https://github.com/earlyaidopters/gratis-community/blob/v0.20.5/docs/TEAM_PILOT.md) supports per-person sessions, private bots with explicit grants, private per-person team chats, local subscription execution, explicit shared notes, revocation, approval records, and redacted audit metadata. It is not intended for public Internet hosting.
+- New phone pairings encrypt chat text, audio, browser images, commands and delivery receipts between the desktop and paired browser. The relay sees ciphertext and routing metadata. The phone still trusts the JavaScript served by its host; the team server still stores shared team content in plaintext.
+- Upgrade the desktop and your self-hosted relay together, then generate a fresh pairing code. Earlier unencrypted pairings are not silently reused.
+- Organize shared work into client spaces and nested projects, with inherited owner/member/guest access and separate personal spaces.
+- Send live human messages without invoking AI. Choose **Ask the assistant to reply** to use the sender's local provider. Streamed replies and queued turns appear in the same shared transcript.
+- Open authorized shared rooms from the phone using the same desktop identity, agent artwork and subscription.
+- Apply allowed-provider restrictions per space. Revoke access to stop queued/running work; preserve the space's existing business records.
+- Persist ordered events and resume subscriptions after reconnect. Preserve prior private team chats during the backed-up database migration.
+- Fix a phone reload race that could briefly mark a live desktop unavailable. Keep drafts when delivery is uncertain; do not silently repeat completed actions.
 
-Phone integration, public business bots, external team-tool execution and payments are not added by the team pilot. Existing personal data is not migrated into a team database. Phone and team code remain community-only; selected reliability and recovery changes are also in public core.
+The team service remains a private-network text pilot. Shared external tools, always-on runners, managed identity, payments and full shared file storage are later phases. Existing personal desktop chats and credentials are not uploaded or migrated.
 
-Tests use isolated synthetic profiles and mock provider streams. macOS builds have ad-hoc integrity signatures and are not notarized; Windows builds remain unsigned. The installed app and private data are not replaced by publishing this preview.
+Validation uses isolated profiles and synthetic providers: server access/migration tests, encrypted relay tests, two-person/two-phone streaming and revocation, Chromium/WebKit phone regression, and packaged macOS team tests. This release has not been verified on a physical phone. macOS has an ad-hoc integrity signature, not notarization; Windows is unsigned.
+
+See [Team setup](https://github.com/earlyaidopters/gratis-community/blob/v0.21.0/docs/TEAM_PILOT.md) and [private phone setup](https://github.com/earlyaidopters/gratis-community/blob/v0.21.0/docs/MOBILE.md).

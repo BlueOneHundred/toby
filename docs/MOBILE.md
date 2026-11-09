@@ -32,7 +32,7 @@ If the desktop computer is offline, the composer keeps your draft but does not q
 
 Tap the microphone to record, then tap stop. A waveform shows that audio is being captured. The phone sends the recording to the desktop computer for transcription and Haiku cleanup; the result appears in the composer for review before sending. Microphone permission is required. The Mac needs the voice dependencies described in [Quickstart](QUICKSTART.md). Recordings are limited to two minutes and 1 MB.
 
-Audio travels through the same relay as chat commands and is processed by the desktop computer. The relay operator can access in-flight audio. The waveform control also starts a recording; it is not a continuous voice-call feature.
+Audio travels through the same relay as chat commands and is processed by the desktop computer. The recording is encrypted between the phone and desktop while passing through the relay. The waveform control also starts a recording; it is not a continuous voice-call feature.
 
 ## Hosting the relay
 
@@ -54,17 +54,31 @@ For private installation provisioning, the desktop consumes a `mobile-provision.
 
 ## Relay updates
 
-This chat relay uses immediate Durable Object code updates so its request validator and the mobile UI advance together. It does not execute the AI job: the desktop computer retains that work. Pairing hashes and command receipts remain durable through an update, and the desktop republishes the transient chat view. The phone also checks the relay protocol version before enabling model controls.
+This chat relay uses immediate Durable Object code updates so its request validator and the mobile UI advance together. It does not execute the AI job: the desktop computer retains that work. Pairing hashes and encrypted command receipts remain durable through compatible updates, and the desktop republishes the transient chat view. The phone also checks the relay protocol version before enabling model controls.
 
 Cloudflare changed active objects to deferred updates by default on 30 October 2026. Without an explicit strategy, an existing phone connection can keep the previous validator while new assets expose new commands. See [Cloudflare’s update behavior](https://developers.cloudflare.com/changelog/post/2026-10-30-durable-objects-deferred-code-updates/).
 
 ## Privacy and reliability
 
-Pairing credentials are encrypted on the desktop computer and stored in the phone browser's local storage. The relay stores authorization hashes, a command sequence/digest and a bounded delivery receipt. Chat projections and pending command text are transient in relay memory; they are not written to its database. The relay operator can access content while it is being relayed. Transport uses HTTPS; this is not end-to-end encryption.
+### Private transport and trust boundary
+
+New pairings use a random 256-bit key carried in the QR URL fragment, never in a relay API request. The page removes the fragment after reading it. HKDF-SHA256 derives separate AES-256-GCM keys for pairing proof, commands, snapshots and delivery receipts. Each packet uses a random 96-bit nonce and authenticates its room, channel and sequence. The desktop verifies possession of the key before allowing **Trust this phone**. Replayed or cross-session packets are rejected. The desktop persists command and snapshot counters across restarts.
+
+The relay cannot read these application payloads from its API traffic, storage or logs. It does see connection metadata, packet sizes/timing, authorization hashes and sequence numbers. Its database keeps encrypted pairing proofs/receipts and command digests; transient snapshots and commands are ciphertext. Provider credentials remain on the desktop.
+
+This design trusts the desktop, phone, browser origin and delivered phone JavaScript. A malicious operator who replaces that JavaScript could steal the pairing key; encryption does not remove that web-delivery trust. Host the relay/client on infrastructure you trust. It does not claim forward secrecy, protection from compromised endpoints, or an independent security audit. The separate optional team server is also trusted with plaintext shared team messages.
+
+Older unencrypted pairings are never silently reused. Upgrade the desktop and relay together, then choose **Connect phone** to generate a new private pairing and approve it. Old relay rooms can be revoked. Keep your previous app available until you have verified the fresh connection.
+
+Pairing secrets are encrypted in desktop storage and stored in the paired phone's browser profile. Anyone with access to that unlocked profile may access the pairing. Screens, chats and recordings share the same encryption boundary.
 
 Clearing Safari/site data removes the phone credential and drafts. Disconnect the old phone on the desktop computer before pairing another. If a relay restarts, it requests a fresh projection from the desktop. Provider sessions and memory remain on the desktop computer.
 
 Normal phone polling is about 900 ms and desktop polling 1.5 seconds. While a computer view is open, the phone polls at 160 ms and the desktop checks commands at 250 ms, with frame updates throttled to 120 ms. Actual latency depends on the network and cloud browser. Background Safari is subject to iOS suspension. No instant-delivery SLA, offline agent execution or push notification service is included.
+
+## Team chats
+
+When the desktop is connected to a team, **Team chats** appears in the phone menu. It shows only shared rooms available to your desktop identity. Send human messages directly, or check **Ask the assistant to reply** to run through that desktop's selected subscription. Personal team rooms and another person's private space are not exposed. The desktop must stay connected. See [Team pilot](TEAM_PILOT.md).
 
 ## Device verification
 
