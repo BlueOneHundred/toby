@@ -9,5 +9,6 @@ paths.keyboard='<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M5 9h1
 paths['theme-system']='<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" stroke="none"/>';paths.sun='<circle cx="12" cy="12" r="4"/><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4.2 4.2l1.4 1.4m12.8 12.8 1.4 1.4M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>';paths.moon='<path d="M20 15.5A9 9 0 0 1 8.5 4 9 9 0 1 0 20 15.5Z" fill="currentColor" stroke="none"/>';
 paths.stop='<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>';
 paths['plus-filled']=paths.plus;
+paths.chart='<path d="M4 20V13h4v7M10 20V4h4v16M16 20V9h4v11"/>';paths.discussion='<path d="M20 11a8 8 0 0 1-8 8H5l-3 3v-8a9 9 0 1 1 18-3Z"/>';
 export function renderIcon(element,name){element.innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]||paths.plus}</svg>`;element.setAttribute('aria-hidden','true');}
 export default paths;

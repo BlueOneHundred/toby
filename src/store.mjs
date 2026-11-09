@@ -50,6 +50,7 @@ export function validState(s) {
     for (const m of c.messages) {
       if (!m || typeof m.id !== 'string' || ids.has(m.id) || !['user', 'assistant'].includes(m.role) || typeof m.content !== 'string' || !['complete', 'streaming', 'error', 'cancelled'].includes(m.status) || !Number.isFinite(m.createdAt)) return false;
       ids.add(m.id);
+      if(m.pages!==undefined&&(!Array.isArray(m.pages)||m.pages.length>200||m.pages.some(p=>!p||typeof p.id!=='string'||typeof p.title!=='string'||p.title.length>160||!Number.isSafeInteger(p.revision)||p.revision<1)))return false;
       if (m.modelContent !== undefined && typeof m.modelContent !== 'string') return false;
     }
   }

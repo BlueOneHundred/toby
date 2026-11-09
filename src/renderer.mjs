@@ -1,3 +1,4 @@
+import {setupPages} from './pages-ui.mjs';
 import {setupTeamUI} from './team-ui.mjs';
 import {DEFAULT_RUN_LIMITS} from './run-limits.mjs';
 import {reconcileChildren} from './ui-dom.mjs';
@@ -27,7 +28,7 @@ $('choose-character').onclick=()=>characterPicker.open(state.bots.find(b=>b.id==
 
 document.querySelector('#attach-menu [data-icon]').dataset.icon='plus-filled';
 document.querySelectorAll('[data-icon]').forEach(node => { renderIcon(node,node.dataset.icon); });
-let voiceInput, workspaceUI,threadUI;
+let voiceInput, workspaceUI,threadUI,pagesUI;
 let systemIsDark=true;
 let state, editingBot = null, draftTimer, dirtyDraft = null, previousConversation = null;
 let homeVisible = true, submitting = null;
@@ -132,7 +133,7 @@ function render(next) {
   $('attachment-chips').hidden=!(conversation.draftAttachments||[]).length;
   renderAttention(conversation);
   renderMessages(bot, conversation); refreshComposer(); workspaceUI?.sync();threadUI?.sync();
-  updateView();
+  pagesUI?.sync();updateView();
 }
 function updateView() {
   if(homeVisible)workspaceUI?.hideForHome();
@@ -187,6 +188,7 @@ function renderMessages(bot, conversation) {
         copy.onclick=async()=>{await api.copyText(m.content);copy.textContent='Copied';};actions.append(copy);content.append(actions);
       }
     }
+    if(m.pages?.length)for(const page of m.pages)content.append(pagesUI.card(page));
     if(m.attachments?.length){const attachments=el('div','attachment-chips');for(const f of m.attachments)attachments.append(el('span','attachment-chip',f.name));content.prepend(attachments);}
     if(m.activities?.some(a=>a.status==='approval'||a.status==='error')){const list=el('div','activity-list');for(const activity of m.activities.filter(a=>a.status==='approval'||a.status==='error')){const row=el('details','tool-activity');row.dataset.status=activity.status;row.dataset.activityId=activity.id;if(expanded.has(activity.id))row.open=true;const label=(activity.name||'Tool').replace(/^mcp__(?:gratis|composio)__/, '').replaceAll('_',' ');row.append(el('summary',null,`${label} · ${activity.status==='approval'?'Needs your approval':activity.status}`));if(activity.input)row.append(el('pre',null,JSON.stringify(activity.input,null,2)));if(activity.detail)row.append(el('p',null,activity.detail));if(activity.status==='approval'){row.open=true;const actions=el('div','approval-actions');for(const [text,allow] of [['Allow',true],['Deny',false]]){const button=el('button',allow?'primary':'quiet-button',text);button.onclick=()=>run(()=>api.respondApproval({id:activity.id,allow}));actions.append(button);}row.append(actions);}list.append(row);}content.append(list);}
     if (m.role === 'assistant' && m.status === 'complete' && ['claude','codex'].includes(m.provider) && m.usage) content.append(el('div', 'message-usage', `${m.provider==='codex'?'Codex':'Claude'} · ${m.usage.model} · ${m.usage.outputTokens.toLocaleString()} output tokens`));
@@ -226,7 +228,7 @@ async function flushDraft() {
   clearTimeout(draftTimer); const pending = dirtyDraft; if (!pending) return;
   dirtyDraft = null; await run(() => api.setDraft(pending));
 }
-async function navigate(fn) { if(workspaceUI&&await workspaceUI.beforeNavigate()===false)return;threadUI?.cancel();voiceInput?.cancel(); selects.close(); await flushDraft(); const result = await run(fn); if (!result) return; homeVisible = false; updateView(); $('messages').scrollTop = $('messages').scrollHeight; $('prompt').focus(); }
+async function navigate(fn) { await pagesUI?.close(); if(workspaceUI&&await workspaceUI.beforeNavigate()===false)return;threadUI?.cancel();voiceInput?.cancel(); selects.close(); await flushDraft(); const result = await run(fn); if (!result) return; homeVisible = false; updateView(); $('messages').scrollTop = $('messages').scrollHeight; $('prompt').focus(); }
 $('prompt').addEventListener('input', draftChanged);
 $('prompt').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('composer').requestSubmit(); } });
 async function submitMessage(value=$('prompt').value) {
@@ -247,7 +249,7 @@ $('composer').onsubmit=e=>{e.preventDefault();return submitMessage();};
 $('stop').onclick=()=>{if(submitting)submitting.cancelled=true;refreshComposer();return run(()=>api.stop({conversationId:submitting?.conversationId||state.activeConversationId}));};
 $('conversations').onchange = e => navigate(() => api.selectConversation({ id: e.target.value }));
 $('new-chat').onclick = async () => { await navigate(() => api.newConversation({ botId: state.activeBotId })); $('bot-dialog').close(); };
-$('show-bots').onclick = async () => {threadUI?.cancel(); await flushDraft(); voiceInput?.cancel(); selects.close(); homeVisible = true; updateView(); };
+$('show-bots').onclick = async () => {await pagesUI?.close();threadUI?.cancel(); await flushDraft(); voiceInput?.cancel(); selects.close(); homeVisible = true; updateView(); };
 $('search-bots').onclick = () => { $('bot-filter').hidden = !$('bot-filter').hidden; if (!$('bot-filter').hidden) $('bot-filter').focus(); };
 $('bot-filter').oninput = () => render(state);
 $('workspace-profile').onclick = () => openSettings();
@@ -464,9 +466,12 @@ $('avatar-dialog').addEventListener('paste', e => { if (e.target.matches('input,
 $('avatar-dialog').addEventListener('close', () => { imageSequence++; pointer = null; });
 workspaceUI=setupWorkspace({api,getState:()=>state,run,avatar:bot=>makeAvatar(bot,false,'workspace'),onOpenSource:id=>navigate(()=>api.selectConversation({id}))});
 setupTeamUI({api,getState:()=>state,refreshSelects:()=>selects.sync()});
+pagesUI=setupPages({api,getState:()=>state,navigate,beforeOpen:async()=>{await flushDraft();if(await workspaceUI.beforeNavigate()===false)return false;homeVisible=false;},onError:notice,updateView:()=>{document.querySelector('main').classList.toggle('has-page',!!pagesUI?.current);}});
 selects.refresh();
 threadUI=setupThreads({api,getState:()=>state,navigate,avatar:(bot,location='thread')=>makeAvatar(bot,false,location),onCreated:render,onDeleted:render,beforeDelete:async conversationId=>{if(conversationId===state.activeConversationId){voiceInput?.cancel();selects.close();}await flushDraft();},beforeCompose:async()=>{voiceInput?.cancel();selects.close();await flushDraft();return workspaceUI.beforeNavigate();},onModeChange:()=>{homeVisible=false;updateView();refreshComposer();},onError:notice});
 setupMentions({getState:()=>state});
 setupComposerMenu({api:{...api,attachFiles:async value=>{const conversationId=threadUI.composing?await threadUI.commit():value.conversationId;return api.attachFiles({conversationId});}},getState:()=>state,run,workspace:{...workspaceUI,openSchedules:async()=>{try{if(threadUI.composing)await threadUI.commit();workspaceUI.openSchedules();}catch(error){notice(error);}},openComputer:async options=>{try{if(threadUI.composing)await threadUI.commit();workspaceUI.openComputer(options);}catch(error){notice(error);}}}});
 const edition=await api.edition();$('home-title').textContent=edition.name;document.title=edition.name;document.documentElement.dataset.edition=edition.id;$('app-build').textContent=`${edition.name} ${edition.version} · ${edition.platform} ${edition.arch}`;
 api.onState(render); await run(async () => api.snapshot()); if (state.settings.provider === 'claude') void checkClaudeConnection();if(state.settings.provider==='codex')void checkCodexConnection(); $('prompt').focus();
+
+const pendingPageLink=await api.pagesPendingLink();if(pendingPageLink)void pagesUI.open(pendingPageLink);

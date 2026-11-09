@@ -18,7 +18,7 @@ export function setupSelects(root = document) {
     menu.setAttribute('popover', 'auto'); menu.setAttribute('role', 'listbox'); menu.setAttribute('aria-label', label);
     trigger.setAttribute('aria-controls', menu.id);
     select.classList.add('select-source'); select.setAttribute('aria-hidden', 'true'); select.tabIndex = -1;
-    select.after(trigger); (select.closest('dialog') || document.body).append(menu);
+    select.after(trigger); (select.closest('dialog,[popover]') || document.body).append(menu);
     let open = false, activeIndex = 0;
     const enabled = () => [...menu.children].filter(option => !option.disabled);
     function hide() {menu.hidePopover();open = false;trigger.setAttribute('aria-expanded','false');}

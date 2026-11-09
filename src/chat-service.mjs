@@ -172,18 +172,19 @@ export class ChatService {
     const c = this._conversation(conversationId); input = text(input, 'Message', 100_000).trim();
     this._threadOpen(c);
     this._bot(c.botId);
-    const attachments=c.draftAttachments||[];
+    const attachments=c.draftAttachments||[],pageContext=this.pageContexts?.get(c.id);
     if(this.teams.busy(c)||c.queuePaused||(c.teamExchanges||[]).some(e=>e.deferred&&e.status==='waiting_for_user')){
       if((c.queue?.length||0)>=20)throw new Error('This chat already has 20 queued messages.');
-      (c.queue??=[]).push({id:randomUUID(),text:input,attachments,createdAt:Date.now()});c.draft='';c.draftAttachments=[];return this._changed();
+      (c.queue??=[]).push({id:randomUUID(),text:input,attachments,...(pageContext?{pageContext}:{}),createdAt:Date.now()});c.draft='';c.draftAttachments=[];return this._changed();
     }
     c.draftAttachments=[];
-    return this._deliver(c,input,attachments);
+    return this._deliver(c,input,attachments,{pageContext});
   }
   async _deliver(c,input,attachments=[],setup={}) {
     this._threadOpen(c);
     const scheduleContext=setup.scheduled?'Automated scheduled run: '+setup.scheduled.title+'. Complete only the saved task below using current evidence and connected tools. Do not create or modify schedules during this run. Do not treat the timer as new user authorization for unrelated external actions. Return the result in this chat.\n\n':'';
-    const modelContent = scheduleContext+userPrompt(this._bot(c.botId).userPromptTemplate, input)+(attachments.length?'\n\nAttached files in your private workspace:\n'+attachments.map(f=>`${f.name}: ${f.path}`).join('\n'):'');
+    const pageContext=Object.hasOwn(setup,'pageContext')?setup.pageContext:setup.scheduled?null:this.pageContexts?.get(c.id);const pageInstruction=pageContext?'The user is viewing Page '+pageContext+'. For requested edits, read_page first, then update_page with its current revision. Preserve the page identity. The visible user request follows.\n\n':'';
+    const modelContent = pageInstruction+scheduleContext+userPrompt(this._bot(c.botId).userPromptTemplate, input)+(attachments.length?'\n\nAttached files in your private workspace:\n'+attachments.map(f=>`${f.name}: ${f.path}`).join('\n'):'');
     delete c.pendingComputerHelp;delete c.computerPause;delete c.pendingTeamResults;
     c.draftAttachments=[];
     c.messages.push({ id: randomUUID(), role: 'user', content: input, ...(setup.scheduled?{kind:'scheduled-task',sourceScheduleTitle:setup.scheduled.title,sourceScheduleId:setup.scheduled.id,sourceScheduleRunId:setup.scheduled.runId,scheduledFor:setup.scheduled.scheduledFor}:{}), ...(setup.intention?{setupIntention:setup.intention,setupSource:setup.source}:{}), ...(attachments.length?{attachments}:{}), ...(modelContent !== input ? { modelContent } : {}), status: 'complete', createdAt: Date.now() });
@@ -208,7 +209,7 @@ export class ChatService {
     else if(action==='pause')c.queuePaused=true;
     else if(action==='resume'){
       c.queuePaused=false;
-      if(!this.teams.busy(c)&&!this.teams.waiting(c)&&c.queue?.length){const next=c.queue.shift();await this._deliver(c,next.text,next.attachments);}
+      if(!this.teams.busy(c)&&!this.teams.waiting(c)&&c.queue?.length){const next=c.queue.shift();await this._deliver(c,next.text,next.attachments,{pageContext:next.pageContext});}
     }else throw new Error('Unknown queue action.');
     return this._changed();
   }
@@ -330,7 +331,7 @@ export class ChatService {
         await turnMemory?.checkpoint(c,assistant,assistant.status==='complete'?'complete':c.computerPause?'paused':'stopped').catch(()=>{});
         await turnMemory?.enqueue(c,assistant).catch(()=>{});
         await this.teams.onFinished(c,assistant).catch(()=>{});
-        if(assistant.status==='complete'&&!this.teams.busy(c)&&!this.teams.waiting(c)&&!c.pendingComputerHelp&&!c.pendingTeamResults&&!this.tasks.has(c.id)&&!c.queuePaused&&!this.closing&&!this.deletingBots.has(c.botId)&&c.queue?.length){const next=c.queue.shift();await this._deliver(c,next.text,next.attachments);}
+        if(assistant.status==='complete'&&!this.teams.busy(c)&&!this.teams.waiting(c)&&!c.pendingComputerHelp&&!c.pendingTeamResults&&!this.tasks.has(c.id)&&!c.queuePaused&&!this.closing&&!this.deletingBots.has(c.botId)&&c.queue?.length){const next=c.queue.shift();await this._deliver(c,next.text,next.attachments,{pageContext:next.pageContext});}
       }
     })();
     task.started();

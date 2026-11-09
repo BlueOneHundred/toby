@@ -10,6 +10,10 @@ Gratis is a community-developed desktop app for focused assistants, group chats,
 
 ![Gratis with a synthetic example conversation](docs/screenshots/community-overview.png)
 
+## Interactive Pages
+
+Ask your existing agent to create an interactive document, dashboard or visual explanation. Open its page card, request revisions in chat, and share selected pages through your team space. The same pages and agents are available on a paired phone. See [Pages: creation, editing and sharing](docs/PAGES.md).
+
 ## Optional sharing and team pilot
 
 [Bot templates](docs/BOT_TEMPLATES.md) share reviewed configuration without private data. The [private team pilot](docs/TEAM_PILOT.md) adds nested client/project spaces, live shared human chats and optional AI replies using the sender's local provider. It is community-only, opt-in, and not intended for public hosting. See its documented limitations before enabling it.

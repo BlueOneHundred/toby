@@ -1,4 +1,5 @@
 module.exports={
+ protocols:[{name:'Gratis page',schemes:['gratis']}],
  appId:'com.gratis.desktop',productName:'Gratis',directories:{output:'dist'},
  artifactName:'Gratis-${version}-${os}-${arch}.${ext}',
  files:['src/**/*','edition.json','package.json','LICENSE','licenses/**/*','assets/gratis-icon.png','assets/gratis.icns','!node_modules/@openai/codex-*/**/*'],

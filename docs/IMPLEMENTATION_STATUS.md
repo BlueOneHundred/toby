@@ -23,6 +23,10 @@ This is a text-first private pilot. No personal desktop ownership schema is migr
 - Human-owned T3/team external-action integration and stronger operator-level cost limits.
 - Richer custom roles, managed identities and production account administration.
 - Independent deployment/recovery review and real two-device pilot before broader hosting.
-- Optional Pages/artifacts, Slack/Mattermost, isolated public business bot/MCP, read-only business data and future commerce.
+- Slack/Mattermost, isolated public business bot/MCP, read-only business data and future commerce.
 
 These remain explicit follow-up work, not capabilities implied by the presence of the pilot UI.
+
+## Pages
+
+Implemented: encrypted revisioned local documents, shared Claude/Codex tools, page cards, isolated interactive viewer, title/version controls, selected team audiences, native links, republishing/revocation, browser/HTML exports and paired-phone viewing/editing. Public anonymous hosting and simultaneous source editing remain out of scope. See [Pages](PAGES.md).

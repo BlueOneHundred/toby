@@ -95,12 +95,12 @@ export class TeamCoordinator {
   for(const root of this.service.state?.conversations||[])for(const e of root.teamExchanges||[]){
    if(e.origin!=='group-message'||!e.childReplyId)continue;
    const child=this.service.state.conversations.find(c=>c.id===e.childConversationId),reply=child?.messages.find(m=>m.id===e.childReplyId),projection=root.messages.find(m=>m.sourceExchangeId===e.id);if(!reply||!projection)continue;
-   for(const key of ['content','status','provider','usage','phase','error','pauseReason','memoryRefs']){if(reply[key]===undefined)delete projection[key];else projection[key]=structuredClone(reply[key]);}
+   for(const key of ['content','status','provider','usage','phase','error','pauseReason','memoryRefs','pages']){if(reply[key]===undefined)delete projection[key];else projection[key]=structuredClone(reply[key]);}
   }
  }
  async drain(root){
   const s=this.service;if(this.busy(root)||this.waiting(root)||root.pendingComputerHelp||root.computerPause||root.pendingTeamResults||root.queuePaused||s.closing||s.deletingBots.has(root.botId)||s.changingThreads.has(root.id)||!root.queue?.length)return;
-  const next=root.queue.shift();await s._deliver(root,next.text,next.attachments);
+  const next=root.queue.shift();await s._deliver(root,next.text,next.attachments,{pageContext:next.pageContext});
  }
  async share({root,from,signal,toBotId,path}){
   signal.throwIfAborted();const peer=this.members(root).find(b=>b.id===toBotId);if(!peer||peer.id===from.id)throw new Error('Choose another participant in this thread.');this.service._bot(peer.id);if(peer.capabilities?.files===false)throw new Error('This teammate does not have Files enabled.');
