@@ -14,7 +14,9 @@ No Windows ARM64 or Linux ARM64 installer is currently built.
 
 ## Community preview signing
 
-These builds are unsigned and are not notarized. macOS Gatekeeper or Windows SmartScreen can require explicit approval. They are not App Store builds. Only install files from the repository release you trust. Do not disable operating-system protections globally. Signing certificates and Apple notarization credentials must be configured before presenting these as a frictionless public distribution.
+From 0.18.4, Mac apps have complete ad-hoc signatures that seal their resources. They do not have a trusted Developer ID signature and are not notarized. Windows builds remain unsigned. macOS Gatekeeper or Windows SmartScreen can still require explicit approval. They are not App Store builds. Only install files from the repository release you trust. Do not disable operating-system protections globally. Signing certificates and Apple notarization credentials must be configured before presenting these as a frictionless public distribution.
+
+The Mac artifacts in 0.18.3 had an incomplete signature and could be reported as damaged. Use 0.18.4 or newer instead. Do not remove quarantine or disable Gatekeeper to repair that build. An unidentified-developer warning is distinct from a malformed or modified app: review the release and use macOS Privacy & Security to approve a trusted download, or use the source route.
 
 Every release includes `SHA256SUMS.txt`. On macOS use `shasum -a 256 FILE`; on Linux use `sha256sum FILE`; on Windows use `Get-FileHash FILE -Algorithm SHA256`. Compare the result with the matching release entry. A checksum verifies download integrity; it is not a code signature.
 
@@ -60,10 +62,14 @@ npm run dist:win
 npm run dist:linux
 ```
 
-Use an Apple silicon Mac for arm64, an Intel Mac for x64, Windows for the Windows installer and Ubuntu for Linux. The GitHub **Build desktop downloads** workflow does this on all four runners. Each job validates the native runtime adapter, builds installers and launches the packaged app using synthetic data. Tagged builds publish a community prerelease only after every platform passes. Manual workflow runs retain downloadable artifacts; selecting Publish also creates a community prerelease after all builds pass.
+Use an Apple silicon Mac for arm64, an Intel Mac for x64, Windows for the Windows installer and Ubuntu for Linux. The GitHub **Build desktop downloads** workflow does this on all four runners. Each job validates the native runtime adapter, builds installers and launches the packaged app using synthetic data. Mac jobs also verify nested signatures, resource seals, bundle identity and version inside the mounted DMG. To repeat that check locally, run `node scripts/verify-dmg.mjs dist/Gratis-VERSION-mac-ARCH.dmg --smoke`. This verifies integrity and packaged behavior; it does not establish Apple notarization or replace a real browser-download/Gatekeeper check. Tagged builds publish a community prerelease only after every platform passes. Manual workflow runs retain downloadable artifacts; selecting Publish also creates a community prerelease after all builds pass.
 
 ## Release publishing permissions
 
 Some repository policies deny release creation to the Actions integration even when a job requests `contents: write`. In that case, all successful build artifacts remain available. A repository administrator can either configure the optional `GRATIS_RELEASE_TOKEN` Actions secret with access to this repository's releases, or download the four verified artifacts and publish them with an already authenticated local GitHub CLI. Never place that token in source, an installer or a command argument.
 
 The **Publish verified downloads** workflow accepts the previous build run ID, checks that all four platform build jobs passed, and republishes those exact artifacts. It does not rebuild them. It will stop if any platform check failed.
+
+## Reporting an appearance or launch problem
+
+Include the build line from Settings (app name, version, platform and architecture), the download filename, OS version, and a screenshot containing only test data. Note whether Reduce Motion is enabled. A core-edition screenshot and community-edition screenshot can legitimately differ; do not include tokens, account details or private chats.

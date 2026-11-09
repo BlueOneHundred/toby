@@ -125,7 +125,7 @@ app.whenReady().then(async () => {
     window.webContents.send('orbit:workspace-fullscreen',enabled);return enabled;
   }
   for(const [name,fn]of Object.entries({status:()=>mobile.status(),configure:v=>mobile.configure(v),connect:()=>mobile.connect(),confirm:()=>mobile.confirm(),disconnect:()=>mobile.disconnect(),qr:async()=>{const value=mobile.status().inviteUrl;if(!value)throw new Error('Create a pairing link first.');return (await import('qrcode')).default.toDataURL(value,{width:320,margin:2,errorCorrectionLevel:'M'});}}))ipcMain.handle('orbit:mobile-'+name,async(e,value)=>{authorized(e);return fn(value);});
-  ipcMain.handle('orbit:edition',e=>{authorized(e);return {id:edition.id,name:edition.name};});
+  ipcMain.handle('orbit:edition',e=>{authorized(e);return {id:edition.id,name:edition.name,version:app.getVersion(),platform:process.platform,arch:process.arch};});
   ipcMain.handle('orbit:workspace-fullscreen',(e,enabled)=>{authorized(e);if(typeof enabled!=='boolean')throw new Error('Invalid fullscreen mode.');return setWorkspaceFullscreen(enabled);});
   window.webContents.on('before-input-event',(event,input)=>{if(workspaceFullscreen&&input.type==='keyDown'&&['Escape','Esc'].includes(input.key)){event.preventDefault();setWorkspaceFullscreen(false);}});
   window.on('close', e => { e.preventDefault(); if(schedules.items.some(i=>i.enabled)||mobile?.status().confirmed){window.hide();}else void shutdown(); });

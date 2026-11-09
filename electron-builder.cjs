@@ -5,7 +5,7 @@ module.exports={
  extraResources:[{from:'assets/models',to:'models'}],
  asar:true,asarUnpack:['**/*.{node,dll,so,dylib}','**/onnxruntime-node/bin/**','**/@anthropic-ai/claude-agent-sdk-*/**'],
  npmRebuild:false,
- mac:{target:['dmg'],category:'public.app-category.productivity',icon:'assets/gratis.icns',identity:null,extendInfo:{NSMicrophoneUsageDescription:'Gratis records your voice only when you start dictation, so it can turn your speech into an editable message.'},extraResources:[{from:'assets/composio-cli',to:'composio-cli'}]},
+ mac:{target:['dmg'],category:'public.app-category.productivity',icon:'assets/gratis.icns',identity:'-',hardenedRuntime:false,sign:async options=>(await import('./scripts/sign-mac.mjs')).signMacApp(options.app),extendInfo:{NSMicrophoneUsageDescription:'Gratis records your voice only when you start dictation, so it can turn your speech into an editable message.'},extraResources:[{from:'assets/composio-cli',to:'composio-cli'}]},
  dmg:{title:'Gratis',contents:[{x:130,y:220},{x:410,y:220,type:'link',path:'/Applications'}]},
  win:{target:['nsis'],icon:'assets/gratis-icon.png',signAndEditExecutable:false},
  nsis:{oneClick:false,perMachine:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false,createDesktopShortcut:true,shortcutName:'Gratis'},

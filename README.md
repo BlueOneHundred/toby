@@ -6,7 +6,7 @@
 
 Gratis is a community-developed desktop app for focused assistants, group chats, local memory and scheduled work. Choose an eligible Claude or Codex account, give a bot a job, and connect additional tools when you need them. The app is called **Gratis** on every device. This repository contains the community development edition; the separately reviewed [public core](https://github.com/promptadvisers/gratis) is also available.
 
-> **Current release: experimental, unsigned preview.** Mac and Windows may show security warnings. Signing was not completed. Review the source and [installation notes](docs/DOWNLOADS.md) before installing. No model subscription, cloud hosting, preconnected accounts or private user data is included.
+> **Current release: experimental preview.** Mac builds have ad-hoc integrity signatures but are not Developer ID signed or notarized. Windows builds are unsigned. Security warnings may remain. Review the source and [installation notes](docs/DOWNLOADS.md) before installing. No model subscription, cloud hosting, preconnected accounts or private user data is included.
 
 ![Gratis with a synthetic example conversation](docs/screenshots/community-overview.png)
 

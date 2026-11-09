@@ -37,12 +37,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run setup:assets
-      - run: node --test test/platform-runtime.test.mjs
+      - run: node --test test/platform-runtime.test.mjs test/mac-signing.test.mjs
       - run: npm run dist -- --${{ matrix.target }} --${{ matrix.arch }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify DMG signature and run installed-artifact checks
+        if: runner.os == 'macOS'
+        run: |
+          for dmg in dist/*.dmg; do node scripts/verify-dmg.mjs "$dmg" --smoke; done
       - name: Check packaged application
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         run: node test/release-smoke.mjs
       - name: Check packaged application on Ubuntu
         if: runner.os == 'Linux'

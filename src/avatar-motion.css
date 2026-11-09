@@ -9,5 +9,5 @@
 .bot-tile-avatar.avatar-motion{border-radius:0}
 .avatar-photo>.avatar-static{border-radius:50%;object-fit:cover}
 @media(prefers-reduced-motion:no-preference){.avatar-photo{transition:transform 150ms ease}.bot-tile:hover .avatar-photo,.current-bot:hover .avatar-photo{transform:translateY(-1px) scale(1.025)}}
-@media(prefers-reduced-motion:reduce){.avatar-body{transition:none}.avatar-photo{transition:none!important;transform:none!important}}
+@media(prefers-reduced-motion:reduce){.avatar-body{transition:none}.avatar-photo{transition:none!important;transform:none!important}.avatar-motion>.avatar-drawing{visibility:hidden!important}.avatar-motion>.avatar-static{visibility:visible!important}.avatar-motion>.avatar-ghost{display:none}}
 @media(prefers-reduced-motion:no-preference){.profile-button .profile-avatar{transition:transform 150ms ease}.profile-button:hover .profile-avatar{transform:translateY(-1px) scale(1.025)}}

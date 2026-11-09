@@ -1,7 +1,7 @@
 {
   "name": "gratis-community",
   "productName": "Gratis",
-  "version": "0.18.3",
+  "version": "0.18.4",
   "private": true,
   "description": "Gratis desktop and mobile companion, maintained in the public community repository",
   "type": "module",
@@ -21,6 +21,7 @@
     "dist:linux": "electron-builder --linux --x64 --publish never"
   },
   "devDependencies": {
+    "@electron/osx-sign": "2.7.2",
     "@electron/packager": "^20.3.0",
     "@playwright/test": "^1.65.0",
     "electron": "42.11.16",

@@ -1,17 +1,11 @@
-Gratis 0.18.3 fixes the duplicated custom-answer field in bot setup. “Something else” now focuses the main composer, so there is only one editable draft. Quick-answer buttons share the same send protection and Stop handling as typed messages.
+Gratis 0.18.4 repairs macOS bundle signing and adds checks against the actual downloaded installer contents.
 
-Includes the sending, streaming and computer-preview improvements from 0.18.2:
+- Mac apps receive a complete ad-hoc signature, including nested binaries and sealed resources. This fixes the incomplete Electron signature found in 0.18.3. It is not Developer ID signing or Apple notarization; macOS may still require approval for an unidentified developer.
+- Both the DMG builder and local Mac packaging command sign and verify the final app. Release checks mount the DMG and test the app inside it. Modified signed resources fail verification.
+- Local packaging excludes existing build output directories.
+- Settings now show the app name, version, operating system and architecture, making wrong-edition or outdated-build reports easier to diagnose.
+- Changing Reduce Motion now immediately uses the static avatar, even when an animation frame is pending. Packaged tests verify that community avatars animate, respond to the cursor and honor reduced motion. The reported avatar mismatch has not been reproduced with a confirmed affected artifact.
 
-- The circular Stop control appears as soon as a message is submitted. Rapid clicks no longer submit the same message twice, and failed sends preserve the draft.
-- Existing messages and sidebar rows stay in place while responses stream. Sidebar previews strip Markdown formatting, and background status updates no longer reorder chats.
-- Computer startup keeps a calm placeholder instead of flashing an empty white browser. The last useful preview remains visible until a replacement image is ready. Real connection and navigation errors still appear.
-- Creating a bot keeps the conversation in view while its computer prepares in the background.
-- Settings menus have roomier targets. A remembered phone connection now includes a Copy phone address button.
+Includes 0.18.3's single custom-answer editor, rapid-send protection, immediate Stop handling, preserved drafts on errors, stable streamed Markdown, and computer previews that close when returning Home. These behaviors are exercised in the packaged app, using isolated synthetic profiles.
 
-The packaged-build checks exercise rapid Send/Stop, cancellation during a pending send, failed draft recovery, streamed Markdown, stable message elements, settings menus, computer previews and narrow windows.
-
-Available for Apple silicon Mac, Intel Mac, Windows x64 and Ubuntu x64. Returning Home closes the Computer preview on desktop and phone without stopping the bot or deleting its browser state.
-
-Download the installer matching your computer. These are unsigned community preview builds, distributed from the Early AI-dopters public repository. Signing and notarization are not configured yet. See `docs/DOWNLOADS.md` for installation, verification, platform requirements and feature limits.
-
-Existing Gratis data is preserved when updating. Provider accounts, phone pairing, Composio and cloud computers are configured by each user; downloads contain no accounts or chat data.
+Downloads are community previews for Apple silicon Mac, Intel Mac, Windows x64 and Ubuntu x64. Windows builds are unsigned. Existing Gratis workspace data is preserved. No accounts, credentials, chats or private relay configuration are supplied. See [Downloads](DOWNLOADS.md) for platform limits and installation checks.
