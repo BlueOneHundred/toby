@@ -43,6 +43,7 @@ function authorized(event) {
     throw new Error('Unknown renderer');
 }
 function broadcast(snapshot) {
+  if(pages){const ids=new Set(snapshot.bots.map(b=>b.id));phonePagesMeta=phonePagesMeta.filter(p=>p.remote||ids.has(p.botId)).map(p=>p.remote?p:{...p,agent:pages.agent(p.botId)});if(phonePage&&!phonePage.remote)phonePage=ids.has(phonePage.botId)?{...phonePage,agent:pages.agent(phonePage.botId)}:null;}
   mobile?.requestSync();
   if (window && !window.isDestroyed()) window.webContents.send('orbit:state', snapshot);
 }
