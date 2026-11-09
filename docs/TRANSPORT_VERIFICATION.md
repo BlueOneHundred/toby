@@ -1,6 +1,6 @@
 # Private transport and shared-chat verification
 
-The 0.21.0 checks use temporary profiles and synthetic data. They do not read private chats, use paid provider requests, or modify the installed app's data.
+The 0.21.1 checks use temporary profiles and synthetic data. They do not read private chats, use paid provider requests, or modify the installed app's data.
 
 | Check | Coverage |
 | --- | --- |
