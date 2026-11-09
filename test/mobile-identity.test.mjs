@@ -13,3 +13,12 @@ test('removing the first agent does not recolor or reshape the remaining agent',
 test('phone deletion uses the existing desktop agent and group lifecycle',()=>setup(async s=>{const initial=s.state.activeBotId;await s.createBot({name:'Remove me'});const id=s.state.activeConversationId,bot=s.state.activeBotId;await executeMobile(s,mobileCommand({kind:'delete-bot',seq:1,conversationId:id}));assert.ok(!s.state.bots.some(b=>b.id===bot));assert.ok(s.state.bots.some(b=>b.id===initial));await s.createBot({name:'Group member'});const second=s.state.activeBotId;const state=await s.createThread({botIds:[initial,second]});await executeMobile(s,mobileCommand({kind:'delete-thread',seq:2,conversationId:state.activeConversationId}));assert.equal(s.state.bots.length,2);assert.ok(!s.state.conversations.some(c=>c.kind==='group'));}));
 
 test('phone account edits preserve subscription settings and update the shared profile',()=>setup(async s=>{const provider=s.state.settings.provider;await executeMobile(s,mobileCommand({kind:'user-settings',seq:1,conversationId:s.state.activeConversationId,settings:{displayName:'Test profile',appearance:'light'}}));assert.equal(s.state.settings.displayName,'Test profile');assert.equal(s.state.settings.provider,provider);assert.equal(mobileSnapshot(s).userProfile.name,'Test profile');}));
+
+test('phone Page cards include references without leaking document source into chat metadata',()=>setup(async service=>{
+ const conversation=service._conversation(service.state.activeConversationId);
+ conversation.messages.push({id:'page-message',role:'assistant',content:'',status:'complete',createdAt:Date.now(),pages:[{id:'page-id',title:'Test page',revision:2,html:'private source',sources:['private citation']}]});
+ const message=mobileSnapshot(service,conversation.id).selected.messages.find(m=>m.id==='page-message');
+ assert.deepEqual(message.pages,[{id:'page-id',title:'Test page',revision:2}]);
+ assert.ok(!JSON.stringify(message).includes('private source'));
+ assert.ok(!JSON.stringify(message).includes('private citation'));
+}));

@@ -1,16 +1,109 @@
 import {animatedAvatar} from '../../../src/avatar-motion.mjs';
-export function setupPhonePages({context,command,notice,canSend}){
- const $=id=>document.getElementById(id);let nonce='',signature='',avatarSignature='',delivered=false,current=null;
- function update(){const data=context();const list=$('phone-page-list');if($('phone-pages-library').open){list.replaceChildren(...(data?.items||[]).map(page=>{const button=document.createElement('button');button.type='button';button.className='phone-page-card';button.textContent=page.title;button.onclick=()=>void command('pages',undefined,undefined,{pages:{action:'open',id:page.id,remote:!!page.remote}});return button;}));$('phone-pages-empty').hidden=!!data?.items?.length;}
- const selected=data?.selected;if(!selected){if(current){$('phone-page-view').hidden=true;$('phone-page-frame').src='about:blank';}current=null;signature='';avatarSignature='';return;}current=selected;$('phone-pages-library').close();$('phone-page-view').hidden=false;$('phone-page-title').textContent=selected.title;$('phone-page-composer').hidden=!!selected.remote;$('phone-page-send').disabled=!canSend()||!$('phone-page-prompt').value.trim();const nextAvatar=JSON.stringify(selected.agent);if(nextAvatar!==avatarSignature){avatarSignature=nextAvatar;$('phone-page-avatar').replaceChildren(animatedAvatar('phone-page-'+selected.agent.id,{shape:selected.agent.shape,color:selected.agent.color,photo:selected.agent.photo,mode:'idle'}));}const key=selected.id+':'+selected.revision;if(key!==signature){signature=key;nonce=crypto.randomUUID();delivered=false;$('phone-page-frame').src='/page-frame#'+nonce;}}
- addEventListener('message',event=>{if(event.source!==$('phone-page-frame').contentWindow||delivered||event.data?.type!=='gratis-page-ready'||event.data?.nonce!==nonce||!current)return;delivered=true;event.source.postMessage({type:'gratis-page-document',nonce,document:current.document},'*');});
- $('open-phone-pages').onclick=()=>{$('menu').hidden=true;$('phone-pages-library').showModal();update();};$('phone-pages-close').onclick=()=>$('phone-pages-library').close();
- $('phone-page-close').onclick=async()=>{if(!canSend())return;await command('pages',undefined,undefined,{pages:{action:'close'}});};
- $('phone-page-share').onclick=()=>{if(!current)return;const spaces=(context()?.spaces||[]).filter(s=>['owner','member'].includes(s.role));$('phone-page-space').replaceChildren(new Option('Only you',''),...spaces.map(s=>new Option(s.name,s.id)));$('phone-page-space').value=current.shared?.spaceId||'';$('phone-page-sharing-note').textContent=current.remote?'You can copy this page link. The owner manages access.':'Choose a space to share with its members. Links open in Gratis desktop.';$('phone-page-space').disabled=!!current.remote;$('phone-page-share-save').hidden=!!current.remote;$('phone-page-share-result').textContent='';$('phone-page-sharing').showModal();};
- $('phone-page-sharing-close').onclick=()=>$('phone-page-sharing').close();
- $('phone-page-share-save').onclick=async()=>{if(!current||!canSend())return;const sent=await command('pages',undefined,undefined,{pages:{action:'share',id:current.id,spaceId:$('phone-page-space').value||null,participants:null}});if(sent)$('phone-page-share-result').textContent='Updating access on your desktop…';};
- $('phone-page-copy').onclick=async()=>{try{const id=current.remote?current.id:current.shared?.id||current.id;await navigator.clipboard.writeText('gratis://page/'+(current.remote||current.shared?'team/':'local/')+id);$('phone-page-share-result').textContent='Link copied. The recipient needs access in Gratis.';}catch{notice('Copy is unavailable in this browser. Use Share on your desktop.');}};
- $('phone-page-prompt').oninput=()=>{$('phone-page-send').disabled=!canSend()||!$('phone-page-prompt').value.trim();};
- $('phone-page-composer').onsubmit=async e=>{e.preventDefault();if(!current||!canSend())return;const text=$('phone-page-prompt').value.trim();if(text&&await command('send',current.conversationId,text,{pageId:current.id}))$('phone-page-prompt').value='';};
- return{update};
+import {renderIcon} from '../../../src/assets/icons.mjs';
+
+export function setupPhonePages({context, command, notice, canSend, editPage}) {
+  const $ = id => document.getElementById(id);
+  let current = null, libraryScope = null, editTarget = null;
+  const previews=new Set();
+  let signature = '', avatarSignature = '', nonce = '', delivered = false;
+  const pageLink = page => 'gratis://page/' + (page.remote || page.shared ? 'team/' : 'local/') + (page.remote ? page.id : page.shared?.id || page.id);
+  function icon(name) { const span = document.createElement('span'); renderIcon(span, name); return span; }
+  function renderLibrary(data) {
+    const list = $('phone-page-list');
+    list.replaceChildren();
+    const pages = (data?.items || []).filter(page => !libraryScope?.botId || page.botId === libraryScope.botId || page.agent?.id === libraryScope.botId);
+    if (pages.length) {
+      const heading = document.createElement('p'); heading.className = 'phone-library-date'; heading.textContent = 'Pages'; list.append(heading);
+    }
+    for (const page of pages) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'phone-page-card';
+      button.dataset.pageId = page.id; button.disabled = !canSend();
+      const content = document.createElement('span'), title = document.createElement('strong'), detail = document.createElement('small');
+      title.textContent = page.title; detail.textContent = 'Page · ' + (page.remote || page.shared ? 'Shared' : 'Private');
+      content.append(title, detail); button.append(icon('copy'), content);
+      button.onclick = () => void command('pages', undefined, undefined, {pages:{action:'open',id:page.id,remote:!!page.remote}});
+      list.append(button);
+    }
+    for (const file of (libraryScope?.botId === data?.botId ? data?.files || [] : libraryScope?.files || [])) {
+      const row = document.createElement('div'); row.className = 'phone-library-file'; row.append(icon('file'), document.createTextNode(file.name)); list.append(row);
+    }
+    $('phone-pages-empty').hidden = !!list.children.length;
+  }
+  function update() {
+    const data = context();
+    document.querySelectorAll('.phone-chat-page').forEach(button=>button.disabled=!canSend());
+    $('phone-page-close').disabled=!canSend();$('phone-page-edit').disabled=!canSend();
+    if ($('phone-pages-library').open) renderLibrary(data);
+    const selected = data?.selected;
+    if (!selected) {
+      if (current) { $('phone-page-view').hidden = true; $('phone-page-frame').src = 'about:blank'; }
+      current = null; signature = ''; avatarSignature = '';
+      if (editTarget) { const target = editTarget; editTarget = null; editPage?.(target); }
+      return;
+    }
+    current = selected; $('phone-pages-library').close(); $('phone-page-view').hidden = false;
+    $('phone-page-title').textContent = selected.title;
+    $('phone-page-view').setAttribute('aria-label', selected.title + ' by ' + selected.agent.name);
+    const identity = JSON.stringify(selected.agent);
+    if (identity !== avatarSignature) {
+      avatarSignature = identity;
+      $('phone-page-avatar').replaceChildren(animatedAvatar('phone-page-' + selected.agent.id, {shape:selected.agent.shape,color:selected.agent.color,photo:selected.agent.photo,mode:'idle'}));
+    }
+    const key = selected.id + ':' + selected.revision;
+    if (key !== signature) {
+      signature = key; nonce = crypto.randomUUID(); delivered = false;
+      $('phone-page-frame').src = '/page-frame#' + nonce;
+    }
+    if ($('phone-page-sharing').open) {
+      $('phone-page-address').value = pageLink(selected);
+      $('phone-page-sharing').setAttribute('aria-label', 'Share ' + selected.title);for(const button of $('phone-page-access').children){const chosen=(selected.shared?.spaceId||'')===button.dataset.spaceId;button.setAttribute('aria-checked',String(chosen));button.querySelector('.page-access-check').hidden=!chosen;button.disabled=!!selected.remote||!canSend();}
+    }
+  }
+  addEventListener('message', event => {
+    for(const preview of previews){if(!preview.frame.isConnected){previews.delete(preview);continue;}if(event.source===preview.frame.contentWindow&&event.data?.type==='gratis-page-ready'&&event.data.nonce===preview.nonce){event.source.postMessage({type:'gratis-page-document',nonce:preview.nonce,document:preview.document},'*');previews.delete(preview);return;}}
+    if (event.source !== $('phone-page-frame').contentWindow || delivered || event.data?.type !== 'gratis-page-ready' || event.data?.nonce !== nonce || !current) return;
+    delivered = true; event.source.postMessage({type:'gratis-page-document',nonce,document:current.document}, '*');
+  });
+  function openLibrary(scope = null) { libraryScope = scope; $('menu').hidden = true; $('phone-pages-library').showModal(); update(); }
+  $('open-phone-pages').onclick = () => openLibrary();
+  $('phone-pages-close').onclick = () => $('phone-pages-library').close();
+  $('phone-page-close').onclick = () => canSend() && command('pages', undefined, undefined, {pages:{action:'close'}});
+  $('phone-page-share').onclick = () => {
+    if (!current) return;
+    $('phone-page-share-title').textContent = 'Share “' + current.title + '”';
+    $('phone-page-address').value = pageLink(current);
+    $('phone-page-share-result').textContent = '';
+    $('phone-page-edit').hidden = !!current.remote;
+    const spaces = (context()?.spaces || []).filter(s => ['owner','member'].includes(s.role));
+    const access = $('phone-page-access'); access.replaceChildren();
+    for (const option of [{id:'',name:'Only you',detail:'Only you can open this page'}, ...spaces.map(s => ({id:s.id,name:s.name,detail:'People in this team can open this page'}))]) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'phone-page-access-row';
+      const label = document.createElement('span'), name = document.createElement('strong'), detail = document.createElement('small');
+      name.textContent = option.name; detail.textContent = option.detail; label.append(name,detail); button.append(label);
+      const chosen = (current.shared?.spaceId || '') === option.id;button.dataset.spaceId=option.id;const check=icon('check');check.className='page-access-check';check.hidden=!chosen;button.append(check);
+      button.setAttribute('role','radio'); button.setAttribute('aria-checked',String(chosen));
+      button.disabled = !!current.remote || !canSend();
+      button.onclick = async () => {
+        if (!current || !canSend() || (current.shared?.spaceId||'')===option.id) return;
+        if (await command('pages', undefined, undefined, {pages:{action:'share',id:current.id,spaceId:option.id || null,participants:null}})) $('phone-page-share-result').textContent = 'Updating access…';
+      };
+      access.append(button);
+    }
+    $('phone-page-sharing-note').textContent = current.remote ? 'The owner manages access. Recipients need access in Gratis.' : spaces.length ? 'Shared links require membership in the selected team space.' : 'Connect a team in desktop settings to share this page. Anonymous public links are not enabled.';
+    $('phone-page-sharing').showModal();
+  };
+  $('phone-page-sharing-close').onclick = () => $('phone-page-sharing').close();
+  $('phone-page-copy').onclick = async () => {
+    if (!current) return;
+    try { await navigator.clipboard.writeText(pageLink(current)); $('phone-page-share-result').textContent = 'Link copied'; }
+    catch { notice('Copy is unavailable in this browser. Use Share on your desktop.'); }
+  };
+  $('phone-page-address-copy').onclick = () => $('phone-page-copy').click();
+  $('phone-page-edit').onclick = async () => {
+    if (!current || current.remote || !canSend()) return;
+    editTarget = current; $('phone-page-sharing').close();
+    if (!await command('pages', undefined, undefined, {pages:{action:'close'}})) editTarget = null;
+  };
+  function card(page){const button=document.createElement('button');button.type='button';button.className='phone-chat-page';button.setAttribute('aria-label','Open Page: '+page.title);const previewDocument=context()?.previews?.[page.id];if(previewDocument){const frame=window.document.createElement('iframe'),nonce=crypto.randomUUID();frame.title=page.title+' preview';frame.setAttribute('sandbox','allow-scripts');frame.setAttribute('tabindex','-1');frame.setAttribute('aria-hidden','true');frame.src='/page-frame#'+nonce;previews.add({frame,nonce,document:previewDocument});button.append(frame);}const label=window.document.createElement('span'),title=window.document.createElement('strong'),caption=window.document.createElement('small');title.textContent=page.title;caption.textContent='Page';label.append(title,caption);button.append(icon('chart'),label);button.onclick=()=>void command('pages',undefined,undefined,{pages:{action:'open',id:page.id}});return button;}
+  return {update, openLibrary, card};
 }

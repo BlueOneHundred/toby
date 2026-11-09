@@ -30,7 +30,7 @@ After making a local edit, use Share and save access again to publish the new re
 
 ## Phone
 
-The phone's **Pages** menu lists pages available to its paired desktop. Open one to use its controls. For your own page, the composer sends changes to the same agent and synchronizes the new revision to desktop. Shared recipient views are read-only. Phone sharing offers space-wide access or removal; use desktop to select individual people. Page content passes through the encrypted phone transport and is never placed into plaintext relay requests.
+On the phone, open the agent's profile and choose **Library** to see that agent's Pages and files from the paired desktop. Open one to use its controls. For your own page, choose Share → Edit in chat to request changes from the same agent; the revised Page synchronizes to desktop. Shared recipient views are read-only. Phone sharing offers space-wide access or removal; use desktop to select individual people. Page content passes through the encrypted phone transport and is never placed into plaintext relay requests.
 
 ## Boundaries and recovery
 
