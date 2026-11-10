@@ -1,12 +1,13 @@
-# Gratis 0.23.0 community preview
+# Gratis 0.23.2 community preview
 
-- Added optional Slack Socket Mode messaging with a manifest-based setup, encrypted credentials and single-use account linking.
-- Routes owner DMs and allowed-channel mentions to separate conversations under an existing agent, without changing desktop selection.
-- Channel requests exclude private memory and tools. Owner DM memory and tools require separate opt-ins.
-- Saves receipts before acknowledging events; maintains ordered delivery, rate-limit handling and uncertain-delivery review.
-- Added request-owner Stop and scoped, expiring approval buttons. Sensitive action details remain in Gratis.
-- Retains the mobile Pages and profile-photo fixes from the previous source build.
+- Fixed Cancel and Close buttons inheriting the small header-icon dimensions. Footer text now has proper padding, while the header × stays compact.
+- Moved encrypted storage to one shared asynchronous unlock path. Requests are serialized, and a failed or denied unlock stops further attempts until you explicitly retry.
+- Preserved existing chats, settings, credentials and memory. Compatibility tests cover old encrypted files and rollback readability.
+- Added optional Slack messaging with encrypted credentials, single-use owner linking, scoped channel access, durable delivery, Stop and approval controls.
+- Includes the existing phone, team and Pages features. These remain community-only.
 
-This is a one-owner, one-workspace pilot. The desktop must stay online. Hosted OAuth, multi-user Slack execution, inbound files and public Page links are not included. See [Slack setup and verification](SLACK.md). Synthetic transport and packaged UI checks are separate from a live Slack workspace test.
+Mac downloads cover Apple Silicon and Intel. Windows downloads target x64. Ubuntu downloads include a .deb and AppImage for x64.
 
-Mac builds remain ad-hoc signed, not Apple-notarized. Windows builds remain unsigned.
+This is an experimental preview. Mac builds are ad-hoc signed, not Apple-notarized; Windows builds are unsigned. An OS security warning or initial Keychain approval can still occur. The fixes do not bypass operating-system security or promise that future updates never prompt.
+
+Slack is a one-owner, one-workspace pilot. Gratis must stay online. Hosted OAuth, multi-user Slack execution, inbound files and public Page links are not included. See [Slack setup](SLACK.md).

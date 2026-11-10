@@ -40,7 +40,7 @@ Configure run limits, preserve partial work, and create verified local checkpoin
 
 ## Download and install
 
-Open [GitHub Releases](https://github.com/earlyaidopters/gratis-community/releases) and select the latest preview. Expand **Assets** if the files are collapsed. Pick the file for your computer; the automatic GitHub **Source code** ZIP is source, not an app installer.
+Download [Gratis 0.23.2](https://github.com/earlyaidopters/gratis-community/releases/tag/v0.23.2), which includes the Keychain and Cancel/Close fixes. Expand **Assets** if the files are collapsed. Pick the file for your computer; the automatic GitHub **Source code** ZIP is source, not an app installer.
 
 | Platform | File to choose | Install |
 | --- | --- | --- |

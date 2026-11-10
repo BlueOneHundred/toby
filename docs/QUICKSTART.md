@@ -2,7 +2,7 @@
 
 ## 1. Install and launch
 
-Download the installer for your computer from [GitHub Releases](https://github.com/earlyaidopters/gratis-community/releases). For source development, use macOS, Windows or Ubuntu with Node.js 22+ and npm. Clone the repository and run the four commands in the community README. `npm run setup:assets` downloads a fixed revision of the semantic memory encoder and a fixed Composio CLI release, verifies checksums, and installs them only inside this checkout. It does not copy your account configuration or sign you in.
+Download the installer for your computer from [Gratis 0.23.2 downloads](https://github.com/earlyaidopters/gratis-community/releases/tag/v0.23.2). For source development, use macOS, Windows or Ubuntu with Node.js 22+ and npm. Clone the repository and run the four commands in the community README. `npm run setup:assets` downloads a fixed revision of the semantic memory encoder and a fixed Composio CLI release, verifies checksums, and installs them only inside this checkout. It does not copy your account configuration or sign you in.
 
 `npm start` opens **Gratis**. The installed app uses the existing Gratis data folder. A fresh checkout starts with an empty demo conversation.
 
