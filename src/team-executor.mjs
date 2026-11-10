@@ -2,8 +2,8 @@ import {readFile} from 'node:fs/promises';import {join} from 'node:path';import 
 /** Each participant runs only their own job, through their own local provider. */
 export class TeamExecutor{
  constructor({directory,encrypt,decrypt,connection,service,pollMs=2000}){Object.assign(this,{directory,encrypt,decrypt,connection,service,pollMs});this.records={version:1,jobs:{}};this.active=new Map();this.starting=new Set();this.tail=Promise.resolve();}
- async init(){try{this.records=JSON.parse(this.decrypt(await readFile(join(this.directory,'team-executions.secure'))));if(this.records.version!==1||!this.records.jobs)throw new Error('format');}catch(e){if(e.code!=='ENOENT')this.broken=true;}return this;}
- save(){const body=this.encrypt(JSON.stringify(this.records)),job=this.tail.then(()=>atomicWrite(join(this.directory,'team-executions.secure'),body));this.tail=job.catch(()=>{});return job;}
+ async init(){try{this.records=JSON.parse(await this.decrypt(await readFile(join(this.directory,'team-executions.secure'))));if(this.records.version!==1||!this.records.jobs)throw new Error('format');}catch(e){if(e.code!=='ENOENT')this.broken=true;}return this;}
+ save(){const snapshot=JSON.stringify(this.records),job=this.tail.then(async()=>atomicWrite(join(this.directory,'team-executions.secure'),await this.encrypt(snapshot)));this.tail=job.catch(()=>{});return job;}
  async start(jobId){
   if(this.broken)throw new Error('Saved team execution state could not be read. Existing data was preserved.');
   if(this.active.has(jobId))return{started:true};

@@ -1,7 +1,7 @@
 {
   "name": "gratis-community",
   "productName": "Gratis",
-  "version": "0.23.1",
+  "version": "0.23.2",
   "private": true,
   "description": "Gratis desktop and mobile companion, maintained in the public community repository",
   "type": "module",
