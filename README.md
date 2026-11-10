@@ -44,11 +44,11 @@ Download [Gratis 0.23.2](https://github.com/earlyaidopters/gratis-community/rele
 
 | Platform | File to choose | Install |
 | --- | --- | --- |
-| Apple silicon Mac (M-series) | `Gratis-VERSION-mac-arm64.dmg` | Open the DMG, drag Gratis into Applications, launch Gratis |
-| Intel Mac | `Gratis-VERSION-mac-x64.dmg` | Open the DMG, drag Gratis into Applications, launch Gratis |
-| Windows 10/11, x64 | `Gratis-VERSION-win-x64.exe` | Run the installer; choose your install folder if needed |
-| Ubuntu 24.04, x64 | `Gratis-VERSION-linux-amd64.deb` | Run `sudo apt install ./Gratis-VERSION-linux-amd64.deb` with your downloaded filename |
-| Linux x64, portable | `Gratis-VERSION-linux-x86_64.AppImage` | Make it executable and open it; FUSE 2 may be needed |
+| Apple silicon Mac (M-series) | `Gratis-0.23.2-mac-arm64.dmg` | Open the DMG, drag Gratis into Applications, launch Gratis |
+| Intel Mac | `Gratis-0.23.2-mac-x64.dmg` | Open the DMG, drag Gratis into Applications, launch Gratis |
+| Windows 10/11, x64 | `Gratis-0.23.2-win-x64.exe` | Run the installer; choose your install folder if needed |
+| Ubuntu 24.04, x64 | `Gratis-0.23.2-linux-amd64.deb` | Run `sudo apt install ./Gratis-0.23.2-linux-amd64.deb` with your downloaded filename |
+| Linux x64, portable | `Gratis-0.23.2-linux-x86_64.AppImage` | Make it executable and open it; FUSE 2 may be needed |
 
 Windows ARM64 and Linux ARM64 installers are not currently supplied. On a Mac, **Apple menu → About This Mac** identifies the chip. Do not disable Gatekeeper, SmartScreen or antivirus globally. If you do not want an unsigned preview, wait for a signed release. More details and checksums are in [Downloads](docs/DOWNLOADS.md).
 

@@ -10,4 +10,4 @@ Mac downloads cover Apple Silicon and Intel. Windows downloads target x64. Ubunt
 
 This is an experimental preview. Mac builds are ad-hoc signed, not Apple-notarized; Windows builds are unsigned. An OS security warning or initial Keychain approval can still occur. The fixes do not bypass operating-system security or promise that future updates never prompt.
 
-Slack is a one-owner, one-workspace pilot. Gratis must stay online. Hosted OAuth, multi-user Slack execution, inbound files and public Page links are not included. See [Slack setup](SLACK.md).
+Slack is a one-owner, one-workspace pilot. Gratis must stay online. Hosted OAuth, multi-user Slack execution, inbound files and public Page links are not included. See [Slack setup](https://github.com/earlyaidopters/gratis-community/blob/main/docs/SLACK.md).

@@ -1,14 +1,14 @@
 # Install Gratis
 
-Downloads live in the public [Early AI-dopters community releases](https://github.com/earlyaidopters/gratis-community/releases). No website or separate app edition is required. No GitHub sign-in is required to download a public release.
+Download the fixed [Gratis 0.23.2 preview](https://github.com/earlyaidopters/gratis-community/releases/tag/v0.23.2). No website or separate app edition is required. No GitHub sign-in is required to download a public release.
 
 | Computer | Download | Install |
 | --- | --- | --- |
-| Mac with Apple silicon | `Gratis-VERSION-mac-arm64.dmg` | Open and drag Gratis to Applications |
-| Mac with Intel processor | `Gratis-VERSION-mac-x64.dmg` | Open and drag Gratis to Applications |
-| Windows 10/11 x64 | `Gratis-VERSION-win-x64.exe` | Run the per-user installer |
-| Ubuntu 24.04 x64 | `Gratis-VERSION-linux-amd64.deb` | `sudo apt install ./Gratis-VERSION-linux-amd64.deb` |
-| Linux x64 portable | `Gratis-VERSION-linux-x86_64.AppImage` | Make executable, then launch; FUSE 2 may be needed |
+| Mac with Apple silicon | `Gratis-0.23.2-mac-arm64.dmg` | Open and drag Gratis to Applications |
+| Mac with Intel processor | `Gratis-0.23.2-mac-x64.dmg` | Open and drag Gratis to Applications |
+| Windows 10/11 x64 | `Gratis-0.23.2-win-x64.exe` | Run the per-user installer |
+| Ubuntu 24.04 x64 | `Gratis-0.23.2-linux-amd64.deb` | `sudo apt install ./Gratis-0.23.2-linux-amd64.deb` |
+| Linux x64 portable | `Gratis-0.23.2-linux-x86_64.AppImage` | Make executable, then launch; FUSE 2 may be needed |
 
 No Windows ARM64 or Linux ARM64 installer is currently built.
 
@@ -62,7 +62,7 @@ npm run dist:win
 npm run dist:linux
 ```
 
-Use an Apple silicon Mac for arm64, an Intel Mac for x64, Windows for the Windows installer and Ubuntu for Linux. The GitHub **Build desktop downloads** workflow does this on all four runners. Each job validates the native runtime adapter, builds installers and launches the packaged app using synthetic data. Mac jobs also verify nested signatures, resource seals, bundle identity and version inside the mounted DMG. To repeat that check locally, run `node scripts/verify-dmg.mjs dist/Gratis-VERSION-mac-ARCH.dmg --smoke`. This verifies integrity and packaged behavior; it does not establish Apple notarization or replace a real browser-download/Gatekeeper check. Tagged builds publish a community prerelease only after every platform passes. Manual workflow runs retain downloadable artifacts; selecting Publish also creates a community prerelease after all builds pass.
+Use an Apple silicon Mac for arm64, an Intel Mac for x64, Windows for the Windows installer and Ubuntu for Linux. The GitHub **Build desktop downloads** workflow does this on all four runners. Each job validates the native runtime adapter, builds installers and launches the packaged app using synthetic data. Mac jobs also verify nested signatures, resource seals, bundle identity and version inside the mounted DMG. To repeat that check locally, run `node scripts/verify-dmg.mjs dist/Gratis-0.23.2-mac-ARCH.dmg --smoke`. This verifies integrity and packaged behavior; it does not establish Apple notarization or replace a real browser-download/Gatekeeper check. Tagged builds publish a community prerelease only after every platform passes. Manual workflow runs retain downloadable artifacts; selecting Publish also creates a community prerelease after all builds pass.
 
 ## Release publishing permissions
 
