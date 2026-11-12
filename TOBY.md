@@ -4,7 +4,7 @@ Toby is Tavin's personal team of bots, built on the open-source Gratis community
 
 ## What's different from Gratis
 - App name, data folder and app ID: `edition.json` (Toby, `%APPDATA%\Toby`, com.blueonehundred.toby)
-- Installer name, shortcut and Windows icon: `electron-builder.cjs`, `assets/toby-icon.png`
+- Installer name, shortcut and Windows icon: `electron-builder.cjs`, `assets/toby-icon.png` (signAndEditExecutable is on so the .exe carries the Toby name and icon; there is no code-signing certificate, so nothing is signed)
 - User-facing wording: "Gratis" replaced with "Toby" in `src/` (one-for-one, no logic changes)
 - Windows build: `.github/workflows/toby-windows.yml` (Actions tab, "Build Toby for Windows", Run workflow)
 

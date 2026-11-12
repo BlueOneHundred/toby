@@ -8,7 +8,7 @@ module.exports={
  npmRebuild:false,
  mac:{target:['dmg'],category:'public.app-category.productivity',icon:'assets/gratis.icns',identity:'-',hardenedRuntime:false,sign:async options=>(await import('./scripts/sign-mac.mjs')).signMacApp(options.app),extendInfo:{NSMicrophoneUsageDescription:'Toby records your voice only when you start dictation, so it can turn your speech into an editable message.'},extraResources:[{from:'assets/composio-cli',to:'composio-cli'}]},
  dmg:{title:'Gratis',contents:[{x:130,y:220},{x:410,y:220,type:'link',path:'/Applications'}]},
- win:{target:['nsis'],icon:'assets/toby-icon.png',signAndEditExecutable:false},
+ win:{target:['nsis'],icon:'assets/toby-icon.png',signAndEditExecutable:true},
  nsis:{oneClick:false,perMachine:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false,createDesktopShortcut:true,shortcutName:'Toby'},
  linux:{executableName:'gratis',syncDesktopName:true,target:['deb','AppImage'],icon:'assets/gratis-icon.png',category:'Utility',maintainer:'Early AI-dopters',synopsis:'Your personal AI assistants',desktop:{entry:{StartupWMClass:'com.blueonehundred.toby'}}},
  deb:{compression:'zst',depends:['libgtk-3-0t64 | libgtk-3-0','libnotify4','libnss3','libxss1','libxtst6','xdg-utils','libatspi2.0-0t64 | libatspi2.0-0','libuuid1','libsecret-1-0','libasound2t64 | libasound2','libgbm1']},
