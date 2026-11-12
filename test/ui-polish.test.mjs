@@ -14,10 +14,12 @@ test('stream updates preserve existing DOM nodes and only insert/remove changed 
  reconcileChildren(container,[history,changed]);assert.equal(container.lastChild,changed);
 });
 test('stream timestamps do not reorder another chat above the latest actual message',()=>{
- const state={bots:[{id:'a',name:'Alpha',createdAt:1},{id:'b',name:'Beta',createdAt:2}],conversations:[{id:'ca',botId:'a',createdAt:1,updatedAt:9000,messages:[{content:'Old streaming answer',createdAt:10,status:'streaming'}]},{id:'cb',botId:'b',createdAt:2,updatedAt:20,messages:[{content:'New user request',createdAt:20}]}]};
- assert.deepEqual(sidebarItems(state).map(x=>x.key),['b','a']);
- state.conversations[0].updatedAt=99999;assert.deepEqual(sidebarItems(state).map(x=>x.key),['b','a']);
- state.conversations[0].messages.push({content:'New request',createdAt:30});assert.equal(sidebarItems(state)[0].key,'a');
+ const state={bots:[{id:'a',name:'Alpha',createdAt:1},{id:'b',name:'Beta',createdAt:2}],conversations:[{id:'ca',botId:'a',kind:'group',participantIds:['a','b'],createdAt:1,updatedAt:9000,messages:[{content:'Old streaming answer',createdAt:10,status:'streaming'}]},{id:'cb',botId:'b',kind:'group',participantIds:['a','b'],createdAt:2,updatedAt:20,messages:[{content:'New user request',createdAt:20}]}]};
+ // Toby: bots keep a fixed order, so activity ordering is checked on group chats.
+ const groups=()=>sidebarItems(state).filter(x=>x.kind==='group').map(x=>x.key);
+ assert.deepEqual(groups(),['cb','ca']);
+ state.conversations[0].updatedAt=99999;assert.deepEqual(groups(),['cb','ca']);
+ state.conversations[0].messages.push({content:'New request',createdAt:30});assert.equal(groups()[0],'ca');
  assert.equal(sidebarPreview('## **A title**\nSee [the source](https://example.com).'),'A title See the source.');
 });
 test('startup blank frames are placeholders while actual website warnings remain visible',()=>{

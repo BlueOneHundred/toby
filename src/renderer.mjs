@@ -79,7 +79,7 @@ function render(next) {
   const filteredBots = state.bots.filter(b => (b.name+' '+state.conversations.filter(c=>c.botId===b.id).map(c=>c.messages.map(m=>m.content).join(' ')).join(' ')).toLowerCase().includes(query)).sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned));
   const sidebar=sidebarItems(state,query);
   const focusedSidebar=document.activeElement?.closest('#bots button'),focusedKey=focusedSidebar?.dataset.conversationId||focusedSidebar?.dataset.botId;
-  const pinned=sidebar.filter(item=>item.kind==='bot'&&item.pinned),pinnedGrid=el('div','pinned-bots');pinnedGrid.id='pinned-bots';pinnedGrid.setAttribute('aria-label','Pinned bots');
+  const pinned=sidebar.filter(item=>item.kind==='bot'&&item.pinned),pinnedGrid=el('div','pinned-bots');pinnedGrid.id='pinned-bots';pinnedGrid.setAttribute('aria-label','Pinned bots');if(pinned.length){const lead=pinned.length===1&&/^toby$/i.test(pinned[0].bot.name.trim()),label=el('div','pinned-label');label.textContent=lead?'Team lead':'Pinned';pinnedGrid.setAttribute('aria-label',lead?'Team lead':'Pinned bots');pinnedGrid.append(label);}
   for(const item of pinned){const tile=renderBotTile(item.bot,'pinned');tile.classList.add('pinned-bot');tile.setAttribute('aria-pressed',String(item.bot.id===bot?.id&&conversation?.kind!=='group'));pinnedGrid.append(tile);}
   reconcileChildren($('bots'),[...(pinned.length?[pinnedGrid]:[]),...sidebar.filter(item=>item.kind!=='bot'||!item.pinned).map(item=>{
     if(item.kind==='group'){const row=threadUI.sidebarRow(item.conversation,sidebarViews.get(item.key));sidebarViews.set(item.key,row);return row;}

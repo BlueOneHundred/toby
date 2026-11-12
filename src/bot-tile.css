@@ -21,3 +21,5 @@
 @media(max-width:710px){.sidebar-toolbar{height:137px}.bot-picker{padding:24px 12px}.bot-grid{gap:16px}}
 @media(prefers-reduced-motion:no-preference){.bot-tile-status[data-status=busy]{animation:bot-working 1.4s ease-in-out infinite}@keyframes bot-working{50%{opacity:.5}}}
 @media(max-width:710px){.sidebar-toolbar{height:155px}.sidebar-toolbar #show-bots{margin-top:27px}.sidebar-toolbar #search-bots{margin-top:0}}
+
+.pinned-label{flex-basis:100%;text-align:center;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#8a8a8a);padding:2px 0 4px}.page-open .pinned-label{display:none}

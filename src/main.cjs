@@ -55,6 +55,7 @@ app.whenReady().then(async () => {
     catch (error) { if (!['ENOENT', 'EEXIST'].includes(error.code)) throw error; }
   }
   const { ChatService } = await import('./chat-service.mjs');
+  const {TeamFolder}=await import('./team-folder.mjs');
   const [{Connections},{WorkspaceFiles},{CloudComputer},{agentRuntime},{ComposioSignIn}] = await Promise.all([import('./connections.mjs'),import('./workspace-files.mjs'),import('./cloud-computer.mjs'),import('./agent-tools.mjs'),import('./composio-signin.mjs')]);
   const {createSecureStorageAccess}=await import('./secure-storage.mjs');secureStorageAccess=createSecureStorageAccess(safeStorage);
   connections=await new Connections({directory:dataDir,encrypt:secureStorageAccess.encrypt,decrypt:secureStorageAccess.decrypt}).init();
@@ -79,6 +80,8 @@ app.whenReady().then(async () => {
     return{binding,submit:input=>t3Tasks.submit({...input,...binding,conversationId,botId:args.bot.id,sourceMessageId:args.sourceMessageId}),read:id=>t3Tasks.refresh({id,conversationId}).then(jobs=>jobs.find(j=>j.id===id)),send:(id,message)=>t3Tasks.followup({id,message,conversationId}),stop:id=>t3Tasks.cancel({id,conversationId})};
   };
   files=new WorkspaceFiles(dataDir);
+  // Toby: shared team folder (Desktop\Toby\Income) for every bot with Files on.
+  const teamFolder=new TeamFolder(process.env.TOBY_TEAM_FOLDER||(dataOverride?path.join(dataDir,'team-folder'):path.join(app.getPath('desktop'),'Toby','Income')));
   cloud=new CloudComputer(connections,{onFrame:frame=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-frame',frame);if(mobileComputer?.view?.id===frame.conversationId)mobile?.requestSync();},onState:state=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-state',controlState(state));if(mobileComputer?.view?.id===state.conversationId)mobile?.requestSync();}});
   const {MemoryService}=await import('./memory-service.mjs'),{MemoryEmbeddings}=await import('./memory-embeddings.mjs');
   const embeddings=new MemoryEmbeddings({modelPath:(app.isPackaged?path.join(process.resourcesPath,'models','sentence-encoder'):path.join(__dirname,'../assets/models/sentence-encoder'))+path.sep});
@@ -91,7 +94,7 @@ app.whenReady().then(async () => {
         ...retained.map(async seat=>{if(connections.status().cloud&&(humanComputers.has(seat.conversationId)||cloud.serverOwners.get(seat.conversationId))){await cloud.whenIdle(seat.conversationId);await cloud.control(seat.botId,seat.conversationId,false);}setHumanControl(seat.conversationId,false);if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-state',computerSnapshot(seat.conversationId).state);}),
       ]);
       if(results.some(r=>r.status==='rejected'))throw new Error('Could not finish stopping a group computer. Your member changes have not been saved. Try again.');
-    },runtimeFactory:args=>agentRuntime({...args,files,cloud,connections,canUseComputer:()=>!humanComputers.has(args.conversationId),t3:service._conversation(args.conversationId).messaging&&!service._conversation(args.conversationId).messaging.allowTools?undefined:t3Agent(args),schedules:service._conversation(args.conversationId).messaging&&!service._conversation(args.conversationId).messaging.allowTools?undefined:scheduleAgent(args),pages:service._conversation(args.conversationId).messaging?undefined:pages?.tools({botId:args.bot.id,conversationId:args.conversationId})}) });
+    },runtimeFactory:args=>agentRuntime({...args,files,teamFolder,cloud,connections,canUseComputer:()=>!humanComputers.has(args.conversationId),t3:service._conversation(args.conversationId).messaging&&!service._conversation(args.conversationId).messaging.allowTools?undefined:t3Agent(args),schedules:service._conversation(args.conversationId).messaging&&!service._conversation(args.conversationId).messaging.allowTools?undefined:scheduleAgent(args),pages:service._conversation(args.conversationId).messaging?undefined:pages?.tools({botId:args.bot.id,conversationId:args.conversationId})}) });
   await service.init();
   try{const {MessagingRouter}=await import('./messaging-router.mjs');messaging=await new MessagingRouter({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:slack-changed');}}).init();}catch{messagingStartupError='Saved Slack settings could not be opened. Existing data was preserved.';}
   const [{PageStore},{PageController},{PageBrowser},{pageDocument,pageStandalone,PAGE_CSP}]=await Promise.all([import('./pages.mjs'),import('./page-controller.mjs'),import('./page-browser.mjs'),import('./page-document.mjs')]);
