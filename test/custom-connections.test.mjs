@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {Connections,validateCustom} from '../src/connections.mjs';
+import {agentRuntime} from '../src/agent-tools.mjs';
+import {WorkspaceFiles} from '../src/workspace-files.mjs';
+import {fetchImage} from '../src/web-tools.mjs';
+const temp=async t=>{const d=await mkdtemp(join(tmpdir(),'toby-custom-'));t.after(()=>rm(d,{recursive:true,force:true}));return d;};
+const crypt={encrypt:s=>Buffer.from(s).reverse(),decrypt:b=>Buffer.from(b).reverse().toString()};
+test('custom connections are validated, saved encrypted and never expose the token',async t=>{
+ const directory=await temp(t),c=await new Connections({directory,...crypt}).init();
+ await c.configure({customAdd:{name:'Treg',url:'https://treg.to/mcp/',token:'tok_secret_value_123',askFirst:false}});
+ assert.deepEqual(c.status().custom,[{name:'treg',url:'https://treg.to/mcp/',askFirst:false}]);
+ assert.equal(JSON.stringify(c.status()).includes('tok_secret'),false);
+ assert.equal((await readFile(join(directory,'connections.secure'))).toString().includes('tok_secret'),false);
+ assert.deepEqual(c.customMcp(),{treg:{type:'http',url:'https://treg.to/mcp/',headers:{Authorization:'Bearer tok_secret_value_123'}}});
+ const again=await new Connections({directory,...crypt}).init();assert.deepEqual(again.status().custom,c.status().custom);
+ await c.configure({customAdd:{name:'apify',url:'https://mcp.apify.com/'}});assert.deepEqual([...c.customAskFirst()],['apify']);
+ await c.configure({customRemove:'treg'});assert.deepEqual(Object.keys(c.customMcp()),['apify']);
+ for(const bad of [{name:'composio',url:'https://x.example/'},{name:'ok_name',url:'http://x.example/'},{name:'a',url:'https://x.example/'},{name:'ok_name',url:'https://u:p@x.example/'},{name:'ok_name',url:'https://x.example/',token:'has space'}])assert.throws(()=>validateCustom(bad));
+});
+test('only bots with Connected apps get custom connections, and ask-first is passed on',async t=>{
+ const directory=await temp(t),c=await new Connections({directory,...crypt}).init();await c.configure({customAdd:{name:'treg',url:'https://treg.to/mcp/',token:'tok_abcdefgh',askFirst:false}});
+ const files=new WorkspaceFiles(directory),base={conversationId:randomUUID(),files,connections:c,onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal};
+ const on=await agentRuntime({...base,bot:{id:randomUUID(),name:'Lead Researcher',capabilities:{web:true,files:true,computer:false,connections:true}}});
+ assert.deepEqual(on.customServers,['treg']);assert.equal(on.mcpServers.treg.url,'https://treg.to/mcp/');assert.equal(on.customAskFirst.has('treg'),false);
+ const off=await agentRuntime({...base,bot:{id:randomUUID(),name:'Income Coach',capabilities:{web:false,files:true,computer:false,connections:false}}});
+ assert.deepEqual(off.customServers,[]);assert.equal(off.mcpServers.treg,undefined);
+ assert.equal(off.definitions.some(d=>d.name==='view_image'),false);assert.equal(on.definitions.some(d=>d.name==='view_image'),true);
+});
+test('the image tool refuses unsafe links and saves bytes only into Files',async t=>{
+ const signal=new AbortController().signal;
+ for(const bad of ['http://example.com/a.png','https://localhost/a.png','https://192.168.1.2/a.png','file:///etc/passwd'])await assert.rejects(fetchImage(bad,signal));
+ const directory=await temp(t),files=new WorkspaceFiles(directory),id=randomUUID();
+ await files.writeBytes(id,'photos/a.png',Buffer.from([137,80,78,71]));assert.deepEqual(await readFile(join(files.root(id),'photos','a.png')),Buffer.from([137,80,78,71]));
+ await assert.rejects(files.writeBytes(id,'../out.png',Buffer.from([1])));
+});

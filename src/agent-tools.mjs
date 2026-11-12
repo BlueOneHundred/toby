@@ -2,7 +2,7 @@ import {toolResultCheckpoint,traceValue} from './computer-checkpoint.mjs';
 import {createSdkMcpServer,tool} from '@anthropic-ai/claude-agent-sdk';
 import {z} from 'zod';
 import {COMPUTER_ACTIONS} from './cloud-computer.mjs';
-import {searchWeb,readWebpage,publicURL} from './web-tools.mjs';
+import {searchWeb,readWebpage,publicURL,fetchImage} from './web-tools.mjs';
 import {copyBetween} from './team-folder.mjs';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
@@ -43,6 +43,13 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
         const result=await cloud.execute({botId:bot.id,conversationId,name:'browse_url',args:{url},signal,finishStarted:true});return text({url,output:result.output,observation:result.observation});}
     });
   }
+  if(capabilities.web){
+    register('view_image','Look at a public image by its https link (a listing photo, an ad image, a logo). Returns the image so you can see it. Optionally save it to your private Files with saveAs (needs Files), then copy_to_team to share it.',{url:z.string(),saveAs:z.string().optional()},async({url,saveAs})=>{
+      const image=await fetchImage(url,signal);let saved='';
+      if(saveAs){if(!capabilities.files)throw new Error('Saving needs Files switched on for this bot.');await files.writeBytes(bot.id,saveAs,image.bytes);saved=` Saved to your Files as ${saveAs}.`;}
+      return {checkpoint:{url:image.url,bytes:image.bytes.length,saved:saveAs||null},content:[{type:'text',text:`Image from ${image.url} (${image.mimeType}, ${Math.round(image.bytes.length/1024)} KB).${saved}`},{type:'image',mimeType:image.mimeType,data:image.bytes.toString('base64')}]};
+    });
+  }
   if(capabilities.files){
     register('list_files','List files in this bot’s private workspace. Paths are relative.',{},async()=>text(await files.list(bot.id)));
     register('read_file','Read a text file, PDF or image in this bot’s workspace. Use this to inspect attached files.',{path:z.string()},async({path})=>files.content(bot.id,path));
@@ -76,5 +83,6 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
   }
   if(tools.length)mcpServers.gratis=createSdkMcpServer({name:'gratis',version:'1.0.0',tools});
   if(capabilities.connections&&connections.status().composio)mcpServers.composio=await connections.mcp();
-  return {mcpServers,definitions,onActivity,collaboration,memory,t3,schedules,pages:capabilities.files?pages:undefined,teamFolder:!!(teamFolder&&capabilities.files),web:capabilities.web,capabilities,workspaceRoot:files.root(bot.id),approve,signature:JSON.stringify({capabilities,participants:collaboration?.members.map(m=>m.id),memory:!!memory,schedules:!!schedules,pages:!!pages,teamFolder:!!(teamFolder&&capabilities.files),cloud:connections.status().cloud,composio:connections.status().composio,t3:t3?.binding})};
+  const custom=capabilities.connections&&connections.customMcp?connections.customMcp():{};Object.assign(mcpServers,custom);const customAskFirst=connections.customAskFirst?connections.customAskFirst():new Set();
+  return {mcpServers,customServers:Object.keys(custom),customAskFirst,definitions,onActivity,collaboration,memory,t3,schedules,pages:capabilities.files?pages:undefined,teamFolder:!!(teamFolder&&capabilities.files),web:capabilities.web,capabilities,workspaceRoot:files.root(bot.id),approve,signature:JSON.stringify({capabilities,participants:collaboration?.members.map(m=>m.id),memory:!!memory,schedules:!!schedules,pages:!!pages,teamFolder:!!(teamFolder&&capabilities.files),cloud:connections.status().cloud,composio:connections.status().composio,custom:Object.keys(custom),t3:t3?.binding})};
 }

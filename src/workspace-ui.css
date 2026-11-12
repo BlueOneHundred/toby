@@ -42,3 +42,4 @@ main.workspace-open{padding-right:var(--workspace-width,360px)}#work-panel{width
 #computer-screen{touch-action:none;user-select:none;-webkit-user-drag:none}#computer-screen[data-control=human]{cursor:default}
 
 .workspace-file-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.workspace-file-tools input{min-width:100px;flex:1}.workspace-file-tools select,.workspace-file-tools .custom-select{max-width:155px}.workspace-file-tools input,.workspace-file-tools select{box-sizing:border-box}
+.custom-connection{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}.custom-connection button{font-size:12px;padding:5px 10px;flex:none}.check-row{display:flex;align-items:center;gap:8px}

@@ -28,3 +28,19 @@ export function extractWebpage(response){
  return{url:response.url,title:doc.querySelector('title')?.textContent||'',text};
 }
 export async function readWebpage(url,signal){return extractWebpage(await fetchText(url,signal));}
+// Toby: download a public image so a bot can look at it (listing photos, current ads, brand logos).
+const IMAGE_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
+export async function fetchImage(value,signal,redirects=0){
+ const url=publicURL(value);if(redirects>5)throw new Error('Too many redirects.');
+ const addresses=await lookup(url.hostname,{family:4,all:true});if(!addresses.length||addresses.some(a=>!publicAddress(a.address))){const error=new Error('Private network destinations are blocked.');error.code='URL_BLOCKED';throw error;}
+ const address=addresses[0];
+ return new Promise((resolve,reject)=>{
+  const request=https.get(url,{signal,timeout:20000,lookup:(_hostname,_options,callback)=>callback(null,[address]),headers:{'User-Agent':'Mozilla/5.0 (Toby personal research assistant)','Accept':'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8','Accept-Encoding':'identity'}},response=>{
+   if(response.statusCode>=300&&response.statusCode<400&&response.headers.location){response.resume();resolve(fetchImage(new URL(response.headers.location,url).href,signal,redirects+1));return;}
+   if(response.statusCode!==200){response.resume();reject(new Error(`Image returned HTTP ${response.statusCode}.`));return;}
+   const type=String(response.headers['content-type']||'').split(';')[0].trim().toLowerCase();
+   if(!IMAGE_TYPES.has(type)){response.resume();reject(new Error(`That link is not a PNG, JPEG, WebP or GIF image (it is ${type||'unknown'}).`));return;}
+   let size=0;const chunks=[];response.on('data',chunk=>{size+=chunk.length;if(size>4500000)response.destroy(new Error('Images must be smaller than 4.5 MB.'));else chunks.push(chunk);});response.on('error',reject);response.on('end',()=>resolve({url:url.href,mimeType:type,bytes:Buffer.concat(chunks)}));
+  });request.on('timeout',()=>request.destroy(new Error('Image request timed out.')));request.on('error',reject);
+ });
+}
