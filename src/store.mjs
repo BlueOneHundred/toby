@@ -7,7 +7,7 @@ import {validateRunLimits} from './run-limits.mjs';
 export const DEFAULT_SETTINGS = Object.freeze({ provider: 'demo', baseUrl: 'http://127.0.0.1:11434/v1', model: '', effort: 'medium', voiceCleanup: true, voiceLanguage: 'en', displayName: '', profileAvatarDataUrl: null });
 export function initialState() {
   const now = Date.now(), botId = randomUUID(), conversationId = randomUUID();
-  return { version: 1, bots: [{ id: botId, name: 'Gratis', instructions: 'Be helpful, clear, and concise.', userPromptTemplate: '{{message}}', promptMode: 'auto', promptGenerated: false, color: '#496e57', avatarDataUrl: null, createdAt: now }], conversations: [{ id: conversationId, botId, title: 'New conversation', draft: '', messages: [], createdAt: now, updatedAt: now }], activeBotId: botId, activeConversationId: conversationId, settings: { ...DEFAULT_SETTINGS } };
+  return { version: 1, bots: [{ id: botId, name: 'Toby', instructions: 'Be helpful, clear, and concise.', userPromptTemplate: '{{message}}', promptMode: 'auto', promptGenerated: false, color: '#496e57', avatarDataUrl: null, createdAt: now }], conversations: [{ id: conversationId, botId, title: 'New conversation', draft: '', messages: [], createdAt: now, updatedAt: now }], activeBotId: botId, activeConversationId: conversationId, settings: { ...DEFAULT_SETTINGS } };
 }
 export function validState(s) {
   try{if(s?.settings?.runLimits!==undefined)validateRunLimits(s.settings.runLimits);}catch{return false;}

@@ -1,0 +1,34 @@
+# Toby: builds the Windows installer and publishes it as a GitHub Release in this repository.
+# Run it from the Actions tab: "Build Toby for Windows" -> "Run workflow".
+name: Build Toby for Windows
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run setup:assets
+      - run: node --test test/platform-runtime.test.mjs
+      - run: npm run dist -- --win --x64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Check packaged application
+        run: node test/release-smoke.mjs
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          TAG="toby-v${VERSION}-build${GITHUB_RUN_NUMBER}"
+          cd dist
+          sha256sum *.exe > SHA256SUMS.txt
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Toby ${VERSION} (build ${GITHUB_RUN_NUMBER})" --notes "Windows installer for Toby, built from Gratis community ${VERSION}. Unsigned: Windows SmartScreen will ask you to click More info, then Run anyway." ./*.exe SHA256SUMS.txt

@@ -42,6 +42,6 @@ export async function getCodexModels(){
       if(m.id===1){child.stdin.write(JSON.stringify({method:'initialized',params:{}})+'\n');send(2,'model/list',{limit:100,includeHidden:false});}
       if(m.id===2){models.push(...(m.result?.data||[]));cursor=m.result?.nextCursor;if(cursor)send(2,'model/list',{limit:100,includeHidden:false,cursor});else finish(null,models.filter(m=>!m.hidden).map(m=>({id:m.model||m.id,name:m.displayName||m.model||m.id,isDefault:!!m.isDefault,defaultEffort:m.defaultReasoningEffort||'medium',efforts:(m.supportedReasoningEfforts||[]).map(e=>e.reasoningEffort)})));}
     });
-    send(1,'initialize',{clientInfo:{name:'gratis_desktop',title:'Gratis',version:'0.8.0'}});
+    send(1,'initialize',{clientInfo:{name:'gratis_desktop',title:'Toby',version:'0.8.0'}});
   });
 }

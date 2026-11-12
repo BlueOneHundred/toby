@@ -25,5 +25,5 @@ export function executableCandidates(name,env,platform=process.platform,arch=pro
 }
 export async function findExecutable(name,env=runtimeEnvironment(),options={}){
  for(const candidate of executableCandidates(name,env,options.platform,options.arch))try{await access(candidate,process.platform==='win32'?constants.F_OK:constants.X_OK);return candidate;}catch{}
- throw new Error(`${name} was not found. Install its native client on this computer, then restart Gratis.`);
+ throw new Error(`${name} was not found. Install its native client on this computer, then restart Toby.`);
 }

@@ -48,7 +48,7 @@ export function setupVoiceInput({api,getContext,insertText,isBusy,notice,onState
   function friendlyError(error) {
     const message=String(error?.message||error);
     if(/silent|no clear speech/i.test(message))return 'No speech detected. Try recording again.';
-    if(/microphone|notallowed|permission/i.test(message))return 'Allow Gratis to use your microphone in System Settings → Privacy & Security → Microphone.';
+    if(/microphone|notallowed|permission/i.test(message))return 'Allow Toby to use your microphone in System Settings → Privacy & Security → Microphone.';
     if(/too large|8 MB|two minutes/i.test(message))return 'Try a shorter recording.';
     return 'Could not transcribe that recording. Please try again.';
   }

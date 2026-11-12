@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {launchTestApp} from './electron-fixture.mjs';
-const candidates=process.platform==='darwin'?['dist/mac-arm64/Gratis.app/Contents/MacOS/Gratis','dist/mac/Gratis.app/Contents/MacOS/Gratis']:process.platform==='win32'?['dist/win-unpacked/Gratis.exe']:['dist/linux-unpacked/gratis','dist/linux-unpacked/Gratis'];
+const candidates=process.platform==='darwin'?['dist/mac-arm64/Toby.app/Contents/MacOS/Toby','dist/mac/Toby.app/Contents/MacOS/Toby']:process.platform==='win32'?['dist/win-unpacked/Toby.exe']:['dist/linux-unpacked/gratis','dist/linux-unpacked/Gratis'];
 const executable=process.env.GRATIS_TEST_APP||candidates.find(existsSync);if(!executable)throw Error('Packaged Gratis executable not found.');
 execFileSync(process.execPath,['test/package-edition.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});
 execFileSync(process.execPath,['test/packaged-avatars.mjs'],{env:{...process.env,GRATIS_TEST_APP:path.resolve(executable)},stdio:'inherit',timeout:90000});

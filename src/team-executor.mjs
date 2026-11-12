@@ -32,7 +32,7 @@ export class TeamExecutor{
   if(!record.assistantId)throw new Error('Execution was interrupted before its reply was recorded. Review the local chat; do not rerun blindly.');
   const reply=this.service._conversation(record.conversationId).messages.find(m=>m.id===record.assistantId);if(!reply||reply.status==='streaming')throw new Error('The local reply has not finished.');
   const content=reply.content||reply.error||'The local run stopped without a reply.';
-  const result=content.length>99000?content.slice(0,99000)+'\n\n[Full reply is preserved in the local Gratis chat.]':content;
+  const result=content.length>99000?content.slice(0,99000)+'\n\n[Full reply is preserved in the local Toby chat.]':content;
   await this.connection.call('complete',{jobId:record.jobId,lease:record.lease,result,outcome:reply.status});record.phase='delivered';delete record.error;delete record.lease;await this.save();
  }
  status(){return Object.values(this.records.jobs).filter(r=>r.endpoint===this.connection.data.endpoint).map(({jobId,phase,error,conversationId})=>({jobId,phase,error,conversationId}));}

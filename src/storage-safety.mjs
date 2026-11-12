@@ -6,12 +6,12 @@ export const STORAGE_VERSION=1;
 export const CHECKPOINT_FILES=Object.freeze(['workspace.json','messaging.secure','pages.secure','memory.secure','memory-key.secure','connections.secure','schedules.secure','t3-tasks.secure','t3-connection.secure','storage-format.json']);
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function requireVersion(value,label='Saved data'){
- if(!value||value.version!==1)throw new Error(`${label} has an unsupported version. Use a compatible Gratis release; existing files were preserved.`);
+ if(!value||value.version!==1)throw new Error(`${label} has an unsupported version. Use a compatible Toby release; existing files were preserved.`);
 }
 async function regular(path){const s=await lstat(path);if(!s.isFile()||s.isSymbolicLink())throw new Error('Recovery files must be regular files.');if(s.size>256000000)throw new Error('Recovery file exceeds the supported size.');return s;}
 export async function atomicWrite(path,bytes){const temp=path+'.'+randomUUID()+'.tmp';let handle;try{handle=await open(temp,'wx',0o600);await handle.writeFile(bytes);await handle.sync();await handle.close();handle=null;await rename(temp,path);}finally{await handle?.close();await unlink(temp).catch(()=>{});}}
 export async function assertStorageCompatible(directory){
- for(const name of ['storage-format.json','workspace.json']){try{await regular(join(directory,name));const data=JSON.parse(await readFile(join(directory,name),'utf8'));requireVersion(data,name);if(name==='storage-format.json'&&(!Number.isInteger(data.minimumReader)||data.minimumReader>STORAGE_VERSION))throw new Error('This data requires a newer Gratis release. Existing files were preserved.');}catch(e){if(e.code!=='ENOENT')throw new Error(e instanceof SyntaxError?'Saved workspace is unreadable. Existing files were preserved.':e.message);}}
+ for(const name of ['storage-format.json','workspace.json']){try{await regular(join(directory,name));const data=JSON.parse(await readFile(join(directory,name),'utf8'));requireVersion(data,name);if(name==='storage-format.json'&&(!Number.isInteger(data.minimumReader)||data.minimumReader>STORAGE_VERSION))throw new Error('This data requires a newer Toby release. Existing files were preserved.');}catch(e){if(e.code!=='ENOENT')throw new Error(e instanceof SyntaxError?'Saved workspace is unreadable. Existing files were preserved.':e.message);}}
 }
 export async function createCheckpoint(directory){
  await assertStorageCompatible(directory);const entries={};let size=0;
@@ -34,7 +34,7 @@ export async function readCheckpoint(path){
  const entries={};let total=0;
  for(const [name,expected] of Object.entries(manifest.files)){await regular(join(path,name));const bytes=await readFile(join(path,name));total+=bytes.length;if(total>512000000||expected.bytes!==bytes.length||expected.sha256!==digest(bytes))throw new Error('Checkpoint verification failed; no data was restored.');entries[name]=bytes;}
  const workspace=JSON.parse(entries['workspace.json'].toString());requireVersion(workspace,'Checkpoint workspace');const {validState}=await import('./store.mjs');if(!validState(workspace))throw new Error('Checkpoint workspace is invalid; existing files were preserved.');
- if(entries['storage-format.json']){const format=JSON.parse(entries['storage-format.json']);requireVersion(format);if(format.minimumReader>STORAGE_VERSION)throw new Error('Checkpoint requires a newer Gratis release.');}
+ if(entries['storage-format.json']){const format=JSON.parse(entries['storage-format.json']);requireVersion(format);if(format.minimumReader>STORAGE_VERSION)throw new Error('Checkpoint requires a newer Toby release.');}
  if(Boolean(entries['memory.secure'])!==Boolean(entries['memory-key.secure']))throw new Error('Checkpoint is missing part of the encrypted memory.');
  return {manifest,entries};
 }
@@ -69,6 +69,6 @@ export async function prepareStorage(directory){
 }
 export async function acquireDataLock(directory){
  await mkdir(directory,{recursive:true,mode:0o700});const path=join(directory,'recovery.lock'),token=randomUUID();
- for(let attempt=0;attempt<2;attempt++){try{await writeFile(path,JSON.stringify({pid:process.pid,token}),{flag:'wx',mode:0o600});return async()=>{const current=JSON.parse(await readFile(path,'utf8').catch(()=> '{}'));if(current.token===token)await unlink(path);};}catch(e){if(e.code!=='EEXIST')throw e;let prior;try{prior=JSON.parse(await readFile(path,'utf8'));}catch{throw new Error('Workspace lock needs inspection. No files were changed.');}if(!Number.isInteger(prior.pid)||prior.pid<=0)throw new Error('Invalid workspace lock.');try{process.kill(prior.pid,0);throw new Error('Quit Gratis before recovering this workspace.');}catch(err){if(err.code!=='ESRCH')throw err;}await unlink(path);}}
+ for(let attempt=0;attempt<2;attempt++){try{await writeFile(path,JSON.stringify({pid:process.pid,token}),{flag:'wx',mode:0o600});return async()=>{const current=JSON.parse(await readFile(path,'utf8').catch(()=> '{}'));if(current.token===token)await unlink(path);};}catch(e){if(e.code!=='EEXIST')throw e;let prior;try{prior=JSON.parse(await readFile(path,'utf8'));}catch{throw new Error('Workspace lock needs inspection. No files were changed.');}if(!Number.isInteger(prior.pid)||prior.pid<=0)throw new Error('Invalid workspace lock.');try{process.kill(prior.pid,0);throw new Error('Quit Toby before recovering this workspace.');}catch(err){if(err.code!=='ESRCH')throw err;}await unlink(path);}}
  throw new Error('Could not lock workspace for recovery.');
 }

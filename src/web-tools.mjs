@@ -10,7 +10,7 @@ async function fetchText(value,signal,redirects=0){
  // Pin the validated DNS result to this request; redirects are checked anew.
  const address=addresses[0];
  return new Promise((resolve,reject)=>{
-  const request=https.get(url,{signal,timeout:15000,lookup:(_hostname,_options,callback)=>callback(null,[address]),headers:{'User-Agent':'Gratis/0.9 (personal research assistant)','Accept':'text/html,application/xml,text/plain','Accept-Encoding':'identity'}},response=>{
+  const request=https.get(url,{signal,timeout:15000,lookup:(_hostname,_options,callback)=>callback(null,[address]),headers:{'User-Agent':'Toby/0.9 (personal research assistant)','Accept':'text/html,application/xml,text/plain','Accept-Encoding':'identity'}},response=>{
    if(response.statusCode>=300&&response.statusCode<400&&response.headers.location){response.resume();resolve(fetchText(new URL(response.headers.location,url).href,signal,redirects+1));return;}
    if(response.statusCode!==200){response.resume();reject(new Error(`Webpage returned HTTP ${response.statusCode}.`));return;}
    let size=0;const chunks=[];response.on('data',chunk=>{size+=chunk.length;if(size>2000000)response.destroy(new Error('Webpage exceeds the 2 MB reading limit.'));else chunks.push(chunk);});response.on('error',reject);response.on('end',()=>resolve({url:url.href,text:Buffer.concat(chunks).toString('utf8'),contentType:response.headers['content-type']||''}));

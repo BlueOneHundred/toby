@@ -126,7 +126,7 @@ app.whenReady().then(async () => {
   if (app.isPackaged && !dataOverride) {
     const primary = service.snapshot().bots[0];
     if (primary?.name === 'Personal assistant' && primary.instructions === 'Be helpful, clear, and concise.')
-      await service.updateBot({ id: primary.id, name: 'Gratis' });
+      await service.updateBot({ id: primary.id, name: 'Toby' });
   }
   if(secureStorageAccess.locked)throw new Error('Secure storage is locked.');
   window = new BrowserWindow({ width: 1496, height: 938, minWidth: 512, minHeight: 520, show: false,
@@ -178,8 +178,8 @@ app.whenReady().then(async () => {
   deliverPageLink=openPageLink;ipcMain.handle('orbit:pages-pending-link',event=>{authorized(event);rendererPagesReady=true;const raw=pendingPageLink||process.argv.find(value=>value.startsWith('gratis://page/'));pendingPageLink=null;if(!raw)return null;try{const url=new URL(raw),match=/^\/(local|team)\/([a-f0-9-]{36})$/.exec(url.pathname);return url.protocol==='gratis:'&&url.hostname==='page'&&match?{id:match[2],remote:match[1]==='team'}:null;}catch{return null;}});
   app.on('second-instance',(_event,argv)=>{const link=argv.find(value=>value.startsWith('gratis://page/'));if(link)openPageLink(link);});
   if(app.isPackaged&&!dataOverride)app.setAsDefaultProtocolClient('gratis');
-  ipcMain.handle('orbit:template-export',async(e,{botId})=>{authorized(e);const bot=service._bot(botId),value=exportTemplate(bot);const result=await dialog.showSaveDialog(window,{title:'Export bot template',defaultPath:'bot.gratis.json',filters:[{name:'Gratis bot template',extensions:['json']}]});if(result.canceled)return false;await fs.writeFile(result.filePath,JSON.stringify(value,null,2),{mode:0o600});return true;});
-  ipcMain.handle('orbit:template-preview',async e=>{authorized(e);const result=await dialog.showOpenDialog(window,{title:'Review a bot template',properties:['openFile'],filters:[{name:'Gratis bot template',extensions:['json']}]});if(result.canceled)return null;const path=result.filePaths[0];if((await fs.stat(path)).size>2100000)throw new Error('Choose a template under 2.1 MB.');const bot=parseTemplate(await fs.readFile(path,'utf8'));if(bot.avatarDataUrl){const image=nativeImage.createFromDataURL(bot.avatarDataUrl);if(image.isEmpty()||image.getSize().width>2048||image.getSize().height>2048)throw new Error('Invalid template avatar.');bot.avatarDataUrl=image.toPNG().toString('base64');bot.avatarDataUrl='data:image/png;base64,'+bot.avatarDataUrl;}templateReviews.clear();const token=require('node:crypto').randomUUID();templateReviews.set(token,{bot,expires:Date.now()+600000});return {token,bot};});
+  ipcMain.handle('orbit:template-export',async(e,{botId})=>{authorized(e);const bot=service._bot(botId),value=exportTemplate(bot);const result=await dialog.showSaveDialog(window,{title:'Export bot template',defaultPath:'bot.gratis.json',filters:[{name:'Toby bot template',extensions:['json']}]});if(result.canceled)return false;await fs.writeFile(result.filePath,JSON.stringify(value,null,2),{mode:0o600});return true;});
+  ipcMain.handle('orbit:template-preview',async e=>{authorized(e);const result=await dialog.showOpenDialog(window,{title:'Review a bot template',properties:['openFile'],filters:[{name:'Toby bot template',extensions:['json']}]});if(result.canceled)return null;const path=result.filePaths[0];if((await fs.stat(path)).size>2100000)throw new Error('Choose a template under 2.1 MB.');const bot=parseTemplate(await fs.readFile(path,'utf8'));if(bot.avatarDataUrl){const image=nativeImage.createFromDataURL(bot.avatarDataUrl);if(image.isEmpty()||image.getSize().width>2048||image.getSize().height>2048)throw new Error('Invalid template avatar.');bot.avatarDataUrl=image.toPNG().toString('base64');bot.avatarDataUrl='data:image/png;base64,'+bot.avatarDataUrl;}templateReviews.clear();const token=require('node:crypto').randomUUID();templateReviews.set(token,{bot,expires:Date.now()+600000});return {token,bot};});
   ipcMain.handle('orbit:template-import',async(e,{token})=>{authorized(e);const review=templateReviews.get(token);templateReviews.delete(token);if(!review||review.expires<Date.now())throw new Error('Template review expired. Open it again.');return importTemplate(service,review.bot);});
   ipcMain.handle('orbit:recovery-checkpoint',async e=>{authorized(e);if(service.tasks.size)throw new Error('Stop active responses before creating a recovery checkpoint.');await service.store.flush();await memory.vault.tail;await schedules.persist;await t3Tasks.persist;await pageStore.close();await messaging?.store.close();const checkpoint=await safety.createCheckpoint(dataDir);return checkpoint;});
   ipcMain.handle('orbit:recovery-folder',async e=>{authorized(e);const directory=path.join(dataDir,'checkpoints');await fs.mkdir(directory,{recursive:true,mode:0o700});await shell.openPath(directory);return true;});
@@ -330,8 +330,8 @@ app.whenReady().then(async () => {
   if (process.env.GRATIS_TEST_HIDDEN !== '1') window.show();
 }).catch(async error => {
   await releaseDataLock?.();console.error(error);
-  if(secureStorageAccess?.locked){const {response}=await dialog.showMessageBox({type:'warning',title:'Gratis is locked',message:'Secure storage could not be opened.',detail:'Your chats, settings and encrypted credentials have not been reset. Unlock your operating-system keychain, then choose Try again. Gratis will not keep asking in the background.',buttons:['Quit','Try again'],defaultId:0,cancelId:0});if(response===1)app.relaunch();}
-  else dialog.showErrorBox('Gratis could not start', error.message);
+  if(secureStorageAccess?.locked){const {response}=await dialog.showMessageBox({type:'warning',title:'Toby is locked',message:'Secure storage could not be opened.',detail:'Your chats, settings and encrypted credentials have not been reset. Unlock your operating-system keychain, then choose Try again. Toby will not keep asking in the background.',buttons:['Quit','Try again'],defaultId:0,cancelId:0});if(response===1)app.relaunch();}
+  else dialog.showErrorBox('Toby could not start', error.message);
   app.exit(1);
 });
 app.on('window-all-closed', () => app.quit());

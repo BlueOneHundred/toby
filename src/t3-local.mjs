@@ -11,14 +11,14 @@ export class T3LocalHost {
  async binary(host){for(const candidate of [join(host.home,'bin/t3'),join(homedir(),'.local/bin/t3'),'/opt/homebrew/bin/t3','/usr/local/bin/t3']){try{await access(candidate);return candidate;}catch{}}throw new Error('The T3 command could not be found on this Mac.');}
  async registerProject(host,folder){await this.execute(await this.binary(host),['project','add','--base-dir',host.home,folder],{env:{...process.env,T3CODE_HOME:host.home},timeout:30000,maxBuffer:100000});}
  async browserLink(host,threadId){
-  const {stdout}=await this.execute(await this.binary(host),['auth','pairing','create','--base-dir',host.home,'--scope','orchestration:read','--scope','orchestration:operate','--scope','filesystem:read','--scope','preview:operate','--ttl','5m','--label','Gratis browser handoff','--json'],{env:{...process.env,T3CODE_HOME:host.home},timeout:20000,maxBuffer:100000});
+  const {stdout}=await this.execute(await this.binary(host),['auth','pairing','create','--base-dir',host.home,'--scope','orchestration:read','--scope','orchestration:operate','--scope','filesystem:read','--scope','preview:operate','--ttl','5m','--label','Toby browser handoff','--json'],{env:{...process.env,T3CODE_HOME:host.home},timeout:20000,maxBuffer:100000});
   const value=JSON.parse(stdout),environmentId=(await readFile(join(host.home,'userdata/environment-id'),'utf8')).trim();
   if(typeof value.credential!=='string'||!environmentId)throw new Error('Could not prepare the local T3 view.');
   const url=new URL('/'+encodeURIComponent(environmentId)+'/'+encodeURIComponent(threadId),host.endpoint);url.hash=new URLSearchParams({token:value.credential}).toString();return url.href;
  }
  async authorize(host){
   const binary=await this.binary(host);
-  const {stdout}=await this.execute(binary,['auth','session','issue','--base-dir',host.home,'--subject','mcp-client','--label','Gratis desktop','--scope','orchestration:read','--scope','orchestration:operate','--ttl','30d','--token-only'],{env:{...process.env,T3CODE_HOME:host.home},timeout:20000,maxBuffer:100000});
+  const {stdout}=await this.execute(binary,['auth','session','issue','--base-dir',host.home,'--subject','mcp-client','--label','Toby desktop','--scope','orchestration:read','--scope','orchestration:operate','--ttl','30d','--token-only'],{env:{...process.env,T3CODE_HOME:host.home},timeout:20000,maxBuffer:100000});
   const token=stdout.trim();if(!token||/\s/.test(token))throw new Error('T3 did not return a usable local connection credential.');return token;
  }
  async install(){

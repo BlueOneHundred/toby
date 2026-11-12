@@ -1,6 +1,6 @@
 {
   "id": "community",
-  "name": "Gratis",
-  "dataFolder": "Gratis",
-  "bundleId": "com.gratis.desktop"
+  "name": "Toby",
+  "dataFolder": "Toby",
+  "bundleId": "com.blueonehundred.toby"
 }

@@ -19,7 +19,7 @@ export function t3Payload(result){
  return value;
 }
 export class T3Connection {
- constructor({directory,encrypt,decrypt,openExternal,onState=()=>{},clientFactory=()=>new Client({name:'Gratis',version:'0.12.0'}),transportFactory=(url,options)=>new StreamableHTTPClientTransport(new URL(url),options)}){
+ constructor({directory,encrypt,decrypt,openExternal,onState=()=>{},clientFactory=()=>new Client({name:'Toby',version:'0.12.0'}),transportFactory=(url,options)=>new StreamableHTTPClientTransport(new URL(url),options)}){
   Object.assign(this,{directory,encrypt,decrypt,openExternal,onState,clientFactory,transportFactory});this.data={};this.current={status:'disconnected',connected:false};this.persist=Promise.resolve();this.clientPromise=null;this.authJob=null;this.epoch=0;
  }
  async init(){try{this.data=JSON.parse(await this.decrypt(await readFile(join(this.directory,'t3-connection.secure'))));}catch(e){if(e.code!=='ENOENT')throw new Error('Could not unlock the saved T3 connection.');}if(this.data.endpoint&&!this.data.identity){this.data.identity=randomUUID();await this.save();}this.current={status:this.data.endpoint?'saved':'disconnected',connected:false};return this;}
@@ -28,7 +28,7 @@ export class T3Connection {
  async save(){const value=JSON.stringify(this.data);const write=async()=>{await mkdir(this.directory,{recursive:true,mode:0o700});const tmp=join(this.directory,'.t3-'+randomUUID());await writeFile(tmp,await this.encrypt(value),{mode:0o600});await rename(tmp,join(this.directory,'t3-connection.secure'));};this.persist=this.persist.then(write,write);return this.persist;}
  provider(flow){const owner=this;return{
   get redirectUrl(){return owner.data.redirectUrl;},
-  get clientMetadata(){return{client_name:'Gratis',redirect_uris:[owner.data.redirectUrl||'http://127.0.0.1/t3/callback'],grant_types:['authorization_code'],response_types:['code'],token_endpoint_auth_method:'none'};},
+  get clientMetadata(){return{client_name:'Toby',redirect_uris:[owner.data.redirectUrl||'http://127.0.0.1/t3/callback'],grant_types:['authorization_code'],response_types:['code'],token_endpoint_auth_method:'none'};},
   state:()=>flow?.state||randomUUID(),
   clientInformation:()=>owner.data.clientInformation,
   saveClientInformation:async value=>{owner.data.clientInformation=value;await owner.save();},
@@ -63,10 +63,10 @@ export class T3Connection {
   flow.code=new Promise((resolve,reject)=>{flow.resolve=resolve;rejectCode=reject;});flow.code.catch(()=>{});
   const server=createServer((req,res)=>{const url=new URL(req.url,'http://127.0.0.1');const incoming=Buffer.from(url.searchParams.get('state')||''),expected=Buffer.from(flow.state);
    const valid=incoming.length===expected.length&&timingSafeEqual(incoming,expected);
-   if(req.method!=='GET'||url.pathname!=='/t3/callback'||!valid){res.writeHead(400);res.end('This sign-in does not belong to Gratis.');return;}
-   if(url.searchParams.get('error')){rejectCode(new Error('T3 sign-in was declined.'));res.end('Sign-in cancelled. Return to Gratis.');return;}
+   if(req.method!=='GET'||url.pathname!=='/t3/callback'||!valid){res.writeHead(400);res.end('This sign-in does not belong to Toby.');return;}
+   if(url.searchParams.get('error')){rejectCode(new Error('T3 sign-in was declined.'));res.end('Sign-in cancelled. Return to Toby.');return;}
    const code=url.searchParams.get('code');if(!code){res.writeHead(400);res.end('Missing authorization code.');return;}
-   flow.resolve(code);res.setHeader('content-type','text/html; charset=utf-8');res.setHeader('cache-control','no-store');res.end('<!doctype html><title>Gratis</title><p>Authorization received. You can return to Gratis.</p>');
+   flow.resolve(code);res.setHeader('content-type','text/html; charset=utf-8');res.setHeader('cache-control','no-store');res.end('<!doctype html><title>Toby</title><p>Authorization received. You can return to Toby.</p>');
   });
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   const redirect='http://127.0.0.1:'+server.address().port+'/t3/callback';

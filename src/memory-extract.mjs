@@ -6,7 +6,7 @@ Use stable keys already present in knownFacts when referring to the same concept
 export async function extractMemory({job,settings,workspaceDir,signal,backend=streamReply,knownFacts=[]}){
  if(settings.provider==='demo')return{facts:[],episode:null,task:{goal:job.user.text.slice(0,1000),constraints:[],nextSteps:[]}};
  const chosen={...settings,...(settings.provider==='claude'?{model:'haiku',effort:'low'}:{})};let output='';
- for await(const text of backend({settings:chosen,bot:{name:'Gratis memory',instructions},messages:[{role:'user',content:JSON.stringify({now:new Date(job.user.at).toISOString(),newUserMessage:safeMemoryText(job.user.text).slice(0,16000),assistantOutcome:safeMemoryText(job.reply).slice(-6000),verifiedTools:job.tools,knownFacts:knownFacts.map(r=>({id:r.id,key:r.key,title:r.title,content:r.content,scope:r.scope})).slice(0,30)})}],workspaceDir,signal,persistSession:false})){
+ for await(const text of backend({settings:chosen,bot:{name:'Toby memory',instructions},messages:[{role:'user',content:JSON.stringify({now:new Date(job.user.at).toISOString(),newUserMessage:safeMemoryText(job.user.text).slice(0,16000),assistantOutcome:safeMemoryText(job.reply).slice(-6000),verifiedTools:job.tools,knownFacts:knownFacts.map(r=>({id:r.id,key:r.key,title:r.title,content:r.content,scope:r.scope})).slice(0,30)})}],workspaceDir,signal,persistSession:false})){
   output+=text;if(output.length>24000)throw new Error('The memory update was too large.');
  }
  const trimmed=output.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');let value;try{value=JSON.parse(trimmed);}catch{throw new Error('The memory update could not be read.');}
