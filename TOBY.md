@@ -8,6 +8,7 @@ Toby is Tavin's personal team of bots, built on the open-source Gratis community
 - User-facing wording: "Gratis" replaced with "Toby" in `src/` (one-for-one, no logic changes)
 - Windows build: `.github/workflows/toby-windows.yml` (Actions tab, "Build Toby for Windows", Run workflow)
 - **Fixed bot order** (Toby-only): `src/sidebar-items.mjs` (`TEAM_ORDER`) keeps bots in team order instead of by recent activity; group chats come after the bots. Pinned bots get a "Team lead" label when Toby is the only one pinned (`src/renderer.mjs`, `src/bot-tile.css`). Add new team bots to `TEAM_ORDER`.
+- **Real local time** (Toby-only): `localTimeLine()` in `src/claude-backend.mjs` adds the computer's local date and time to each tool-enabled bot's instructions every turn, so run logs and briefs use the real time.
 - **Shared team folder** (Toby-only feature): `src/team-folder.mjs`, wired in `src/main.cjs` and `src/agent-tools.mjs`. Every bot with Files on gets `list_team_files`, `read_team_file`, `write_team_file`, `append_team_file`, `copy_to_team` and `copy_from_team`, all limited to one folder: `Desktop\Toby\Income` (or `TOBY_TEAM_FOLDER`; `<data>\team-folder` when a test data folder is set). Same safety rules as private Files (no `..`, hidden paths or symlinks; one write at a time), 500 MB / 5,000 files. Tests: `test/team-folder.test.mjs`. When merging Gratis updates, keep the `teamFolder` lines in those three files.
 
 ## Pulling in Gratis updates

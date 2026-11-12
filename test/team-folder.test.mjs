@@ -47,3 +47,7 @@ test('appends from many bots at once are all kept',async t=>{
  await Promise.all(Array.from({length:20},(_,i)=>team.append('log.md',`line ${i}\n`)));
  const lines=(await team.read(null,'log.md')).trim().split('\n');assert.equal(lines.length,20);
 });
+test('every turn tells the bot the real local time',async()=>{
+ const {localTimeLine}=await import('../src/claude-backend.mjs');
+ assert.equal(localTimeLine(new Date('2026-11-12T04:35:00Z'),'Asia/Bangkok'),'Current local time when this turn started: Thu 12 Nov 2026, 11:35 (Asia/Bangkok).');
+});
