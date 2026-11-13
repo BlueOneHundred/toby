@@ -175,16 +175,16 @@ h1,h2,h3,h4,.box-label,.toc,th,.opener-label,.stat-number,.step-n,.tl-when,.badg
 a{color:var(--accent);text-decoration:none}
 
 .cover{page:cover;position:relative;width:${pageW};height:${pageH};break-after:page;overflow:hidden;color:#fff}
-.cover-art{position:absolute;inset:0;background-size:cover;background-position:center 30%}
-.cover-plain{background:linear-gradient(160deg,var(--accent),#111)}
-.cover-shade{position:absolute;left:0;right:0;bottom:0;height:52%;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.55) 35%,rgba(0,0,0,.84))}
-.cover-text{position:absolute;left:0;right:0;bottom:0;padding:0 16mm 17mm}
-.badge{position:absolute;top:14mm;left:16mm;background:rgba(255,255,255,.93);color:var(--accent);font-weight:800;font-size:9pt;letter-spacing:.08em;text-transform:uppercase;padding:2.4mm 4.2mm;border-radius:10mm}
-.cover h1{font-size:44pt;line-height:1.02;margin:0 0 4mm;font-weight:800;letter-spacing:-.01em}
+.cover-art{position:absolute;left:0;right:0;top:0;height:71%;background-size:cover;background-position:center 35%}
+.cover-plain{background:var(--accent)}
+.cover-panel{position:absolute;left:0;right:0;bottom:0;height:29%;background:#15191d;border-top:2.2mm solid var(--accent)}
+.cover-text{position:absolute;left:0;right:0;bottom:0;height:29%;padding:0 16mm;display:flex;flex-direction:column;justify-content:center}
+.badge{position:absolute;top:14mm;left:16mm;background:#ffffff;color:var(--accent);font-weight:800;font-size:9pt;letter-spacing:.08em;text-transform:uppercase;padding:2.4mm 4.2mm;border-radius:10mm}
+.cover h1{font-size:40pt;line-height:1.02;margin:0 0 4mm;font-weight:800;letter-spacing:-.01em}
 .cover .sub{font-size:16pt;line-height:1.3;margin:0 0 4mm;font-family:'Segoe UI',Arial,sans-serif;font-weight:500}
-.cover .tag{font-size:11.5pt;line-height:1.45;margin:0 0 6mm;opacity:.92;max-width:150mm}
-.cover .rule{width:22mm;height:1.2mm;background:#fff;opacity:.85;margin:0 0 4mm;border-radius:1mm}
-.cover .by{font-size:10.5pt;letter-spacing:.14em;text-transform:uppercase;opacity:.92;margin:0;font-family:'Segoe UI',Arial,sans-serif}
+.cover .tag{font-size:11.5pt;line-height:1.45;margin:0 0 5mm;color:#d9dde1;max-width:160mm}
+.cover .rule{width:22mm;height:1.2mm;background:var(--accent);margin:0 0 3.5mm;border-radius:1mm}
+.cover .by{font-size:10.5pt;letter-spacing:.14em;text-transform:uppercase;color:#d9dde1;margin:0;font-family:'Segoe UI',Arial,sans-serif}
 
 .toc{break-after:page}
 .toc h2{font-size:26pt;margin:0 0 7mm;color:var(--accent)}
@@ -240,7 +240,7 @@ blockquote p:last-child,blockquote ul:last-child,blockquote ol:last-child{margin
 .stat-number{font-size:30pt;font-weight:800;line-height:1;margin:0 0 2mm;white-space:nowrap}
 .stats.n1 .stat-number{margin:0}
 .stat-caption{font-size:10.5pt;line-height:1.4}
-.stat-caption p{margin:0}.stat .cite{color:rgba(255,255,255,.75)}
+.stat-caption p{margin:0}.stat .cite{color:#dfe9e5}
 .steps{margin:5mm 0;break-inside:avoid}
 .steps-intro p{font-weight:700;margin-bottom:2.5mm}
 .steps-row{display:grid;gap:3mm}
@@ -277,7 +277,7 @@ img{max-width:100%;height:auto;display:block;margin:4mm auto;border-radius:2mm;b
 hr{border:0;border-top:1px solid var(--line);margin:6mm 0}
 code{font-family:Consolas,monospace;font-size:9.5pt}
 </style></head><body>
-<section class="cover">${cover}<div class="cover-shade"></div>${badge ? `<div class="badge">${esc(badge)}</div>` : ''}<div class="cover-text"><h1>${esc(title)}</h1>${subtitle ? `<p class="sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="tag">${esc(tagline)}</p>` : ''}${author ? `<div class="rule"></div><p class="by">${esc(author)}</p>` : ''}</div></section>
+<section class="cover">${cover}<div class="cover-panel"></div>${badge ? `<div class="badge">${esc(badge)}</div>` : ''}<div class="cover-text"><h1>${esc(title)}</h1>${subtitle ? `<p class="sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="tag">${esc(tagline)}</p>` : ''}${author ? `<div class="rule"></div><p class="by">${esc(author)}</p>` : ''}</div></section>
 <nav class="toc"><h2>Contents</h2><ol>${toc}</ol></nav>
 <main>${html}</main>
 </body></html>`;
