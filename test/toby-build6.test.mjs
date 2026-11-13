@@ -49,9 +49,9 @@ test('a page that refuses the reader comes back as a result, not a tool failure'
 test('make_book assembles Markdown parts into a designed book and PDF',async t=>{
  const {bookHTML}=await import('../src/book-builder.mjs');
  const html=bookHTML({title:'Calm Walks',subtitle:'A <test>',tagline:'Short walks',badge:'Built from 3 sources',parts:['## Contents\n\n1. Chapter 1\n\n## Chapter 1: Start Here\n\n> The short version: walk slowly [S3].\n\n### Why\n\nText [S1, S2].\n\n> Try tonight: one lap.\n\n> Stat: 47% | of puppies [S1]\n\n> Steps:\n> 1. One\n> 2. Two\n\n> Checklist: Before you go\n>\n> - Lead\n> - Bags\n\n> Before: chaos\n\n> After: calm\n\n> Timeline:\n> - Day 1: settle\n> - Day 2: crate\n\n> From Sam\'s kitchen: hi\n\nHere is the list:\n\n- a\n- b\n\n| A | B |\n|---|---|\n| 1 | 2 |\n','## Sources\n\nS1. Example. https://example.org\nS2. Second.'],accent:'#123456'});
- for(const c of ['opener-short','box box-try','class="stat"','class="steps"','class="checklist"','class="ba"','class="timeline"','box box-from','class="keep"','class="page-opener"','cover-badge','class="source"','@font-face'])assert.ok(html.includes(c),c);
- assert.match(html,/A &lt;test&gt;/);assert.match(html,/<span class="cite">\[S1, S2\]<\/span>/);assert.doesNotMatch(html,/<script/);
- assert.equal((html.match(/<p class="source">/g)||[]).length,2);
+ for(const c of ['opener-short','box box-try','class="stat"','class="steps"','class="checklist"','class="ba"','class="timeline"','box box-from','class="keep"','class="page-opener"','cover-seal','class="source"','@font-face'])assert.ok(html.includes(c),c);
+ assert.match(html,/A &lt;test&gt;/);assert.match(html,/Text\.<sup class="cite"><a class="cite-n" href="#src-1">1<\/a><span class="cite-sep">,<\/span><a class="cite-n" href="#src-2">2<\/a><\/sup>/);assert.match(html,/id="src-1"/);assert.doesNotMatch(html,/<script/);
+ assert.equal((html.match(/<p class="source"/g)||[]).length,2);
  assert.doesNotMatch(html.split('<main>')[1],/Contents/,'hand-written contents is dropped');
  assert.match(html,/size:7in 10in/,'book trim by default');for(const t of ['warm','modern','classic'])assert.doesNotMatch(bookHTML({title:'x',parts:['## Chapter 1: A\n\nb'],theme:t}),/rgba\(|opacity:/,'no transparency in '+t);
  const d=await temp(t),files=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team'));await mkdir(join(d,'team','ebooks','b','images'),{recursive:true});

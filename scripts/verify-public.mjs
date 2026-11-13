@@ -5,7 +5,7 @@ async function walk(dir='.') {const result=[];for(const entry of await readdir(d
 let files;try{files=execFileSync('git',['ls-files','--cached','-z'],{encoding:'utf8'}).split('\0').filter(Boolean);if(!files.length)files=await walk();}catch{files=await walk();}
 const problems=[];
 for(const file of files){
- if(/(^|\/)(?:data|evidence|release|node_modules|\.cache|\.wrangler)(?:\/|$)|\.(?:secure|db|sqlite|woff2?|ttf|otf)$|(^|\/)\.env(?:\.|$)/i.test(file))problems.push(file+': runtime data or unapproved binary asset');
+ if(/(^|\/)(?:data|evidence|release|node_modules|\.cache|\.wrangler)(?:\/|$)|\.(?:secure|db|sqlite|woff2?|ttf|otf)$|(^|\/)\.env(?:\.|$)/i.test(file)&&!/^src\/book-fonts\/[a-z0-9-]+\.woff2$/.test(file))problems.push(file+': runtime data or unapproved binary asset'); // Toby: bundled SIL OFL book fonts are approved (src/book-fonts/LICENSES.txt)
  const bytes=await readFile(file);if(bytes.includes(0)||bytes.length>2000000)continue;const text=bytes.toString();
  if(/\/Users\/[a-z0-9_.-]+\//i.test(text))problems.push(file+': machine-specific home path');
  if(/(?:gh[pousr]_[A-Za-z0-9]{30,}|sk-ant-[A-Za-z0-9_-]{40,}|AKIA[A-Z0-9]{16})/.test(text))problems.push(file+': possible credential');

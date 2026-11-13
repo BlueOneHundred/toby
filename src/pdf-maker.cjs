@@ -35,7 +35,7 @@ async function makePdf({ file, pageSize = 'Letter', signal, root }) {
   signal?.addEventListener('abort', abort, { once: true });
   try {
     await Promise.race([win.loadURL(pathToFileURL(file).href), new Promise((_, reject) => setTimeout(() => reject(new Error('The page took too long to load.')), 60000))]);
-    const bytes = await win.webContents.printToPDF({ pageSize, printBackground: true, preferCSSPageSize: true, generateDocumentOutline: true, generateTaggedPDF: true });
+    const bytes = await win.webContents.printToPDF({ pageSize: pageSize === 'Book' ? { width: 7, height: 10 } : pageSize, printBackground: true, preferCSSPageSize: true, generateDocumentOutline: true, generateTaggedPDF: true });
     if (bytes.length > 20000000) throw new Error('The PDF is larger than 20 MB. Use smaller images.');
     return Buffer.from(bytes);
   } finally { signal?.removeEventListener('abort', abort); abort(); }

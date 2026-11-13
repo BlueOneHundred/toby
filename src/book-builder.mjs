@@ -8,7 +8,10 @@ import {THEMES, themeCSS, boxIcon} from './book-themes.mjs';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const strip = html => String(html).replace(/<[^>]+>/g, '');
 const slug = value => strip(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'section';
-const cite = html => html.replace(/\[(S\d+(?:\s*,\s*S\d+)*)\]/g, '<span class="cite">[$1]</span>');
+const citeLinks = ids => ids.split(/\s*,\s*/).map(id => { const n = id.replace(/^S/i, ''); return `<a class="cite-n" href="#src-${n}">${n}</a>`; }).join('<span class="cite-sep">,</span>');
+// "[S7]:" becomes ":" then a small raised 7 that links to source 7. Punctuation never sits after a citation.
+const cite = html => html
+  .replace(/\s*\[(S\d+(?:\s*,\s*S\d+)*)\]([.,:;!?]*)/g, (_, ids, punct) => `${punct}<sup class="cite">${citeLinks(ids)}</sup>`);
 const clean = html => html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\son[a-z]+="[^"]*"/gi, '');
 const listItems = html => (html.match(/<li>[\s\S]*?<\/li>/g) || []).map(li => li.replace(/^<li>|<\/li>$/g, '').trim());
 const withoutList = html => html.replace(/<(ol|ul)>[\s\S]*<\/\1>/, '').trim();
@@ -84,11 +87,14 @@ function renderBox(token, label) {
 }
 
 function table(t) {
-  const html = marked.parser([t]);
+  const cols = t.header.length;
+  const longest = Array.from({length: cols}, (_, c) => Math.max(strip(t.header[c].text).length, ...t.rows.map(r => strip(r[c]?.text || '').length)));
+  const nowrap = longest.map((len, c) => len <= 22 && c < cols - 1);
   const small = t.rows.length <= 8;
   const blankRows = t.rows.filter(r => r.slice(1).every(c => !strip(c.text).trim())).length;
   const fill = t.rows.length >= 3 && blankRows >= t.rows.length * 0.6;
-  return html.replace('<table>', `<table class="${small ? 'small' : 'long'}${fill ? ' fill-in' : ''}">`);
+  const cell = (tag, c, i) => `<${tag}${nowrap[i] ? ' class="nw"' : ''}>${marked.parseInline(c.text)}</${tag}>`;
+  return `<table class="${small ? 'small' : 'long'}${fill ? ' fill-in' : ''}"><thead><tr>${t.header.map((c, i) => cell('th', c, i)).join('')}</tr></thead><tbody>${t.rows.map(r => `<tr>${r.map((c, i) => cell('td', c, i)).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
 function block(t) {
@@ -131,7 +137,11 @@ function renderTokens(tokens, state) {
       continue;
     }
     if (state.inSources && t.type === 'paragraph') {
-      out.push(t.text.split(/\n+/).map(x => x.trim()).filter(Boolean).map(line => `<p class="source">${marked.parseInline(line).replace(/<a /g, '<a class="url" ')}</p>`).join(''));
+      out.push(t.text.split(/\n+/).map(x => x.trim()).filter(Boolean).map(line => {
+        const m = /^\[?S(\d+)\]?[.:)]?\s+(.*)$/i.exec(line);
+        const text = marked.parseInline(m ? m[2] : line).replace(/<a /g, '<a class="url" ');
+        return m ? `<p class="source" id="src-${m[1]}"><span class="src-n">${m[1]}</span>${text}</p>` : `<p class="source">${text}</p>`;
+      }).join(''));
       continue;
     }
     if (state.inSources && t.type === 'list') { out.push(`<div class="source-list">${marked.parser([t]).replace(/<a /g, '<a class="url" ')}</div>`); continue; }
@@ -151,7 +161,18 @@ function renderTokens(tokens, state) {
       out.push(block(t));
       continue;
     }
-    if (t.type === 'heading' && t.depth >= 3) { out.push(marked.parser([t]).replace(/^<h(\d)>/, '<h$1 class="kw">')); continue; }
+    if (t.type === 'heading' && t.depth >= 3) {
+      const heading = marked.parser([t]).replace(/^<h(\d)>/, '<h$1 class="kw">');
+      const next = list[i + 1];
+      const after = list[i + 2];
+      const short = x => x && (x.type === 'paragraph' ? x.text.length <= 650 : x.type === 'list' ? x.items.length <= 8 : x.type === 'table' ? x.rows.length <= 8 : x.type === 'blockquote');
+      if (next && next.type !== 'heading' && short(next)) {
+        const group = [list[++i]];
+        if (leadsIn(next, after) || (next.type === 'paragraph' && next.text.length <= 220 && short(after) && after.type !== 'heading')) group.push(list[++i]);
+        out.push(`<div class="keep">${heading}${group.map(block).join('')}</div>`);
+      } else out.push(heading);
+      continue;
+    }
     if (t.type === 'paragraph' && state.dropNext) { state.dropNext = false; out.push(marked.parser([t]).replace(/^<p>/, '<p class="drop">')); continue; }
     if (leadsIn(t, list[i + 1])) { out.push(`<div class="keep">${block(t)}${block(list[++i])}</div>`); continue; }
     if (t.type === 'paragraph' && /:\s*$/.test(t.text)) { out.push(marked.parser([t]).replace(/^<p>/, '<p class="kw">')); continue; }
@@ -160,10 +181,10 @@ function renderTokens(tokens, state) {
   return out.join('\n');
 }
 
-export function bookHTML({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', chapterImages = {}, theme = 'warm', pageSize = 'Book'}) {
+export function bookHTML({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', chapterImages = {}, theme = 'modern', pageSize = 'Book'}) {
   if (!title) throw new Error('Give the book a title.');
   if (!Array.isArray(parts) || !parts.length) throw new Error('Give at least one Markdown part.');
-  const look = THEMES[theme] || THEMES.warm;
+  const look = THEMES[theme] || THEMES.modern;
   const size = PAGE_SIZES[pageSize] ? pageSize : 'Book';
   const [pageW, pageH, sizeRule] = PAGE_SIZES[size];
   const state = {toc: [], inSources: false, chapterImages, theme: look, dropNext: false};

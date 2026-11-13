@@ -42,7 +42,10 @@ li{margin:0 0 1.3mm;padding-left:1mm}
 li::marker{color:var(--accent)}
 .keep{break-inside:avoid}.kw{break-after:avoid}
 h3,h4{break-after:avoid}
-.cite{font-family:var(--label);font-size:6.6pt;color:var(--muted);vertical-align:super;line-height:0;letter-spacing:0;font-weight:500}
+.cite{font-family:var(--label);font-size:6.4pt;line-height:0;vertical-align:super;letter-spacing:0;font-weight:700;margin-left:.3mm}
+.cite a{color:var(--accent);text-decoration:none}.cite-sep{color:var(--muted)}
+td.nw,th.nw{white-space:nowrap}
+.src-n{display:inline-block;min-width:6mm;margin-left:-6mm;text-indent:0;font-family:var(--label);font-weight:700;color:var(--accent)}
 table{width:100%;border-collapse:collapse;margin:3mm 0 5.5mm;font-size:calc(var(--size) - 1.2pt);line-height:1.45}
 table.small{break-inside:avoid}
 thead{display:table-header-group}
@@ -70,7 +73,7 @@ table.fill-in td{height:10mm}
 .timeline{margin:5.5mm 0}.tl-item{position:relative;break-inside:avoid}.tl-what p{margin:0}
 .key-idea p{margin:0}
 p.source,.source-list li{font-size:7.6pt;line-height:1.42;margin:0 0 1.6mm;break-inside:avoid;hyphens:none}
-p.source{padding-left:5mm;text-indent:-5mm}
+p.source{padding-left:6mm}
 a.url{word-break:break-all;color:var(--muted)}
 img{max-width:100%;height:auto;display:block;margin:4mm auto;break-inside:avoid}
 hr{border:0;border-top:1px solid var(--line);margin:6mm 0}
@@ -217,7 +220,9 @@ blockquote.pull{background:var(--cream);border:0;border-radius:5mm;margin:6mm 0;
 .key-idea .box-label{color:var(--pop)}
 .cover-photo{position:absolute;top:0;left:0;right:0;height:64%;background-size:cover;background-position:center 35%;background-color:#D9E6E3}
 .cover-panel{position:absolute;left:0;right:0;bottom:0;height:36%;background:#156A5F}
-.cover-badge{position:absolute;top:12mm;left:13mm;background:#F2B23E;color:#14213A;font:800 7.6pt var(--label);letter-spacing:.06em;text-transform:uppercase;padding:2.4mm 4.6mm;border-radius:10mm}
+.cover-seal{position:absolute;right:13mm;top:calc(64% - 17mm);width:34mm;height:34mm;border-radius:50%;background:#F2B23E;color:#14213A;box-shadow:inset 0 0 0 1.4mm #F2B23E,inset 0 0 0 1.75mm #14213A;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transform:rotate(-8deg)}
+.seal-num{font:800 21pt/1 var(--display);margin:0 0 .8mm}
+.seal-text{font:800 6.4pt/1.25 var(--label);letter-spacing:.12em;text-transform:uppercase;max-width:24mm}
 .cover-text{position:absolute;left:14mm;right:14mm;bottom:0;height:36%;display:flex;flex-direction:column;justify-content:center;color:#FFFFFF}
 .cover h1{font-family:var(--display);font-weight:800;font-size:42pt;line-height:1;margin:0 0 3mm;letter-spacing:-.01em}
 .cover .sub{font-family:var(--display);font-weight:600;font-size:14pt;line-height:1.3;margin:0 0 3mm;color:#F2B23E}
@@ -235,16 +240,15 @@ blockquote.pull{background:var(--cream);border:0;border-radius:5mm;margin:6mm 0;
 .toc .toc-t{font-family:var(--display);font-weight:600}
 .toc .dots{display:none}
 .page-opener{background:#156A5F;color:#FFFFFF}
-.opener-num{position:absolute;right:-6mm;top:-14mm;font-family:var(--display);font-weight:800;font-size:250pt;line-height:1;color:#1C7A6E;letter-spacing:-.05em}
-.opener-art{position:absolute;left:16mm;top:28mm;width:62mm;height:62mm;border-radius:50%;border:2.2mm solid #F2B23E}
-.opener-art.none{display:none}
+.opener-num{position:absolute;right:-8mm;top:6mm;font-family:var(--display);font-weight:800;font-size:300pt;line-height:1;color:#1C7A6E;letter-spacing:-.05em}
+.opener-art{display:none}
 .opener-body{position:absolute;left:16mm;right:16mm;bottom:22mm}
 .opener-label{font:800 9pt var(--display);letter-spacing:.2em;text-transform:uppercase;color:#F2B23E;margin:0 0 3mm}
 h2.chapter{font-family:var(--display);font-weight:800;font-size:34pt;line-height:1.02;margin:0 0 7mm;color:#FFFFFF}
 .opener-short{background:#FFFFFF;color:var(--ink);border-radius:5mm;padding:5mm 6mm;font-size:10.4pt;line-height:1.55}
 .opener-short p{margin:0}
 `,
-    cover: ({title, subtitle, tagline, badge, author, coverDataUrl}) => `<section class="page-cover cover"><div class="cover-photo"${coverDataUrl ? ` style="background-image:url('${coverDataUrl}')"` : ''}></div><div class="cover-panel"></div>${badge ? `<div class="cover-badge">${esc(badge)}</div>` : ''}<div class="cover-text"><h1>${esc(title)}</h1>${subtitle ? `<p class="sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="tag">${esc(tagline)}</p>` : ''}${author ? `<p class="by">${esc(author)}</p>` : ''}</div></section>`,
+    cover: ({title, subtitle, tagline, badge, author, coverDataUrl}) => `<section class="page-cover cover"><div class="cover-photo"${coverDataUrl ? ` style="background-image:url('${coverDataUrl}')"` : ''}></div><div class="cover-panel"></div>${badge ? seal(badge) : ''}<div class="cover-text"><h1>${esc(title)}</h1>${subtitle ? `<p class="sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="tag">${esc(tagline)}</p>` : ''}${author ? `<p class="by">${esc(author)}</p>` : ''}</div></section>`,
     opener: ({n, name, art, short}) => `<section class="page-opener"><div class="opener-num">${esc(String(n).padStart(2, '0'))}</div><div class="opener-art${art ? '' : ' none'}"${art ? ` style="background-image:url('${art}')"` : ''}></div><div class="opener-body"><p class="opener-label">Chapter ${esc(n)}</p><h2 class="chapter">${esc(name)}</h2>${short ? `<div class="opener-short">${short}</div>` : ''}</div></section>`,
   },
 
@@ -333,6 +337,11 @@ h2.chapter{font-family:var(--display);font-weight:700;font-size:32pt;line-height
     opener: ({n, name, art, short}) => `<section class="page-opener"><div class="opener-body"><p class="opener-label">Chapter ${esc(WORDS[Number(n)] || n)}</p><div class="opener-orn"></div><h2 class="chapter">${esc(name)}</h2>${short ? `<div class="opener-short">${short}</div>` : ''}</div><div class="opener-art${art ? '' : ' none'}"${art ? ` style="background-image:url('${art}')"` : ''}></div></section>`,
   },
 };
+
+function seal(badge) {
+  const m = /^(.*?)(\d[\d,]*)\s*(.*)$/.exec(badge);
+  return m ? `<div class="cover-seal"><div class="seal-num">${esc(m[2])}</div><div class="seal-text">${esc((m[3] || m[1]).trim())}</div></div>` : `<div class="cover-seal"><div class="seal-text">${esc(badge)}</div></div>`;
+}
 
 export function themeCSS(theme, opts) { return theme.fonts() + BASE(opts) + theme.css(opts); }
 export function boxIcon(kind) { return `<span class="ico">${icon(kind)}</span>`; }
