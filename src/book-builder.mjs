@@ -13,6 +13,9 @@ const clean = html => html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\
 const listItems = html => { const out = []; const re = /<li>([\s\S]*?)<\/li>/g; let m; while ((m = re.exec(html))) out.push(m[1].trim().replace(/^<p>([\s\S]*)<\/p>$/, '$1')); return out; };
 const withoutList = html => html.replace(/<(ol|ul)>[\s\S]*<\/\1>/, '').trim();
 const inline = text => marked.parseInline(String(text || ''));
+// Headings become the PDF's bookmarks. Chromium drops the space where a heading wraps onto a new line
+// ("Naps andthe Daily Rhythm"), so each space in a heading is a non-breaking one followed by a place to break.
+const heading = html => String(html).replace(/ (?![^<]*>)/g, '\u00A0<wbr>');
 
 export const PAGE_SIZES = {Book: ['177.8mm', '254mm', '7in 10in'], Letter: ['215.9mm', '279.4mm', 'Letter'], A4: ['210mm', '297mm', 'A4'], A5: ['148mm', '210mm', 'A5']};
 
@@ -141,7 +144,7 @@ function planPages(t, heading, intro, ctx) {
     const from = cellText(rows[0][0]), to = cellText(rows[rows.length - 1][0]);
     const first = w === 0 && intro ? `<p class="ws-intro">${intro}</p>` : '';
     const height = `min(27mm, calc((var(--content-h) - ${first ? 36 : 24}mm) / ${rows.length}))`;
-    return `<section class="plan-page"${w === 0 ? ` id="${id}"` : ''}><div class="ws-head"><h3>Week ${w + 1}<span>${from === to ? `Day ${from}` : `Days ${from} to ${to}`}</span></h3><span class="ws-tag">${ICONS.print}Print this page</span></div>${first}<div class="plan-rows">${rows.map(r => `<div class="plan-row" style="height:${height}"><div class="plan-n">${cellText(r[0])}</div><div class="plan-focus">${three ? inline(r[1].text) : ''}</div><div class="plan-do">${r.slice(three ? 2 : 1).map(c => inline(c.text)).join(' ')}</div><div class="plan-tick"></div></div>`).join('')}</div></section>`;
+    return `<section class="plan-page"${w === 0 ? ` id="${id}"` : ''}><div class="ws-head"><h3>Week\u00A0${w + 1}<span>${from === to ? `Day ${from}` : `Days ${from} to ${to}`}</span></h3><span class="ws-tag">${ICONS.print}Print this page</span></div>${first}<div class="plan-rows">${rows.map(r => `<div class="plan-row" style="height:${height}"><div class="plan-n">${cellText(r[0])}</div><div class="plan-focus">${three ? inline(r[1].text) : ''}</div><div class="plan-do">${r.slice(three ? 2 : 1).map(c => inline(c.text)).join(' ')}</div><div class="plan-tick"></div></div>`).join('')}</div></section>`;
   }).join('');
 }
 function fillTable(t, hasIntro) {
@@ -210,7 +213,7 @@ function renderBlocks(tokens, ctx) {
     const t = list[i];
     if (t.type === 'heading') {
       const text = inline(t.text);
-      if (t.depth >= 4) { push(`<h4>${text}</h4>`); continue; }
+      if (t.depth >= 4) { push(`<h4>${heading(text)}</h4>`); continue; }
       // A heading followed (directly or after one paragraph) by a fill-in table or a day plan is a page to print.
       const ahead = [list[i + 1], list[i + 2]];
       const at = ahead.findIndex(x => x?.type === 'table' && (isFillIn(x) || isPlan(x)));
@@ -220,19 +223,19 @@ function renderBlocks(tokens, ctx) {
         else {
           const id = `ws-${ctx.prints.length + 1}`;
           ctx.prints.push({id, title: plain(text)});
-          push(`<section class="worksheet" id="${id}"><div class="ws-head"><h3>${text}</h3><span class="ws-tag">${ICONS.print}Print this page</span></div>${intro ? `<p class="ws-intro">${intro}</p>` : ''}${fillTable(ahead[at], Boolean(intro))}</section>`);
+          push(`<section class="worksheet" id="${id}"><div class="ws-head"><h3>${heading(text)}</h3><span class="ws-tag">${ICONS.print}Print this page</span></div>${intro ? `<p class="ws-intro">${intro}</p>` : ''}${fillTable(ahead[at], Boolean(intro))}</section>`);
         }
         i += at + 1;
         continue;
       }
       // A heading never sits alone: it is kept whole with the block under it (and a list or box that block leads into).
-      const heading = `<h3>${text}</h3>`;
+      const h3 = `<h3>${heading(text)}</h3>`;
       const next = list[i + 1], after = list[i + 2];
       if (whole(next) && tall(next) <= 160) {
         const group = [list[++i]];
         if (whole(after) && tall(next) + tall(after) <= 170 && (leadsIn(next, after) || (next.type === 'paragraph' && next.text.length <= 240))) group.push(list[++i]);
-        push(`<div class="keep">${heading}${group.map(block).join('')}</div>`);
-      } else push(heading);
+        push(`<div class="keep">${h3}${group.map(block).join('')}</div>`);
+      } else push(h3);
       continue;
     }
     if (t.type === 'blockquote') {
@@ -359,7 +362,7 @@ function sourcesHTML(section) {
     const text = inline(m ? m[2] : line).replace(/<a /g, '<a class="url" ');
     return m ? `<p class="source" id="src-${m[1]}"><span class="src-n">${m[1]}</span>${text}</p>` : `<p class="source">${text}</p>`;
   });
-  return `<section class="sources" id="${section.id}" style="page:${section.page}"><h2>${esc(section.title)}</h2><p class="sources-note">The small raised numbers in the text point to this list.</p><div class="sources-list">${items.join('')}</div></section>`;
+  return `<section class="sources" id="${section.id}" style="page:${section.page}"><h2>${heading(esc(section.title))}</h2><p class="sources-note">The small raised numbers in the text point to this list.</p><div class="sources-list">${items.join('')}</div></section>`;
 }
 
 export function buildBook({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', highlights = [], pageSize = 'Book', pageNumbers = {}, fill = {}, gaps = {}}) {
@@ -386,8 +389,8 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const body = sections.map((s, index) => {
     Object.assign(ctx, {section: s.id, name: s.kind === 'chapter' ? `Chapter ${s.n}` : s.title, gapFill: {}});
     if (s.kind === 'sources') return sourcesHTML(s);
-    if (s.kind === 'closing') return `<section class="closing" id="${s.id}"><h2>${esc(s.title)}</h2>${renderBlocks(s.tokens, ctx)}</section>`;
-    if (s.kind === 'plain') return `<section class="part" id="${s.id}" style="page:${s.page};break-before:page"><div class="flow">${s.title ? `<h2 class="plain-head">${esc(s.title)}</h2>` : ''}${renderBlocks(s.tokens, ctx)}</div></section>`;
+    if (s.kind === 'closing') return `<section class="closing" id="${s.id}"><h2>${heading(esc(s.title))}</h2>${renderBlocks(s.tokens, ctx)}</section>`;
+    if (s.kind === 'plain') return `<section class="part" id="${s.id}" style="page:${s.page};break-before:page"><div class="flow">${s.title ? `<h2 class="plain-head">${heading(esc(s.title))}</h2>` : ''}${renderBlocks(s.tokens, ctx)}</div></section>`;
     const facts = takeFacts(s.tokens);
     const body = s.tokens.filter(t => labelOf(t)?.kind !== 'facts');
     if (labelOf(body[0])?.kind !== 'short') report.notes.push(`Chapter ${s.n} does not start with "> The short version:".`);
@@ -397,7 +400,7 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
     let short = '';
     if (labelOf(tokens[0])?.kind === 'short') { const first = tokens.shift(); short = boxParts(first, labelOf(first)).body; }
     const heads = tokens.filter(t => t.type === 'heading' && t.depth === 3).map(t => plain(inline(t.text))).filter(k => !repeated(k.toLowerCase()));
-    const opener = `<section class="opener" id="${s.id}"><div class="opener-num">${String(s.n).padStart(2, '0')}</div><div class="opener-body"><p class="opener-label">Chapter ${s.n}</p><h2>${esc(s.name)}</h2>${short ? `<div class="opener-short">${short}</div>` : ''}</div>${heads.length >= 3 ? `<div class="opener-list"><p>In this chapter</p><ul>${heads.slice(0, 12).map(h => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}</section>`;
+    const opener = `<section class="opener" id="${s.id}"><div class="opener-num">${String(s.n).padStart(2, '0')}</div><div class="opener-body"><p class="opener-label">Chapter ${s.n}</p><h2>${heading(esc(s.name))}</h2>${short ? `<div class="opener-short">${short}</div>` : ''}</div>${heads.length >= 3 ? `<div class="opener-list"><p>In this chapter</p><ul>${heads.slice(0, 12).map(h => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}</section>`;
     // The chapter's "Remember" box closes it: a pine panel that runs to the foot of the page.
     let recap = '';
     if (labelOf(tokens[tokens.length - 1])?.kind === 'remember') {
