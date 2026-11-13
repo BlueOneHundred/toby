@@ -20,6 +20,8 @@ export function claudeEnvironment(source = process.env) {
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
   env.API_TIMEOUT_MS = '120000';
   env.CLAUDE_CODE_MAX_RETRIES = '1';
+  // Toby: paid data tools (treg, Ad Library) can return large results; let bots read them instead of spilling to an unreadable file.
+  env.MAX_MCP_OUTPUT_TOKENS = source.MAX_MCP_OUTPUT_TOKENS || '60000';
   // Authentication stays with the installed Claude Code client. API keys,
   // OAuth tokens, nesting markers, and unrelated application secrets are not copied.
   return env;

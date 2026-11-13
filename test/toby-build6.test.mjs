@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile,writeFile,mkdir} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {createRunBudget,validateRunLimits,DEFAULT_RUN_LIMITS} from '../src/run-limits.mjs';
+import {agentRuntime} from '../src/agent-tools.mjs';
+import {WorkspaceFiles} from '../src/workspace-files.mjs';
+import {TeamFolder} from '../src/team-folder.mjs';
+import {claudeEnvironment} from '../src/claude-backend.mjs';
+const temp=async t=>{const d=await mkdtemp(join(tmpdir(),'toby-b6-'));t.after(()=>rm(d,{recursive:true,force:true}));return d;};
+
+test('tool failures count only in a row, so a few dead links never stop a research run',()=>{
+ const c=new AbortController(),b=createRunBudget(c,{...DEFAULT_RUN_LIMITS,toolFailures:3},{durationMs:60000});
+ let n=0;const fail=()=>{const id='f'+n++;b.activity({id,status:'running'});b.activity({id,status:'error'});};const ok=()=>{const id='o'+n++;b.activity({id,status:'running'});b.activity({id,status:'complete'});};
+ fail();fail();ok();fail();fail();ok();assert.equal(c.signal.aborted,false);
+ fail();fail();fail();assert.equal(c.signal.aborted,true);assert.match(String(c.signal.reason.message),/in a row/);b.close();
+});
+test('old Gratis run limits are upgraded, chosen numbers are kept',()=>{
+ assert.deepEqual(validateRunLimits({minutes:10,toolCalls:100,toolFailures:5,outputCharacters:1000000,t3Retries:8,t3MonitorHours:24}),{...DEFAULT_RUN_LIMITS});
+ assert.equal(validateRunLimits({minutes:45,toolCalls:100,toolFailures:5}).minutes,45);
+ assert.equal(DEFAULT_RUN_LIMITS.minutes,30);
+});
+test('bots can read large paid-data results',()=>{assert.equal(claudeEnvironment({PATH:'/bin'}).MAX_MCP_OUTPUT_TOKENS,'60000');});
+test('make_pdf is offered only with Files and the team folder, and writes into the team folder',async t=>{
+ const d=await temp(t),files=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team'));await mkdir(join(d,'team','ebooks','a'),{recursive:true});
+ await writeFile(join(d,'team','ebooks','a','book.html'),'<!doctype html><h1>Hi</h1>');
+ let asked;const makePdf=async input=>{asked=input;return Buffer.from('%PDF-1.7 test');};
+ const base={conversationId:randomUUID(),files,teamFolder:team,makePdf,connections:{status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set()},onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal};
+ const on=await agentRuntime({...base,bot:{id:randomUUID(),name:'Ebook Builder',capabilities:{web:false,files:true,computer:false,connections:false}}});
+ const tool=on.definitions.find(x=>x.name==='make_pdf');assert.ok(tool);
+ const result=await tool.handler({htmlPath:'ebooks/a/book.html',pdfPath:'ebooks/a/book.pdf',pageSize:'Letter'});assert.equal(result.isError,undefined);
+ assert.equal(asked.pageSize,'Letter');assert.match(asked.file,/book\.html$/);
+ assert.equal((await readFile(join(d,'team','ebooks','a','book.pdf'))).toString(),'%PDF-1.7 test');
+ const bad=await tool.handler({htmlPath:'../x.html',pdfPath:'x.pdf',pageSize:'Letter'});assert.equal(bad.isError,true);
+ const off=await agentRuntime({...base,bot:{id:randomUUID(),name:'Income Coach',capabilities:{web:false,files:false,computer:false,connections:false}}});
+ assert.equal(off.definitions.some(x=>x.name==='make_pdf'),false);
+});
+test('a page that refuses the reader comes back as a result, not a tool failure',async t=>{
+ const d=await temp(t),files=new WorkspaceFiles(d),events=[];
+ const rt=await agentRuntime({conversationId:randomUUID(),files,connections:{status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set()},onActivity:a=>events.push(a),approve:async()=>false,signal:new AbortController().signal,bot:{id:randomUUID(),name:'Creator Partnerships',capabilities:{web:true,files:false,computer:false,connections:false}}});
+ const read=rt.definitions.find(x=>x.name==='read_webpage');
+ const result=await read.handler({url:'https://does-not-exist.invalid-tld-toby-test/'});
+ assert.equal(result.isError,undefined);assert.match(result.content[0].text,/"opened":false/);
+ assert.equal(events.some(e=>e.status==='error'),false);
+ const blocked=await read.handler({url:'https://localhost/'});assert.equal(blocked.isError,true);
+});

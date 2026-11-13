@@ -6,7 +6,7 @@ import {searchWeb,readWebpage,publicURL,fetchImage} from './web-tools.mjs';
 import {copyBetween} from './team-folder.mjs';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
-export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,requestComputerHelp,canUseComputer=()=>true}) {
+export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,requestComputerHelp,canUseComputer=()=>true}) {
   const capabilities={...defaultCapabilities,...bot.capabilities},tools=[],definitions=[],mcpServers={};
   const register=(name,description,schema,handler)=>{const wrapped=async input=>{
     const id=crypto.randomUUID();onActivity({id,name,input:name.endsWith('_memory')?{scope:input.scope,query:input.query,manual:true}:traceValue(input),status:'running',startedAt:Date.now()});
@@ -39,13 +39,16 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
     register('read_webpage','Read a public HTTPS webpage. Returns its title, source URL and text.',{url:z.string()},async({url})=>{
       publicURL(url);
       try{return text(await readWebpage(url,signal));}
-      catch(error){if(!canUseComputer()||error.code==='URL_BLOCKED'||!capabilities.computer||!connections.status().cloud)throw error;
+      catch(error){if(signal.aborted||error.code==='URL_BLOCKED')throw error;
+        // Toby: a page that refuses us is normal on the web, not a broken tool. Report it as a result so it doesn't count toward the failure limit.
+        if(!canUseComputer()||!capabilities.computer||!connections.status().cloud)return text({url,opened:false,reason:String(error.message||error).slice(0,300),note:'This page could not be opened. Treat it as unavailable and move on; do not retry the same link.'});
         const result=await cloud.execute({botId:bot.id,conversationId,name:'browse_url',args:{url},signal,finishStarted:true});return text({url,output:result.output,observation:result.observation});}
     });
   }
   if(capabilities.web){
     register('view_image','Look at a public image by its https link (a listing photo, an ad image, a logo). Returns the image so you can see it. Optionally save it to your private Files with saveAs (needs Files), then copy_to_team to share it.',{url:z.string(),saveAs:z.string().optional()},async({url,saveAs})=>{
-      const image=await fetchImage(url,signal);let saved='';
+      let image;try{image=await fetchImage(url,signal);}catch(error){if(signal.aborted||error.code==='URL_BLOCKED')throw error;return text({url,opened:false,reason:String(error.message||error).slice(0,300),note:'This image could not be opened. Treat it as unavailable and move on; do not retry the same link.'});}
+      let saved='';
       if(saveAs){if(!capabilities.files)throw new Error('Saving needs Files switched on for this bot.');await files.writeBytes(bot.id,saveAs,image.bytes);saved=` Saved to your Files as ${saveAs}.`;}
       return {checkpoint:{url:image.url,bytes:image.bytes.length,saved:saveAs||null},content:[{type:'text',text:`Image from ${image.url} (${image.mimeType}, ${Math.round(image.bytes.length/1024)} KB).${saved}`},{type:'image',mimeType:image.mimeType,data:image.bytes.toString('base64')}]};
     });
@@ -61,6 +64,11 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
       register('append_team_file','Add text to the end of a file in the shared team folder (creates it if missing). Prefer this for logs and shared lists so you never overwrite teammates.',{path:z.string(),content:z.string()},async({path,content})=>text(await teamFolder.append(path,content)));
       register('copy_to_team','Copy a file (any type, including images) from your private Files to the shared team folder.',{path:z.string(),teamPath:z.string()},async({path,teamPath})=>text(await copyBetween({from:files,fromBotId:bot.id,fromPath:path,to:teamFolder,toBotId:null,toPath:teamPath})));
       register('copy_from_team','Copy a file (any type, including images) from the shared team folder into your private Files.',{teamPath:z.string(),path:z.string()},async({teamPath,path})=>text(await copyBetween({from:teamFolder,fromBotId:null,fromPath:teamPath,to:files,toBotId:bot.id,toPath:path})));
+      if(makePdf)register('make_pdf','Turn a self-contained HTML page in the shared team folder (for example ebooks/<slug>/book.html) into a print-ready PDF saved in the team folder. Use CSS @page rules for size and margins and break-before: page for chapters; images must be embedded (data: URLs) or files beside the HTML. Scripts and network loads are switched off.',{htmlPath:z.string(),pdfPath:z.string(),pageSize:z.enum(['Letter','A4','A5']).default('Letter')},async({htmlPath,pdfPath,pageSize})=>{
+        if(!/\.html?$/i.test(htmlPath))throw new Error('htmlPath must be an .html file in the team folder.');if(!/\.pdf$/i.test(pdfPath))throw new Error('pdfPath must end in .pdf.');
+        const source=await teamFolder.target(null,htmlPath);const bytes=await makePdf({file:source,pageSize,signal});
+        const saved=await teamFolder.writeBytes(null,pdfPath,bytes);return text({path:pdfPath,bytes:bytes.length,saved:Boolean(saved)});
+      });
     }
   }
   if(capabilities.computer&&connections.status().cloud){

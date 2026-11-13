@@ -4,20 +4,22 @@ import {DOMParser} from 'linkedom';
 
 export function publicAddress(address){const a=address.split('.').map(Number);return a.length===4&&a.every(n=>Number.isInteger(n)&&n>=0&&n<256)&&![0,10,127].includes(a[0])&&a[0]<224&&!(a[0]===169&&a[1]===254)&&!(a[0]===172&&a[1]>=16&&a[1]<=31)&&!(a[0]===192&&a[1]===168)&&!(a[0]===100&&a[1]>=64&&a[1]<=127);}
 export function publicURL(value){const url=new URL(value);if(url.protocol!=='https:'||url.username||url.password||(url.port&&url.port!=='443')||!url.hostname.includes('.')||/^(?:localhost|127\.|0\.|10\.|192\.168\.|169\.254\.)|\.(?:local|internal|localhost)$/i.test(url.hostname)||url.hostname.includes(':')){const error=new Error('Only public HTTPS webpages are allowed.');error.code='URL_BLOCKED';throw error;}return url;}
+// Toby: many sites refuse unknown readers, so identify as a normal desktop browser.
+export const BROWSER_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
 async function fetchText(value,signal,redirects=0){
  const url=publicURL(value);if(redirects>5)throw new Error('Too many redirects.');
  const addresses=await lookup(url.hostname,{family:4,all:true});if(!addresses.length||addresses.some(a=>!publicAddress(a.address))){const error=new Error('Private network destinations are blocked.');error.code='URL_BLOCKED';throw error;}
  // Pin the validated DNS result to this request; redirects are checked anew.
  const address=addresses[0];
  return new Promise((resolve,reject)=>{
-  const request=https.get(url,{signal,timeout:15000,lookup:(_hostname,_options,callback)=>callback(null,[address]),headers:{'User-Agent':'Toby/0.9 (personal research assistant)','Accept':'text/html,application/xml,text/plain','Accept-Encoding':'identity'}},response=>{
+  const request=https.get(url,{signal,timeout:15000,lookup:(_hostname,_options,callback)=>callback(null,[address]),headers:{'User-Agent':BROWSER_UA,'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5','Accept-Language':'en-US,en;q=0.9','Accept-Encoding':'identity'}},response=>{
    if(response.statusCode>=300&&response.statusCode<400&&response.headers.location){response.resume();resolve(fetchText(new URL(response.headers.location,url).href,signal,redirects+1));return;}
-   if(response.statusCode!==200){response.resume();reject(new Error(`Webpage returned HTTP ${response.statusCode}.`));return;}
+   if(response.statusCode!==200){response.resume();const error=new Error(`Webpage returned HTTP ${response.statusCode}.`);error.code='HTTP_STATUS';error.status=response.statusCode;reject(error);return;}
    let size=0;const chunks=[];response.on('data',chunk=>{size+=chunk.length;if(size>2000000)response.destroy(new Error('Webpage exceeds the 2 MB reading limit.'));else chunks.push(chunk);});response.on('error',reject);response.on('end',()=>resolve({url:url.href,text:Buffer.concat(chunks).toString('utf8'),contentType:response.headers['content-type']||''}));
   });request.on('timeout',()=>request.destroy(new Error('Webpage request timed out.')));request.on('error',reject);
  });
 }
-export async function searchWeb(query,signal){if(typeof query!=='string'||!query.trim()||query.length>1000)throw new Error('Enter a search query under 1000 characters.');const result=await fetchText('https://www.bing.com/search?format=rss&q='+encodeURIComponent(query),signal);const doc=new DOMParser().parseFromString(result.text,'text/xml');return [...doc.querySelectorAll('item')].slice(0,8).map(item=>({title:item.querySelector('title')?.textContent,url:item.querySelector('link')?.textContent,snippet:item.querySelector('description')?.textContent}));}
+export async function searchWeb(query,signal){if(typeof query!=='string'||!query.trim()||query.length>1000)throw new Error('Enter a search query under 1000 characters.');const result=await fetchText('https://www.bing.com/search?format=rss&mkt=en-US&setlang=en-US&cc=US&q='+encodeURIComponent(query),signal);const doc=new DOMParser().parseFromString(result.text,'text/xml');return [...doc.querySelectorAll('item')].slice(0,8).map(item=>({title:item.querySelector('title')?.textContent,url:item.querySelector('link')?.textContent,snippet:item.querySelector('description')?.textContent}));}
 export function extractWebpage(response){
  const type=String(response.contentType||'').split(';')[0].trim().toLowerCase();
  if(type==='application/pdf')throw new Error('This link is a PDF. Use the browser to inspect it or attach the PDF to read its contents.');
@@ -35,7 +37,7 @@ export async function fetchImage(value,signal,redirects=0){
  const addresses=await lookup(url.hostname,{family:4,all:true});if(!addresses.length||addresses.some(a=>!publicAddress(a.address))){const error=new Error('Private network destinations are blocked.');error.code='URL_BLOCKED';throw error;}
  const address=addresses[0];
  return new Promise((resolve,reject)=>{
-  const request=https.get(url,{signal,timeout:20000,lookup:(_hostname,_options,callback)=>callback(null,[address]),headers:{'User-Agent':'Mozilla/5.0 (Toby personal research assistant)','Accept':'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8','Accept-Encoding':'identity'}},response=>{
+  const request=https.get(url,{signal,timeout:20000,lookup:(_hostname,_options,callback)=>callback(null,[address]),headers:{'User-Agent':BROWSER_UA,'Accept':'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8','Accept-Encoding':'identity'}},response=>{
    if(response.statusCode>=300&&response.statusCode<400&&response.headers.location){response.resume();resolve(fetchImage(new URL(response.headers.location,url).href,signal,redirects+1));return;}
    if(response.statusCode!==200){response.resume();reject(new Error(`Image returned HTTP ${response.statusCode}.`));return;}
    const type=String(response.headers['content-type']||'').split(';')[0].trim().toLowerCase();
