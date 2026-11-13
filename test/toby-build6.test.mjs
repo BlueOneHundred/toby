@@ -49,17 +49,17 @@ test('a page that refuses the reader comes back as a result, not a tool failure'
 test('make_book assembles Markdown parts into a designed book and PDF',async t=>{
  const {bookHTML}=await import('../src/book-builder.mjs');
  const html=bookHTML({title:'Calm Walks',subtitle:'A <test>',tagline:'Short walks',badge:'Built from 3 sources',parts:['## Contents\n\n1. Chapter 1\n\n## Chapter 1: Start Here\n\n> The short version: walk slowly [S3].\n\n### Why\n\nText [S1, S2].\n\n> Try tonight: one lap.\n\n> Stat: 47% | of puppies [S1]\n\n> Steps:\n> 1. One\n> 2. Two\n\n> Checklist: Before you go\n>\n> - Lead\n> - Bags\n\n> Before: chaos\n\n> After: calm\n\n> Timeline:\n> - Day 1: settle\n> - Day 2: crate\n\n> From Sam\'s kitchen: hi\n\nHere is the list:\n\n- a\n- b\n\n| A | B |\n|---|---|\n| 1 | 2 |\n','## Sources\n\nS1. Example. https://example.org\nS2. Second.'],accent:'#123456'});
- for(const c of ['box box-short','box box-try','class="stat"','class="steps"','class="checklist"','class="ba"','class="timeline"','box box-from','class="keep"','class="opener"','class="badge"','class="source"'])assert.ok(html.includes(c),c);
+ for(const c of ['opener-short','box box-try','class="stat"','class="steps"','class="checklist"','class="ba"','class="timeline"','box box-from','class="keep"','class="page-opener"','cover-badge','class="source"','@font-face'])assert.ok(html.includes(c),c);
  assert.match(html,/A &lt;test&gt;/);assert.match(html,/<span class="cite">\[S1, S2\]<\/span>/);assert.doesNotMatch(html,/<script/);
  assert.equal((html.match(/<p class="source">/g)||[]).length,2);
  assert.doesNotMatch(html.split('<main>')[1],/Contents/,'hand-written contents is dropped');
- assert.match(html,/height:279\.4mm/,'cover fills a Letter page');
+ assert.match(html,/size:7in 10in/,'book trim by default');for(const t of ['warm','modern','classic'])assert.doesNotMatch(bookHTML({title:'x',parts:['## Chapter 1: A\n\nb'],theme:t}),/rgba\(|opacity:/,'no transparency in '+t);
  const d=await temp(t),files=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team'));await mkdir(join(d,'team','ebooks','b','images'),{recursive:true});
  await writeFile(join(d,'team','ebooks','b','part-a.md'),'## Chapter 1: Hi\n\nHello world.');
  await writeFile(join(d,'team','ebooks','b','images','ch01.png'),Buffer.from([137,80,78,71]));
  const rt=await agentRuntime({conversationId:randomUUID(),files,teamFolder:team,makePdf:async()=>Buffer.from('%PDF'),connections:{status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set()},onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal,bot:{id:randomUUID(),name:'Ebook Builder',capabilities:{web:false,files:true,computer:false,connections:false}}});
  const r=await rt.definitions.find(x=>x.name==='make_book').handler({parts:['ebooks/b/part-a.md'],title:'Hi',chapterImagesDir:'ebooks/b/images',htmlPath:'ebooks/b/book.html',pdfPath:'ebooks/b/book.pdf',pageSize:'Letter'});
  assert.equal(r.isError,undefined,JSON.stringify(r));assert.match(r.content[0].text,/"chapterImages":\[1\]/);
- const out=(await readFile(join(d,'team','ebooks','b','book.html'))).toString();assert.match(out,/Hello world/);assert.match(out,/opener-art/);
+ const out=(await readFile(join(d,'team','ebooks','b','book.html'))).toString();assert.match(out,/Hello world/);assert.match(out,/opener-art/);assert.match(out,/data:image\/png;base64/);
  assert.ok(rt.definitions.some(x=>x.name==='save_image_to_team'));
 });
