@@ -71,12 +71,16 @@ test('make_book assembles Markdown parts into a designed book and PDF',async t=>
  // the print loop gives up its changes when something moves to another page
  let calls=0;const held=await layoutBook({title:'x',parts},async()=>Buffer.from(String(++calls)),buf=>({'cal-top':calTop,'ch-1':{page:String(buf)==='1'?4:5,top:0}}),()=>({}));
  assert.equal(held.report.layoutHeld,false);assert.ok(calls>=3);
+ // the finished PDF is inspected: a whole block that starts on one page and ends on the next is reported
+ const splitDests={'cal-top':calTop,'g-ch-1-0-s':{page:5,top:0}},splitLinks={'g-ch-1-0-s':[{page:6,bottom:pt(200),top:pt(202),width:2.3}]};
+ const audit=await layoutBook({title:'x',parts},async()=>Buffer.from('p'),()=>splitDests,()=>splitLinks);
+ assert.equal(audit.report.check.listsSplit,1);assert.ok(bookToFix(audit.report).some(x=>/split across two pages in Chapter 1 \(page 5\)/.test(x)),JSON.stringify(bookToFix(audit.report)));
  const d=await temp(t),files=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team'));await mkdir(join(d,'team','ebooks','b'),{recursive:true});
  await writeFile(join(d,'team','ebooks','b','part-a.md'),'## Chapter 1: Hi\n\nHello world.');
  await writeFile(join(d,'team','ebooks','b','cover.png'),Buffer.from([137,80,78,71]));
  const rt=await agentRuntime({conversationId:randomUUID(),files,teamFolder:team,makePdf:async()=>Buffer.from('%PDF'),connections:{status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set()},onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal,bot:{id:randomUUID(),name:'Ebook Builder',capabilities:{web:false,files:true,computer:false,connections:false}}});
  const r=await rt.definitions.find(x=>x.name==='make_book').handler({parts:['ebooks/b/part-a.md'],title:'Hi',coverImage:'ebooks/b/cover.png',theme:'modern',htmlPath:'ebooks/b/book.html',pdfPath:'ebooks/b/book.pdf',pageSize:'Letter'});
- assert.equal(r.isError,undefined,JSON.stringify(r));assert.match(r.content[0].text,/"toFix":\[/);assert.match(r.content[0].text,/does not start with/);
+ assert.equal(r.isError,undefined,JSON.stringify(r));assert.match(r.content[0].text,/"toFix":\[/);assert.match(r.content[0].text,/"passed":false/);assert.match((await readFile(join(d,'team','ebooks','b','book-check.md'))).toString(),/Result: NEEDS FIXES/);assert.match(r.content[0].text,/does not start with/);
  const out=(await readFile(join(d,'team','ebooks','b','book.html'))).toString();assert.match(out,/Hello world/);assert.match(out,/data:image\/png;base64/);
  assert.equal((await readFile(join(d,'team','ebooks','b','book.pdf'))).toString(),'%PDF');
  assert.ok(rt.definitions.some(x=>x.name==='save_image_to_team'));

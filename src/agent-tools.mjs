@@ -89,7 +89,12 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
           await teamFolder.writeBytes(null,htmlPath,Buffer.from(made.html));await teamFolder.writeBytes(null,pdfPath,made.pdf);
           pdf={path:pdfPath,bytes:made.pdf.length};report=made.report;
         }else{const built=buildBook(options);await teamFolder.writeBytes(null,htmlPath,Buffer.from(built.html));report=built.report;}
-        return text({html:htmlPath,pdf,parts:parts.length,words,report,toFix:bookToFix(report,Boolean(pdfPath))});
+        const toFix=bookToFix(report,Boolean(pdfPath));
+        // A short note beside the book, so anyone (Toby, Tavin) can see at a glance whether this build passed.
+        let checkNote=null;
+        if(pdfPath){checkNote=pdfPath.replace(/[^/\\]+$/,'book-check.md');const c=report.check||{};
+          await teamFolder.writeBytes(null,checkNote,Buffer.from(['# Book check: '+title,'','- Built: '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC','- Result: '+(toFix.length?'NEEDS FIXES ('+toFix.length+')':'PASSED'),'- Pages: '+(report.pages||'?')+', chapters: '+report.chapters+', pages to print: '+report.pagesToPrint,'- Lists, boxes or tables split across pages: '+(c.listsSplit??'not measured'),'- Empty spaces left: '+(c.emptySpaces??'not measured'),'- Spaces filled with a fact: '+report.gaps.filter(g=>g.filled).length,'- Blocks measured: '+(c.blocksMeasured??0)+', prints: '+(report.prints||1),'',...(toFix.length?['## To fix',...toFix.map(x=>'- '+x)]:['Nothing to fix.']),''].join('\n')));}
+        return text({html:htmlPath,pdf,parts:parts.length,words,passed:toFix.length===0,toFix,checkNote,report});
       });
       if(makePdf)register('make_pdf','Turn a self-contained HTML page in the shared team folder (for example ebooks/<slug>/book.html) into a print-ready PDF saved in the team folder. Use CSS @page rules for size and margins and break-before: page for chapters; images must be embedded (data: URLs) or files beside the HTML. Scripts and network loads are switched off.',{htmlPath:z.string(),pdfPath:z.string(),pageSize:z.enum(['Letter','A4','A5']).default('Letter')},async({htmlPath,pdfPath,pageSize})=>{
         if(!/\.html?$/i.test(htmlPath))throw new Error('htmlPath must be an .html file in the team folder.');if(!/\.pdf$/i.test(pdfPath))throw new Error('pdfPath must end in .pdf.');

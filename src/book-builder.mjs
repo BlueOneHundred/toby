@@ -207,7 +207,7 @@ function block(t) {
 // the next page and how much room it left behind. ctx.gapFill holds what to put in that room on the second print.
 function renderBlocks(tokens, ctx) {
   const out = [];
-  const push = (html, solid = true) => out.push({html, solid});
+  const push = (html, kind = 's') => out.push({html, kind});   // s: stays whole, f: running text, p: its own page(s)
   const list = tokens.filter(t => t.type !== 'space');
   for (let i = 0; i < list.length; i++) {
     const t = list[i];
@@ -219,11 +219,11 @@ function renderBlocks(tokens, ctx) {
       const at = ahead.findIndex(x => x?.type === 'table' && (isFillIn(x) || isPlan(x)));
       if (at >= 0 && (at === 0 || ahead[0].type === 'paragraph')) {
         const intro = at === 1 ? inline(ahead[0].text) : '';
-        if (isPlan(ahead[at])) push(planPages(ahead[at], plain(text), intro, ctx));
+        if (isPlan(ahead[at])) push(planPages(ahead[at], plain(text), intro, ctx), 'p');
         else {
           const id = `ws-${ctx.prints.length + 1}`;
           ctx.prints.push({id, title: plain(text)});
-          push(`<section class="worksheet" id="${id}"><div class="ws-head"><h3>${heading(text)}</h3><span class="ws-tag">${ICONS.print}Print this page</span></div>${intro ? `<p class="ws-intro">${intro}</p>` : ''}${fillTable(ahead[at], Boolean(intro))}</section>`);
+          push(`<section class="worksheet" id="${id}"><div class="ws-head"><h3>${heading(text)}</h3><span class="ws-tag">${ICONS.print}Print this page</span></div>${intro ? `<p class="ws-intro">${intro}</p>` : ''}${fillTable(ahead[at], Boolean(intro))}</section>`, 'p');
         }
         i += at + 1;
         continue;
@@ -248,17 +248,19 @@ function renderBlocks(tokens, ctx) {
         continue;
       }
       if (label?.kind === 'before' && labelOf(list[i + 1])?.kind === 'after') { push(`<div class="ba">${renderBox(t, label)}${renderBox(list[i + 1], labelOf(list[i + 1]))}</div>`); i++; continue; }
-      if (label?.kind === 'steps' && tall(t) * 0.84 > 198) ctx.longLists.push(ctx.name);
-      push(block(t));
+      const longSteps = label?.kind === 'steps' && tall(t) * 0.84 > 198;
+      if (longSteps) ctx.longLists.push(ctx.name);
+      push(block(t), longSteps || (label?.kind === 'checklist' && (t.raw.match(/^>\s*[-*] /gm) || []).length > 18) ? 'f' : 's');
       continue;
     }
     if (leadsIn(t, list[i + 1])) { push(`<div class="keep">${block(t)}${block(list[++i])}</div>`); continue; }
-    if (t.type === 'paragraph') { push(/:\s*$/.test(t.text) ? marked.parser([t]).replace(/^<p>/, '<p class="kw">') : block(t), false); continue; }
-    if (t.type === 'table' && isPlan(t)) { push(planPages(t, 'Day by day', '', ctx)); continue; }
-    if (t.type === 'list' && tall(t) > 195) ctx.longLists.push(ctx.name);
-    push(block(t));
+    if (t.type === 'paragraph') { push(/:\s*$/.test(t.text) ? marked.parser([t]).replace(/^<p>/, '<p class="kw">') : block(t), 'f'); continue; }
+    if (t.type === 'table' && isPlan(t)) { push(planPages(t, 'Day by day', '', ctx), 'p'); continue; }
+    const longList = t.type === 'list' && tall(t) > 195;
+    if (longList) ctx.longLists.push(ctx.name);
+    push(block(t), longList || (t.type === 'table' && !smallTable(t)) || t.type === 'code' ? 'f' : 's');
   }
-  const wrap = (entry, n) => { const id = `g-${ctx.section}-${n}-${entry.solid ? 's' : 'f'}`; if (ctx.texts) ctx.texts[id] = entry.html; return `${ctx.gapFill?.[id] || ''}<div class="b" id="${id}">${entry.html}<a class="pb" href="#${id}"></a></div>`; };
+  const wrap = (entry, n) => { const id = `g-${ctx.section}-${n}-${entry.kind}`; if (ctx.texts) ctx.texts[id] = entry.html; return `${ctx.gapFill?.[id] || ''}<div class="b" id="${id}">${entry.html}<a class="pb" href="#${id}"></a></div>`; };
   return out.map(wrap).join('\n') + (ctx.gapFill?.[`g-${ctx.section}-end`] || '');
 }
 
@@ -310,12 +312,13 @@ function fillGaps(section, facts, gaps, report, texts = {}) {
   const echoes = (fact, n) => {
     const mine = [...words(`${fact.num} ${fact.text}`)];
     if (!Number.isFinite(n) || mine.length < 3) return false;
-    const near = words(Object.entries(texts).filter(([id]) => { const k = Number((/-(\d+)-[sf]$/.exec(id) || [])[1]); return k >= n - 3 && k <= n; }).map(([, text]) => text).join(' '));
+    const near = words(Object.entries(texts).filter(([id]) => { const k = Number((/-(\d+)-[sfp]$/.exec(id) || [])[1]); return k >= n - 3 && k <= n; }).map(([, text]) => text).join(' '));
     return mine.filter(word => near.has(word)).length / mine.length >= 0.7;
   };
-  const mine = Object.entries(gaps || {}).map(([id, room]) => ({id, room, m: /^g-(.+)-(\d+|end)(?:-[sf])?$/.exec(id)})).filter(g => g.m && g.m[1] === section.id).sort((a, b) => (a.m[2] === 'end' ? 1e9 : Number(a.m[2])) - (b.m[2] === 'end' ? 1e9 : Number(b.m[2])));
+  const mine = Object.entries(gaps || {}).map(([id, room]) => ({id, room, m: /^g-(.+)-(\d+|end)(?:-[sfp])?$/.exec(id)})).filter(g => g.m && g.m[1] === section.id).sort((a, b) => (a.m[2] === 'end' ? 1e9 : Number(a.m[2])) - (b.m[2] === 'end' ? 1e9 : Number(b.m[2])));
   const pool = [...facts], out = {};
-  for (const gap of mine) {
+  // the largest spaces are served first, so if the facts run out only small ones are left
+  for (const gap of [...mine].sort((a, b) => b.room - a.room)) {
     const at = gap.m[2] === 'end' ? Infinity : Number(gap.m[2]);
     const pick = strict => { return room => { for (let i = 0; i < pool.length; i++) { if (strict && echoes(pool[i], at)) continue; const html = factCard(pool[i], room); if (html) { pool.splice(i, 1); return html; } } return ''; }; };
     const take = room => pick(true)(room) || pick(false)(room);
@@ -327,7 +330,7 @@ function fillGaps(section, facts, gaps, report, texts = {}) {
     }
     if (!html) html = take(gap.room);
     if (html) out[gap.id] = html;
-    report.gaps.push({where: section.kind === 'chapter' ? `Chapter ${section.n}` : section.title, roomMm: Math.round(gap.room), filled: Boolean(html)});
+    report.gaps.push({id: gap.id, where: section.kind === 'chapter' ? `Chapter ${section.n}` : section.title, roomMm: Math.round(gap.room), filled: Boolean(html)});
   }
   return out;
 }
@@ -423,7 +426,9 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
     return `${opener}<section class="chapter" style="page:${s.page}"><div class="flow">${renderBlocks(tokens, ctx)}${recap}</div></section>`;
   }).join('\n');
 
-  const runningHeads = sections.filter(s => s.kind !== 'closing').map(s => ({page: s.page, text: s.kind === 'chapter' ? `Chapter ${s.n}: ${s.name}` : s.title}));
+  // running heads stay on one line: long titles are cut at a word
+  const clip = (text, max) => (text.length <= max ? text : `${text.slice(0, max).replace(/\s+\S*$/, '')}\u2026`);
+  const runningHeads = sections.filter(s => s.kind !== 'closing').map(s => ({page: s.page, text: clip(s.kind === 'chapter' ? `Chapter ${s.n}: ${s.name}` : s.title, 52)}));
   const page = id => (pageNumbers[id] ? String(pageNumbers[id]) : '');
   const tocRow = (id, n, text, minor = false) => `<li${minor ? ' class="minor"' : ''}><a href="#${id}"><span class="toc-n">${n}</span><span class="toc-t">${text}</span><span class="toc-dots"></span><span class="toc-p">${page(id)}</span></a></li>`;
   const toc = sections.map(s => tocRow(s.id, s.kind === 'chapter' ? String(s.n).padStart(2, '0') : '', esc(s.kind === 'chapter' ? s.name : s.title), s.kind !== 'chapter')).join('');
@@ -436,7 +441,7 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const cover = `<section class="cover"><div class="cover-photo"${coverDataUrl ? ` style="background-image:url('${coverDataUrl}')"` : ''}></div><div class="cover-band"></div>${seal}<div class="cover-text"><div class="cover-title${titleSize}">${esc(title)}</div>${subtitle ? `<p class="cover-sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="cover-tag">${esc(tagline)}</p>` : ''}${author ? `<p class="cover-by">${esc(author)}</p>` : ''}</div>${inside.length ? `<div class="cover-inside">${inside.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}${probes}</section>`;
   const titlePage = `<section class="title-page"><div><span id="cal-top"></span><p class="tp-title">${esc(title)}</p>${subtitle ? `<p class="tp-sub">${esc(subtitle)}</p>` : ''}<div class="tp-rule"></div></div><div class="tp-foot">${author ? `<p>${esc(author)}</p>` : ''}${badge ? `<p>${esc(badge)}. Every fact in this book carries a small number that links to its source at the back.</p>` : ''}</div></section>`;
   const content = smartQuotes(`${cover}\n${titlePage}\n<nav class="toc"><h2>Contents</h2><ol>${toc}</ol>${prints}</nav>\n<main>${cite(clean(body))}</main>`);
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${styleCSS({pageW, pageH, sizeRule, title, runningHeads})}</style></head><body>\n${content}\n</body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${styleCSS({pageW, pageH, sizeRule, title: clip(title, 46), runningHeads})}</style></head><body>\n${content}\n</body></html>`;
   report.chapters = chapters.length;
   report.pagesToPrint = (body.match(/class="(worksheet|plan-page)"/g) || []).length;
   report.unfilledGaps = report.gaps.filter(g => !g.filled).length;
@@ -453,6 +458,9 @@ export function bookToFix(report, printed = true) {
   for (const gap of report.gaps || []) if (!gap.filled) (empty[gap.where] ||= []).push(gap.roomMm);
   for (const [where, rooms] of Object.entries(empty)) out.push(`${where} still has ${rooms.length} empty space${rooms.length > 1 ? 's' : ''} (${rooms.join(', ')} mm high) and no spare fact that fits. Add ${rooms.length + 1} more facts to its "> Facts:" block${rooms.some(r => r < 24) ? ', at least one of them under 60 characters' : ''}.`);
   for (const where of report.listsTooLongForOnePage || []) out.push(`${where} has a list or set of steps too long for one page. Split it into two shorter lists, each under its own heading.`);
+  const check = report.check;
+  if (check?.listsSplit) out.push(`A list, box or table is split across two pages in ${check.listsSplitIn.join(', ')}. Make it shorter, or split it into two under their own headings.`);
+  if (printed && report.measured === false) out.push('Toby could not measure this PDF, so page numbers, spare facts and stretched chapter endings are missing. Run make_book once more; if this message comes back, tell Toby.');
   if (printed && report.layoutHeld === false) out.push('The layout would not settle, so this PDF has no spare facts or stretched chapter endings. Run make_book once more; if this message comes back, tell Toby.');
   return out;
 }
@@ -461,7 +469,7 @@ export function bookToFix(report, printed = true) {
 export const TOC_ID = /^(ch-\d+|sec-\d+|ws-\d+|sources|closing)$/;
 // Ids of the chapter-end panels; make_book measures the room under each and passes it back as "fill".
 export const END_ID = /^end-ch-\d+$/;
-const MARK_ID = /^g-((?:ch|sec)-\d+)-(\d+)-([sf])$/;
+const MARK_ID = /^g-((?:ch|sec)-\d+)-(\d+)-([sfp])$/;
 const HEAD_MM = 23, FOOT_MM = 20;   // the top and bottom page margins in book-style.mjs
 // From a first print's link targets ({name: {page, top}} with top in points from the foot of the page):
 // the page numbers for the contents page, and the room in millimetres under each chapter-end panel.
@@ -484,21 +492,23 @@ export function layoutFromDests(dests, pageSize = 'Book', links = {}) {
       const m = MARK_ID.exec(name);
       // The block's last link is the probe at its foot (links inside the block come before it).
       const foot = (links[name] || []).filter(link => link.width < 4).sort((a, b) => b.page - a.page || a.bottom - b.bottom)[0];
-      if (m && foot) (sections[m[1]] ||= []).push({name, n: Number(m[2]), solid: m[3] === 's', page: dest.page, endPage: foot.page, bottom: foot.bottom});
+      if (m && foot) (sections[m[1]] ||= []).push({name, n: Number(m[2]), kind: m[3], solid: m[3] !== 'f', page: dest.page, endPage: foot.page, bottom: foot.bottom});
     }
   }
   // A whole block (a list, a box, a table, a heading with its text) that did not fit was pushed to the next page.
   // The block before it ends where the empty room starts.
-  const note = (name, block) => { const room = mm(block.bottom) - FOOT_MM - 8.5; if (room >= 13 && room <= bodyH - 20) gaps[name] = Math.round(room * 10) / 10; };
+  const note = (name, block) => { const room = mm(block.bottom) - FOOT_MM - 8.5; if (room >= 11.5 && room <= bodyH - 20) gaps[name] = Math.round(room * 10) / 10; };
+  const split = [];
   for (const [section, list] of Object.entries(sections)) {
     list.sort((a, b) => a.n - b.n);
+    for (const block of list) if (block.kind === 's' && block.endPage !== block.page) split.push({section, page: block.page});
     list.forEach((block, i) => {
       const next = list[i + 1];
       if (next && next.solid && next.page > block.endPage) note(next.name, block);
       if (!next && (!dests[`end-${section}`] || dests[`end-${section}`].page > block.endPage)) note(`g-${section}-end`, block);
     });
   }
-  return {pageNumbers, fill, gaps};
+  return {pageNumbers, fill, gaps, split};
 }
 
 // Prints the book until the layout holds still. print(html) must return the PDF bytes.
@@ -507,8 +517,20 @@ export function layoutFromDests(dests, pageSize = 'Book', links = {}) {
 export async function layoutBook(options, print, readDests, readLinks = () => ({})) {
   const firstPdf = await print(buildBook(options).html);
   const first = readDests(firstPdf);
-  const layout = layoutFromDests(first, options.pageSize, readLinks(firstPdf));
+  const {split: _unused, ...layout} = layoutFromDests(first, options.pageSize, readLinks(firstPdf));
   const watched = Object.keys(first).filter(name => TOC_ID.test(name) || END_ID.test(name) || MARK_ID.test(name));
+  const where = section => (/^ch-(\d+)$/.test(section) ? `Chapter ${section.slice(3)}` : 'the opening pages');
+  // The last word goes to the finished PDF itself: is any whole block split, is any room left empty?
+  const inspect = (pdf, built) => {
+    const final = layoutFromDests(readDests(pdf), options.pageSize, readLinks(pdf));
+    const filled = new Set(built.report.gaps.filter(g => g.filled).map(g => g.id));
+    const empty = Object.entries(final.gaps).filter(([id]) => !filled.has(id) && /^g-ch-/.test(id));
+    return {
+      blocksMeasured: watched.filter(name => MARK_ID.test(name)).length,
+      listsSplit: final.split.length, listsSplitIn: [...new Set(final.split.map(x => `${where(x.section)} (page ${x.page})`))],
+      emptySpaces: empty.length, emptySpacesMm: empty.map(([, room]) => Math.round(room)),
+    };
+  };
   let prints = 1;
   for (let attempt = 0; attempt < 4; attempt++) {
     const built = buildBook({...options, ...layout});
@@ -516,14 +538,15 @@ export async function layoutBook(options, print, readDests, readLinks = () => ({
     prints++;
     const now = readDests(pdf);
     const moved = watched.filter(name => now[name]?.page !== first[name].page);
-    if (!moved.length) return {pdf, html: built.html, report: {...built.report, pages: Math.max(...Object.values(now).map(d => d.page)), prints, layoutHeld: true}};
-    const sectionOf = name => (/^g-(.+)-(?:\d+-[sf]|end)$/.exec(name) || [])[1] || name.replace(/^end-/, '');
+    if (!moved.length) return {pdf, html: built.html, report: {...built.report, pages: Math.max(0, ...Object.values(now).map(d => d.page)), prints, layoutHeld: true, measured: Boolean(first['cal-top']), check: inspect(pdf, built)}};
+    const sectionOf = name => (/^g-(.+)-(?:\d+-[sfp]|end)$/.exec(name) || [])[1] || name.replace(/^end-/, '');
     const bad = attempt < 2 ? sectionOf(moved.sort((a, b) => first[a].page - first[b].page)[0]) : null;
     for (const key of Object.keys(layout.gaps)) if (!bad || sectionOf(key) === bad) delete layout.gaps[key];
     for (const key of Object.keys(layout.fill)) if (!bad || sectionOf(key) === bad) delete layout.fill[key];
   }
   const built = buildBook({...options, pageNumbers: layout.pageNumbers});
-  return {pdf: await print(built.html), html: built.html, report: {...built.report, prints: prints + 1, layoutHeld: false}};
+  const pdf = await print(built.html);
+  return {pdf, html: built.html, report: {...built.report, prints: prints + 1, layoutHeld: false, measured: Boolean(first['cal-top']), check: inspect(pdf, built)}};
 }
 
 export function imageDataUrl(bytes, name) {
