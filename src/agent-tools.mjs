@@ -4,6 +4,8 @@ import {z} from 'zod';
 import {COMPUTER_ACTIONS} from './cloud-computer.mjs';
 import {searchWeb,readWebpage,publicURL,fetchImage} from './web-tools.mjs';
 import {copyBetween} from './team-folder.mjs';
+import {bookHTML,imageDataUrl} from './book-builder.mjs';
+import {readFile as readTeamBytes} from 'node:fs/promises';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
 export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,requestComputerHelp,canUseComputer=()=>true}) {
@@ -64,6 +66,14 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
       register('append_team_file','Add text to the end of a file in the shared team folder (creates it if missing). Prefer this for logs and shared lists so you never overwrite teammates.',{path:z.string(),content:z.string()},async({path,content})=>text(await teamFolder.append(path,content)));
       register('copy_to_team','Copy a file (any type, including images) from your private Files to the shared team folder.',{path:z.string(),teamPath:z.string()},async({path,teamPath})=>text(await copyBetween({from:files,fromBotId:bot.id,fromPath:path,to:teamFolder,toBotId:null,toPath:teamPath})));
       register('copy_from_team','Copy a file (any type, including images) from the shared team folder into your private Files.',{teamPath:z.string(),path:z.string()},async({teamPath,path})=>text(await copyBetween({from:teamFolder,fromBotId:null,fromPath:teamPath,to:files,toBotId:bot.id,toPath:path})));
+      register('make_book','Assemble a designed ebook from Markdown files in the shared team folder: a cover (title, subtitle and author set as real text over an optional cover image), a contents page, chapter openers for "## Chapter N:" headings, styled boxes for blockquotes that start with The short version:, Try tonight:, Remember:, Safety note:, Red flag:, Tip: or From <name>\'s <place>:, tables and [S12] source tags. Saves one self-contained HTML file and, when pdfPath is given, a print-ready PDF.',{parts:z.array(z.string()).min(1).max(40),title:z.string().min(1).max(160),subtitle:z.string().max(240).optional(),author:z.string().max(120).optional(),coverImage:z.string().optional(),accent:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),htmlPath:z.string(),pdfPath:z.string().optional(),pageSize:z.enum(['Letter','A4','A5']).default('Letter')},async({parts,title,subtitle,author,coverImage,accent,htmlPath,pdfPath,pageSize})=>{
+        if(!/\.html?$/i.test(htmlPath))throw new Error('htmlPath must end in .html.');if(pdfPath&&!/\.pdf$/i.test(pdfPath))throw new Error('pdfPath must end in .pdf.');
+        const markdown=[];let words=0;for(const part of parts){const value=(await readTeamBytes(await teamFolder.target(null,part))).toString('utf8');words+=value.split(/\s+/).filter(Boolean).length;markdown.push(value);}
+        const coverDataUrl=coverImage?imageDataUrl(await readTeamBytes(await teamFolder.target(null,coverImage)),coverImage):'';
+        const html=bookHTML({title,subtitle,author,parts:markdown,coverDataUrl,accent,pageSize});await teamFolder.writeBytes(null,htmlPath,Buffer.from(html));
+        let pdf=null;if(pdfPath){if(!makePdf)throw new Error('PDF making is not available in this app.');const bytes=await makePdf({file:await teamFolder.target(null,htmlPath),pageSize,signal});await teamFolder.writeBytes(null,pdfPath,bytes);pdf={path:pdfPath,bytes:bytes.length};}
+        return text({html:htmlPath,pdf,parts:parts.length,words});
+      });
       if(makePdf)register('make_pdf','Turn a self-contained HTML page in the shared team folder (for example ebooks/<slug>/book.html) into a print-ready PDF saved in the team folder. Use CSS @page rules for size and margins and break-before: page for chapters; images must be embedded (data: URLs) or files beside the HTML. Scripts and network loads are switched off.',{htmlPath:z.string(),pdfPath:z.string(),pageSize:z.enum(['Letter','A4','A5']).default('Letter')},async({htmlPath,pdfPath,pageSize})=>{
         if(!/\.html?$/i.test(htmlPath))throw new Error('htmlPath must be an .html file in the team folder.');if(!/\.pdf$/i.test(pdfPath))throw new Error('pdfPath must end in .pdf.');
         const source=await teamFolder.target(null,htmlPath);const bytes=await makePdf({file:source,pageSize,signal});

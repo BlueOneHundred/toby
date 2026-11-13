@@ -46,3 +46,15 @@ test('a page that refuses the reader comes back as a result, not a tool failure'
  assert.equal(events.some(e=>e.status==='error'),false);
  const blocked=await read.handler({url:'https://localhost/'});assert.equal(blocked.isError,true);
 });
+test('make_book assembles Markdown parts into a styled book and PDF',async t=>{
+ const {bookHTML,styleBoxes}=await import('../src/book-builder.mjs');
+ const html=bookHTML({title:'Calm Walks',subtitle:'A <test>',author:'Sam',parts:['## Chapter 1: Start Here\n\n> The short version: walk slowly [S3].\n\n### Why\n\nText [S1, S2].\n\n> Try tonight: one lap.\n\n| A | B |\n|---|---|\n| 1 | 2 |\n','## Sources\n\n1. S1 Example'],accent:'#123456'});
+ assert.match(html,/class="box box-short"/);assert.match(html,/class="box box-try"/);assert.match(html,/class="chapter"/);assert.match(html,/A &lt;test&gt;/);assert.match(html,/<span class="cite">\[S1, S2\]<\/span>/);assert.match(html,/Contents/);assert.doesNotMatch(html,/<script/);
+ assert.match(styleBoxes('<blockquote>\n<p><strong>From Sam\'s kitchen:</strong> hi</p></blockquote>'),/box-from/);
+ const d=await temp(t),files=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team'));await mkdir(join(d,'team','ebooks','b'),{recursive:true});
+ await writeFile(join(d,'team','ebooks','b','part-a.md'),'## Chapter 1: Hi\n\nHello world.');
+ const rt=await agentRuntime({conversationId:randomUUID(),files,teamFolder:team,makePdf:async()=>Buffer.from('%PDF'),connections:{status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set()},onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal,bot:{id:randomUUID(),name:'Ebook Builder',capabilities:{web:false,files:true,computer:false,connections:false}}});
+ const r=await rt.definitions.find(x=>x.name==='make_book').handler({parts:['ebooks/b/part-a.md'],title:'Hi',htmlPath:'ebooks/b/book.html',pdfPath:'ebooks/b/book.pdf',pageSize:'Letter'});
+ assert.equal(r.isError,undefined,JSON.stringify(r));assert.match(r.content[0].text,/"words":6/);
+ assert.match((await readFile(join(d,'team','ebooks','b','book.html'))).toString(),/Hello world/);
+});
