@@ -22,7 +22,8 @@ export class WorkspaceFiles {
     if(/\.pdf$/i.test(path)){
       if(size>20000000)throw new Error('Use a PDF smaller than 20 MB.');
       let binary;try{binary=await findExecutable('pdftotext');}catch{}
-      if(!binary)throw new Error('PDF text extraction is unavailable. Attach a text version of this document.');
+      // Toby: on a computer without pdftotext a bot can still learn what it usually needs: that the PDF exists, its size and its page count.
+      if(!binary){const {pdfPageCount}=await import('./pdf-pages.mjs');const bytes=await readFile(target);return {content:[{type:'text',text:JSON.stringify({path,pages:pdfPageCount(bytes),bytes:bytes.length,note:'The words inside this PDF cannot be read on this computer. The page count and size are real. To check the wording, read the HTML or Markdown file it was made from.'})}]};}
       const {stdout}=await execute(binary,['-layout','-f','1','-l','100',target,'-'],{timeout:15000,maxBuffer:2000000});return {content:[{type:'text',text:stdout.slice(0,180000)||'No selectable text was found in this PDF.'}]};
     }
     return {content:[{type:'text',text:await this.read(botId,path)}]};

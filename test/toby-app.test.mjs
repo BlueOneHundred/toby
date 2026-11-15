@@ -120,3 +120,8 @@ test('check_edition writes the note, and make_app refuses an edition that has no
  await writeFile(join(dir,'part-a.md'),VOICED);const second=await call('check_edition',{editionDir:'ebooks/puppy/editions/sam'});assert.equal(second.passed,true);assert.match(await readFile(join(dir,'edition-check.md'),'utf8'),/^- Result: PASSED$/m);
  assert.match((await call('check_edition',{editionDir:'ebooks/puppy'})).error,/must look like/);
 });
+test('make_pdf reports the page count, and a PDF can be checked without text extraction',async()=>{
+ const {pdfPageCount}=await import('../src/pdf-pages.mjs');
+ const pdf=Buffer.from('%PDF-1.4\n1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n2 0 obj\n<</Type /Pages /Count 3 /Kids [3 0 R 4 0 R 5 0 R]>>\nendobj\n3 0 obj\n<</Type /Page>>\nendobj\n4 0 obj\n<</Type /Page>>\nendobj\n5 0 obj\n<</Type /Page>>\nendobj\n','latin1');
+ assert.equal(pdfPageCount(pdf),3);assert.equal(pdfPageCount(Buffer.from('%PDF-1.4\n3 0 obj\n<</Type /Page>>\nendobj\n')),1);assert.equal(pdfPageCount(Buffer.from('not a pdf')),0);
+});

@@ -5,7 +5,7 @@ import {COMPUTER_ACTIONS} from './cloud-computer.mjs';
 import {searchWeb,readWebpage,publicURL,fetchImage} from './web-tools.mjs';
 import {copyBetween} from './team-folder.mjs';
 import {buildBook,layoutBook,bookToFix,imageDataUrl} from './book-builder.mjs';
-import {pdfDests,pdfLinks} from './pdf-pages.mjs';
+import {pdfDests,pdfLinks,pdfPageCount} from './pdf-pages.mjs';
 import {buildApp,appToFix} from './app-builder.mjs';
 import {publishApp} from './app-publisher.mjs';
 import {checkEdition} from './edition-check.mjs';
@@ -132,10 +132,10 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
         await teamFolder.writeBytes(null,dir+'/app-link.md',Buffer.from(['# App link','','- Link: '+result.url,'- Folder: '+result.folder,'- Published: '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC','- Live when checked: '+(result.live?'yes':'not yet'),'','Private link: share it only with the creator (and later through Whop). It is not listed anywhere.',''].join('\n')));
         return text({...result,linkNote:dir+'/app-link.md'});
       });
-      if(makePdf)register('make_pdf','Turn a self-contained HTML page in the shared team folder (for example ebooks/<slug>/book.html) into a print-ready PDF saved in the team folder. Use CSS @page rules for size and margins and break-before: page for chapters; images must be embedded (data: URLs) or files beside the HTML. Scripts and network loads are switched off.',{htmlPath:z.string(),pdfPath:z.string(),pageSize:z.enum(['Letter','A4','A5']).default('Letter')},async({htmlPath,pdfPath,pageSize})=>{
+      if(makePdf)register('make_pdf','Turn a self-contained HTML page in the shared team folder (for example ebooks/<slug>/book.html) into a print-ready PDF saved in the team folder. Use CSS @page rules for size and margins and break-before: page for chapters; images must be embedded (data: URLs) or files beside the HTML. Scripts and network loads are switched off. The result tells you how many pages the PDF has.',{htmlPath:z.string(),pdfPath:z.string(),pageSize:z.enum(['Letter','A4','A5']).default('Letter')},async({htmlPath,pdfPath,pageSize})=>{
         if(!/\.html?$/i.test(htmlPath))throw new Error('htmlPath must be an .html file in the team folder.');if(!/\.pdf$/i.test(pdfPath))throw new Error('pdfPath must end in .pdf.');
         const source=await teamFolder.target(null,htmlPath);const bytes=await makePdf({file:source,pageSize,signal});
-        const saved=await teamFolder.writeBytes(null,pdfPath,bytes);return text({path:pdfPath,bytes:bytes.length,saved:Boolean(saved)});
+        const saved=await teamFolder.writeBytes(null,pdfPath,bytes);return text({path:pdfPath,pages:pdfPageCount(bytes),bytes:bytes.length,saved:Boolean(saved)});
       });
     }
   }

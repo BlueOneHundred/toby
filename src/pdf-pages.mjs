@@ -44,3 +44,11 @@ export const pdfLinks = buffer => pdfDests(buffer)[LINKS] || {};
 export function pdfDestPages(buffer) {
   return Object.fromEntries(Object.entries(pdfDests(buffer)).map(([name, dest]) => [name, dest.page]));
 }
+
+// How many pages a PDF has: the page tree's own count, or the number of page objects if that is missing.
+export function pdfPageCount(buffer) {
+  const text = Buffer.from(buffer).toString('latin1');
+  const catalog = /\/Type \/Catalog[\s\S]{0,400}?\/Pages (\d+) 0 R|\/Pages (\d+) 0 R[\s\S]{0,400}?\/Type \/Catalog/.exec(text);
+  if (catalog) { const at = text.search(new RegExp('(?:^|\\n)' + (catalog[1] || catalog[2]) + ' 0 obj')); const body = at < 0 ? '' : text.slice(at, text.indexOf('endobj', at)); const count = /\/Count (\d+)/.exec(body); if (count) return Number(count[1]); }
+  return (text.match(/\/Type\s*\/Page(?![A-Za-z])/g) || []).length;
+}
