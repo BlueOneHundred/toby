@@ -1,0 +1,81 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile,writeFile,mkdir} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {agentRuntime} from '../src/agent-tools.mjs';
+import {WorkspaceFiles} from '../src/workspace-files.mjs';
+import {TeamFolder} from '../src/team-folder.mjs';
+import {Connections} from '../src/connections.mjs';
+import {buildApp,appSlug} from '../src/app-builder.mjs';
+import {publishApp,randomEnding} from '../src/app-publisher.mjs';
+import {TEAM_ORDER} from '../src/sidebar-items.mjs';
+const temp=async t=>{const d=await mkdtemp(join(tmpdir(),'toby-app-'));t.after(()=>rm(d,{recursive:true,force:true}));return d;};
+const TEMPLATE='<!doctype html><html><head><title>__TITLE__</title><meta content="__SHORT__"><style>/*__FONTS__*/</style></head><body><img src="__COVER__"><script>const BOOK="__BOOK_DATA__";</script>'+'<!-- pad -->'.repeat(100)+'</body></html>';
+const plan=Array.from({length:30},(_,i)=>`| ${i+1} | Focus ${i+1} | Try thing ${i+1} |`).join('\n');
+const PART_A=`## A note from Sam\n\nHello there.\n\n## Chapter 1: Calm starts\n\n> The short version: Short and happy wins [S1].\n\n### The plan\n\n| Day | Focus | Try today |\n|---|---|---|\n${plan}\n\n> From Sam's kitchen: We did this every morning.\n\n[Creator: add your own story about the first night]\n\n> Try tonight: One calm minute.\n`;
+const PART_B=`## Chapter 2: Sleep\n\nText with a source [S2].\n\n> Facts:\n> - 8 in 10 | sleep more [S1]\n> - Naps matter [S2]\n\n## Sources\n\nS1. Guide one. Org One. 2024. https://example.org/one\nS2. Guide two. Org Two. 2025. https://example.org/two\n`;
+const files=(extra={})=>({parts:[PART_A,PART_B],plan:'- Title: Puppy Month One\n- Subtitle: A calm start\n',voice:'"by Sam Rivers" (@samrivers)\n',appJson:JSON.stringify({requiredTools:[]}),...extra});
+
+test('an edition becomes an app with its own saved-progress key, creator name and check',()=>{
+ const {html,check}=buildApp({files:files(),bookDir:'ebooks/puppy/editions/samrivers',coverDataUrl:'data:image/jpeg;base64,AAAA',template:TEMPLATE});
+ assert.equal(check.passed,true);assert.deepEqual(check.problems,[]);assert.equal(check.chapters,2);assert.equal(check.planDays,30);assert.equal(check.sources,2);
+ assert.equal(check.creatorGaps,1);assert.equal(check.fromBoxes,1);assert.equal(check.author,'Sam Rivers');
+ assert.match(html,/<title>Puppy Month One: the companion app<\/title>/);assert.match(html,/"slug":"puppy-samrivers"/);assert.match(html,/font-family:'Outfit'/);
+ assert.ok(!html.includes('__BOOK_DATA__')&&!html.includes('__COVER__')&&!html.includes('requiredTools'));
+ assert.equal(appSlug('ebooks\\puppy'),'puppy');
+});
+test('the app check names what is wrong in plain words',()=>{
+ const bad=buildApp({files:files({parts:[PART_A.replace(/\| 30 \|.*\n/,''),PART_B.replace('[S2].','[S9].')],appJson:''}),bookDir:'ebooks/puppy',coverDataUrl:'',template:TEMPLATE}).check;
+ assert.equal(bad.passed,false);assert.ok(bad.problems.includes('Plan table does not have 30 days'));assert.ok(bad.problems.some(p=>/Cited but not in Sources: 9/.test(p)));assert.ok(bad.problems.some(p=>/Fill-in table not found: potty/.test(p)));
+ assert.throws(()=>buildApp({files:files(),bookDir:'x',coverDataUrl:'',template:'<html></html>'}),/__BOOK_DATA__/);
+});
+const github=(log,{live=true,exists=false,deny=false}={})=>async(url,options={})=>{log.push([options.method||'GET',url,options]);
+ if(url.startsWith('https://api.github.com/')){if(deny)return new Response(JSON.stringify({message:'Bad credentials'}),{status:401});
+  if(options.method==='PUT')return new Response('{}',{status:exists?200:201});return exists?new Response(JSON.stringify({sha:'abc'}),{status:200}):new Response('{}',{status:404});}
+ const put=log.find(c=>c[0]==='PUT');return live&&put?new Response(Buffer.from(JSON.parse(put[2].body).content,'base64'),{status:200}):new Response('nope',{status:404});};
+const publisher={owner:'o',repo:'r',token:'t0ken',site:'https://apps.example'};
+test('publishing uploads to a folder with a random ending and waits until the page is live',async()=>{
+ const log=[],html=Buffer.from('x'.repeat(5000));
+ const out=await publishApp({publisher,html,name:'puppy-sam',fetchImpl:github(log),wait:async()=>{}});
+ assert.match(out.folder,/^puppy-sam-[a-z0-9]{8}$/);assert.equal(out.url,`https://apps.example/${out.folder}/`);assert.equal(out.live,true);assert.equal(out.updated,false);
+ const put=log.find(c=>c[0]==='PUT');assert.equal(put[1],`https://api.github.com/repos/o/r/contents/${out.folder}/index.html`);assert.equal(put[2].headers.Authorization,'Bearer t0ken');assert.equal(JSON.parse(put[2].body).sha,undefined);
+ const log2=[];const again=await publishApp({publisher,html,name:'puppy-sam',previousFolder:out.folder,fetchImpl:github(log2,{exists:true,live:false}),wait:async()=>{},checks:2});
+ assert.equal(again.folder,out.folder);assert.equal(again.updated,true);assert.equal(again.live,false);assert.equal(JSON.parse(log2.find(c=>c[0]==='PUT')[2].body).sha,'abc');
+ await assert.rejects(publishApp({publisher,html,name:'puppy-sam',fetchImpl:github([],{deny:true}),wait:async()=>{}}),/refused the app publisher token/);
+ await assert.rejects(publishApp({publisher:null,html,name:'puppy-sam'}),/not set up/);
+ assert.notEqual(randomEnding(),randomEnding());
+});
+test('the app_publisher connection is a publishing key, never a tool server for bots',async t=>{
+ const d=await temp(t),c=await new Connections({directory:d,encrypt:async v=>Buffer.from(v),decrypt:async v=>v.toString()}).init();
+ assert.equal(c.appPublisher(),null);
+ await c.configure({customAdd:{name:'treg',url:'https://treg.to/mcp/',token:'a',askFirst:false}});
+ await c.configure({customAdd:{name:'app_publisher',url:'https://github.com/BlueOneHundred/blueprints-apps',token:'ghp_x',askFirst:true}});
+ assert.deepEqual(Object.keys(c.customMcp()),['treg']);assert.equal(c.customAskFirst().has('app_publisher'),false);
+ assert.deepEqual(c.appPublisher(),{owner:'BlueOneHundred',repo:'blueprints-apps',token:'ghp_x',site:'https://app.blueonehundred.com'});
+ assert.ok(!JSON.stringify(c.status()).includes('ghp_x'));
+});
+test('make_app and publish_app: build, check note, refuse a failed app, then publish and save the link',async t=>{
+ const d=await temp(t),bots=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team')),dir=join(d,'team','ebooks','puppy','editions','sam');
+ await mkdir(dir,{recursive:true});await mkdir(join(d,'team','templates','app'),{recursive:true});
+ await writeFile(join(d,'team','templates','app','template.html'),TEMPLATE);await writeFile(join(d,'team','ebooks','puppy','cover.png'),Buffer.from('89504e470d0a1a0a','hex'));
+ const f=files();await writeFile(join(dir,'part-a.md'),PART_A.replace(/\| 30 \|.*\n/,''));await writeFile(join(dir,'part-b.md'),PART_B);await writeFile(join(dir,'part-c.md'),'');await writeFile(join(dir,'plan.md'),f.plan);await writeFile(join(dir,'voice.md'),f.voice);await writeFile(join(dir,'app.json'),f.appJson);
+ const log=[];const base={conversationId:randomUUID(),files:bots,teamFolder:team,onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal,fetchImpl:github(log),wait:async()=>{}};
+ const run=(connections,caps={})=>agentRuntime({...base,connections,bot:{id:randomUUID(),capabilities:{web:false,files:true,computer:false,connections:true,...caps}}});
+ const none={status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set(),appPublisher:()=>null},ready={...none,appPublisher:()=>publisher};
+ const names=async r=>(await r).definitions.map(x=>x.name);
+ assert.ok((await names(run(none))).includes('make_app'));assert.ok(!(await names(run(none))).includes('publish_app'));
+ assert.ok(!(await names(run(ready,{connections:false}))).includes('publish_app'));
+ const rt=await run(ready),call=async(name,input)=>{const r=await rt.definitions.find(x=>x.name===name).handler(input);return r.isError?{error:r.content[0].text}:JSON.parse(r.content[0].text);};
+ const args={bookDir:'ebooks/puppy/editions/sam',coverImage:'ebooks/puppy/cover.png',template:'templates/app/template.html'};
+ const first=await call('make_app',args);assert.equal(first.passed,false);assert.match(await readFile(join(dir,'app','app-check.md'),'utf8'),/Result: NEEDS FIXES \(1\)/);
+ assert.match((await call('publish_app',{appDir:'ebooks/puppy/editions/sam/app',name:'puppy-sam'})).error,/does not say "Result: PASSED"/);assert.equal(log.length,0);
+ await writeFile(join(dir,'part-a.md'),PART_A);
+ const second=await call('make_app',args);assert.equal(second.passed,true);assert.equal(second.check.author,'Sam Rivers');assert.equal(second.toFix.length,1);assert.match(await readFile(join(dir,'app','app-check.md'),'utf8'),/^- Result: PASSED$/m);
+ const pub=await call('publish_app',{appDir:'ebooks/puppy/editions/sam/app',name:'puppy-sam'});assert.equal(pub.live,true);assert.match(pub.url,/^https:\/\/apps\.example\/puppy-sam-[a-z0-9]{8}\/$/);
+ const note=await readFile(join(dir,'app','app-link.md'),'utf8');assert.ok(note.includes('- Link: '+pub.url));assert.ok(!note.includes('t0ken'));
+ const again=await call('publish_app',{appDir:'ebooks/puppy/editions/sam/app',name:'other-name'});assert.equal(again.folder,pub.folder);
+ assert.match((await call('make_app',{...args,bookDir:'ebooks/nope'})).error,/Not found in the team folder/);
+});
+test('the new team members have a place in the sidebar order',()=>{for(const n of ['App Builder','Store Manager','Marketing Kit'])assert.ok(TEAM_ORDER.includes(n));assert.ok(TEAM_ORDER.indexOf('App Builder')<TEAM_ORDER.indexOf('Outreach Writer'));});

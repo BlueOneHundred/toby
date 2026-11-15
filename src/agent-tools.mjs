@@ -6,10 +6,12 @@ import {searchWeb,readWebpage,publicURL,fetchImage} from './web-tools.mjs';
 import {copyBetween} from './team-folder.mjs';
 import {buildBook,layoutBook,bookToFix,imageDataUrl} from './book-builder.mjs';
 import {pdfDests,pdfLinks} from './pdf-pages.mjs';
+import {buildApp,appToFix} from './app-builder.mjs';
+import {publishApp} from './app-publisher.mjs';
 import {readFile as readTeamBytes} from 'node:fs/promises';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
-export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,shrinkImage,requestComputerHelp,canUseComputer=()=>true}) {
+export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,shrinkImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
   const capabilities={...defaultCapabilities,...bot.capabilities},tools=[],definitions=[],mcpServers={};
   const register=(name,description,schema,handler)=>{const wrapped=async input=>{
     const id=crypto.randomUUID();onActivity({id,name,input:name.endsWith('_memory')?{scope:input.scope,query:input.query,manual:true}:traceValue(input),status:'running',startedAt:Date.now()});
@@ -95,6 +97,27 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
         if(pdfPath){checkNote=pdfPath.replace(/[^/\\]+$/,'book-check.md');const c=report.check||{};
           await teamFolder.writeBytes(null,checkNote,Buffer.from(['# Book check: '+title,'','- Built: '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC','- Result: '+(toFix.length?'NEEDS FIXES ('+toFix.length+')':'PASSED'),'- Pages: '+(report.pages||'?')+', chapters: '+report.chapters+', pages to print: '+report.pagesToPrint,'- Lists, boxes or tables split across pages: '+(c.listsSplit??'not measured'),'- Empty spaces left: '+(c.emptySpaces??'not measured'),'- Spaces filled with a fact: '+report.gaps.filter(g=>g.filled).length,'- Blocks measured: '+(c.blocksMeasured??0)+', prints: '+(report.prints||1),'',...(toFix.length?['## To fix',...toFix.map(x=>'- '+x)]:['Nothing to fix.']),''].join('\n')));}
         return text({html:htmlPath,pdf,parts:parts.length,words,passed:toFix.length===0,toFix,checkNote,report});
+      });
+      register('make_app','Build the companion app for a finished book or creator edition in the shared team folder: one self-contained HTML file made from the same Markdown parts as the book (the plan to tick off, the trackers, every chapter and every source). One house design, no styling choices. bookDir is the folder that holds part-a.md, part-b.md and part-c.md (ebooks/<slug> or ebooks/<slug>/editions/<handle>); the title, subtitle and creator name come from app.json, plan.md or voice.md in that folder. It saves <bookDir>/app/index.html and <bookDir>/app/app-check.md and returns passed and a toFix list. Only "Result: PASSED" may be published. You cannot fix the book text yourself: report toFix to the bot that wrote the book.',{bookDir:z.string().min(1).max(300),coverImage:z.string().min(1).max(300),creator:z.string().max(120).optional(),parts:z.array(z.string()).min(1).max(12).optional(),template:z.string().max(300).default('templates/app/template.html')},async({bookDir,coverImage,creator,parts,template})=>{
+        const dir=bookDir.replace(/\\/g,'/').replace(/\/+$/,'');const readText=async(path,optional)=>{try{return (await readTeamBytes(await teamFolder.target(null,path))).toString('utf8');}catch(error){if(optional&&error.code==='ENOENT')return '';throw error.code==='ENOENT'?new Error('Not found in the team folder: '+path):error;}};
+        const files={parts:[],plan:await readText(dir+'/plan.md',true),voice:await readText(dir+'/voice.md',true),appJson:await readText(dir+'/app.json',true)};
+        for(const part of parts||['part-a.md','part-b.md','part-c.md'].map(f=>dir+'/'+f))files.parts.push(await readText(part));
+        let cover=await readTeamBytes(await teamFolder.target(null,coverImage)).catch(error=>{throw error.code==='ENOENT'?new Error('Cover not found in the team folder: '+coverImage):error;});let coverName=coverImage;
+        if(shrinkImage&&cover.length>300000){cover=await shrinkImage(cover,900);coverName='x.jpg';}
+        const built=buildApp({files,bookDir:dir,coverDataUrl:imageDataUrl(cover,coverName),template:await readText(template),creator});
+        const toFix=appToFix(built.check),passed=built.check.passed,c=built.check,htmlPath=dir+'/app/index.html',checkNote=dir+'/app/app-check.md';
+        await teamFolder.writeBytes(null,htmlPath,Buffer.from(built.html));
+        await teamFolder.writeBytes(null,checkNote,Buffer.from(['# App check: '+c.title+(c.author?' ('+c.author+')':''),'','- Built: '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC','- Result: '+(passed?'PASSED':'NEEDS FIXES ('+c.problems.length+')'),'- Chapters: '+c.chapters+', plan days: '+c.planDays+', sources: '+c.sources+', words: '+c.words,'- Trackers: '+(c.tools.join(', ')||'none'),'- Creator gaps still to fill: '+c.creatorGaps+', creator boxes: '+c.fromBoxes,'- App file: '+htmlPath+' ('+Math.round(built.html.length/1024)+' KB)','',...(c.problems.length?['## To fix',...c.problems.map(x=>'- '+x)]:['Nothing to fix.']),''].join('\n')));
+        return text({app:htmlPath,bytes:built.html.length,passed,toFix,checkNote,check:c});
+      });
+      const publisher=capabilities.connections&&connections.appPublisher?connections.appPublisher():null;
+      if(publisher)register('publish_app','Publish a built companion app to the web and return its private link. Give the app folder made by make_app (for example ebooks/<slug>/editions/<handle>/app) and a short name (lowercase letters, numbers and dashes, for example "first-30-days-sam"). The app goes to its own address with a random ending so it cannot be guessed, and search engines are told not to list it. Publishing the same folder again updates the same link. Refuses unless app-check.md in that folder says "Result: PASSED". Saves the link in <appDir>/app-link.md. If live is false the upload worked but the page was not reachable yet: read the link with read_webpage a few minutes later, do not publish again.',{appDir:z.string().min(1).max(300),name:z.string().regex(/^[a-z0-9][a-z0-9-]{2,40}$/)},async({appDir,name})=>{
+        const dir=appDir.replace(/\\/g,'/').replace(/\/+$/,'');const read=async path=>readTeamBytes(await teamFolder.target(null,path));
+        const checkText=(await read(dir+'/app-check.md').catch(()=>Buffer.alloc(0))).toString('utf8');if(!/^- Result: PASSED\s*$/m.test(checkText))throw new Error('Not published: '+dir+'/app-check.md does not say "Result: PASSED". Run make_app first and get the book fixed.');
+        const html=await read(dir+'/index.html');const previous=(await read(dir+'/app-link.md').catch(()=>Buffer.alloc(0))).toString('utf8');
+        const result=await publishApp({publisher,html,name,previousFolder:(previous.match(/^- Folder: ([a-z0-9-]+)\s*$/m)||[])[1],fetchImpl,signal,wait});
+        await teamFolder.writeBytes(null,dir+'/app-link.md',Buffer.from(['# App link','','- Link: '+result.url,'- Folder: '+result.folder,'- Published: '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC','- Live when checked: '+(result.live?'yes':'not yet'),'','Private link: share it only with the creator (and later through Whop). It is not listed anywhere.',''].join('\n')));
+        return text({...result,linkNote:dir+'/app-link.md'});
       });
       if(makePdf)register('make_pdf','Turn a self-contained HTML page in the shared team folder (for example ebooks/<slug>/book.html) into a print-ready PDF saved in the team folder. Use CSS @page rules for size and margins and break-before: page for chapters; images must be embedded (data: URLs) or files beside the HTML. Scripts and network loads are switched off.',{htmlPath:z.string(),pdfPath:z.string(),pageSize:z.enum(['Letter','A4','A5']).default('Letter')},async({htmlPath,pdfPath,pageSize})=>{
         if(!/\.html?$/i.test(htmlPath))throw new Error('htmlPath must be an .html file in the team folder.');if(!/\.pdf$/i.test(pdfPath))throw new Error('pdfPath must end in .pdf.');

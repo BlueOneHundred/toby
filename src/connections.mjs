@@ -10,8 +10,11 @@ export class Connections {
   async save(){const temporary=join(this.directory,`.connections-${randomUUID()}`);await writeFile(temporary,await this.encrypt(JSON.stringify(this.value)),{mode:0o600});await rename(temporary,join(this.directory,'connections.secure'));}
   status(){return {composio:!!(this.value.composioKey||this.value.composioAccount),cloud:!!this.value.cloud?.token,cloudEndpoint:this.value.cloud?.endpoint||'',custom:(this.value.custom||[]).map(({name,url,askFirst})=>({name,url,askFirst:!!askFirst}))};}
   // Toby: custom MCP connections (e.g. treg or Apify). Tokens stay encrypted here and are never returned by status().
-  customMcp(){return Object.fromEntries((this.value.custom||[]).map(c=>[c.name,{type:'http',url:c.url,...(c.token?{headers:{Authorization:'Bearer '+c.token}}:{})}]));}
-  customAskFirst(){return new Set((this.value.custom||[]).filter(c=>c.askFirst).map(c=>c.name));}
+  // Toby: the custom connection named "app_publisher" is not an MCP server. It holds the GitHub repository that
+  // companion apps are published to (address https://github.com/<owner>/<repo>) and a token that can write to it.
+  appPublisher(){const c=(this.value.custom||[]).find(c=>c.name===APP_PUBLISHER);if(!c||!c.token)return null;const url=new URL(c.url),m=url.pathname.match(/^\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);if(url.hostname!=='github.com'||!m)return null;return{owner:m[1],repo:m[2],token:c.token,site:(url.searchParams.get('site')||'https://app.blueonehundred.com').replace(/\/+$/,'')};}
+  customMcp(){return Object.fromEntries((this.value.custom||[]).filter(c=>c.name!==APP_PUBLISHER).map(c=>[c.name,{type:'http',url:c.url,...(c.token?{headers:{Authorization:'Bearer '+c.token}}:{})}]));}
+  customAskFirst(){return new Set((this.value.custom||[]).filter(c=>c.askFirst&&c.name!==APP_PUBLISHER).map(c=>c.name));}
   async configure({composioKey,cloudEndpoint,cloudToken,customAdd,customRemove}={}){
     if(customRemove!==undefined){this.value.custom=(this.value.custom||[]).filter(c=>c.name!==customRemove);}
     if(customAdd!==undefined)this.value.custom=[...(this.value.custom||[]).filter(c=>c.name!==validateCustom(customAdd).name),validateCustom(customAdd)];
@@ -41,6 +44,7 @@ export class Connections {
   async connect(slug){if(typeof slug!=='string'||!/^[a-z0-9_-]{1,80}$/.test(slug))throw new Error('Choose an app from the list.');const result=await(await this.session()).authorize(slug);const url=new URL(result.redirectUrl);if(url.protocol!=='https:')throw new Error('The provider returned an unsafe sign-in link.');void result.waitForConnection(600000).then(()=>this.onChange?.()).catch(()=>this.onChange?.());return url.href;}
   async mcp(){const session=await this.session();const {type,url,headers}=session.mcp;return {type,url,headers};}
 }
+export const APP_PUBLISHER='app_publisher';
 export function validateCustom(value){
   const name=String(value?.name||'').trim().toLowerCase();
   if(!/^[a-z][a-z0-9_]{1,29}$/.test(name)||['gratis','composio'].includes(name))throw new Error('Name the connection with 2 to 30 letters, numbers or underscores (not gratis or composio).');
