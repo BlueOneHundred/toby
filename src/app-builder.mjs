@@ -2,6 +2,7 @@
 // The design lives in the template (kept in the team folder, so it can change without a new build); this file only
 // turns the Markdown into the data the template shows, and checks it. Ported from the proven make-app.mjs script.
 import {readFileSync} from 'node:fs';
+import {palette, appRootCSS} from './palettes.mjs';
 const FONT_DIR = new URL('./book-fonts/', import.meta.url);
 let fontCss = '';
 function fonts() {
@@ -20,7 +21,7 @@ export function appSlug(bookDir) {
  * files: {parts: [markdown...], plan, voice, appJson} (plain text; missing ones are '').
  * Returns {html, check}; check.passed is false when check.problems lists anything.
  */
-export function buildApp({files, bookDir, coverDataUrl, template, creator = ''}) {
+export function buildApp({files, bookDir, coverDataUrl, template, creator = '', palette: paletteName = 'pine'}) {
   let appJson = {};
   if (files.appJson) { try { appJson = JSON.parse(files.appJson); } catch (e) { throw new Error('app.json could not be read: ' + e.message); } }
   const planLine = (k) => (((files.plan || '') + '\n' + (files.voice || '')).match(new RegExp('^[-*\\s]*' + k + ':\\s*(.+)$', 'mi')) || [])[1];
@@ -189,7 +190,13 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = ''})
 
   if (!template.includes('"__BOOK_DATA__"')) throw new Error('The app template has no "__BOOK_DATA__" marker.');
   const {requiredTools, ...shown} = book;
-  const html = template.replace('/*__FONTS__*/', () => fonts())
+  // The palette's colours go in a second :root straight after the template's own, so they win; the
+  // theme-color meta and the one fixed hover colour follow the palette too.
+  const P = palette(paletteName).app;
+  const rooted = template.replace(/(:root\{[^}]*\})/, (m) => m + '\n' + appRootCSS(paletteName))
+    .replace(/(<meta name="theme-color" content=")#[0-9A-Fa-f]{6}(">)/, (m, a, b) => a + P.deep + b)
+    .replace(/(\.btn\.gold:hover\{background:)#[0-9A-Fa-f]{6}(\})/, (m, a, b) => a + P['gold-hover'] + b);
+  const html = rooted.replace('/*__FONTS__*/', () => fonts())
     .replace('"__BOOK_DATA__"', () => JSON.stringify(shown).replace(/</g, '\\u003c'))
     .replace(/__COVER__/g, () => coverDataUrl || '')
     .replace(/__TITLE__/g, () => `${CONFIG.title}: the companion app`)

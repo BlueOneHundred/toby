@@ -368,7 +368,7 @@ function sourcesHTML(section) {
   return `<section class="sources" id="${section.id}" style="page:${section.page}"><h2>${heading(esc(section.title))}</h2><p class="sources-note">The small raised numbers in the text point to this list.</p><div class="sources-list">${items.join('')}</div></section>`;
 }
 
-export function buildBook({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', highlights = [], pageSize = 'Book', pageNumbers = {}, fill = {}, gaps = {}}) {
+export function buildBook({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', highlights = [], pageSize = 'Book', pageNumbers = {}, fill = {}, gaps = {}, palette = 'pine'}) {
   if (!title) throw new Error('Give the book a title.');
   if (!Array.isArray(parts) || !parts.length) throw new Error('Give at least one Markdown part.');
   const size = PAGE_SIZES[pageSize] ? pageSize : 'Book';
@@ -441,7 +441,7 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const cover = `<section class="cover"><div class="cover-photo"${coverDataUrl ? ` style="background-image:url('${coverDataUrl}')"` : ''}></div><div class="cover-band"></div>${seal}<div class="cover-text"><div class="cover-title${titleSize}">${esc(title)}</div>${subtitle ? `<p class="cover-sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="cover-tag">${esc(tagline)}</p>` : ''}${author ? `<p class="cover-by">${esc(author)}</p>` : ''}</div>${inside.length ? `<div class="cover-inside">${inside.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}${probes}</section>`;
   const titlePage = `<section class="title-page"><div><span id="cal-top"></span><p class="tp-title">${esc(title)}</p>${subtitle ? `<p class="tp-sub">${esc(subtitle)}</p>` : ''}<div class="tp-rule"></div></div><div class="tp-foot">${author ? `<p>${esc(author)}</p>` : ''}${badge ? `<p>${esc(badge)}. Every fact in this book carries a small number that links to its source at the back.</p>` : ''}</div></section>`;
   const content = smartQuotes(`${cover}\n${titlePage}\n<nav class="toc"><h2>Contents</h2><ol>${toc}</ol>${prints}</nav>\n<main>${cite(clean(body))}</main>`);
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${styleCSS({pageW, pageH, sizeRule, title: clip(title, 46), runningHeads})}</style></head><body>\n${content}\n</body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${styleCSS({pageW, pageH, sizeRule, title: clip(title, 46), runningHeads, palette})}</style></head><body>\n${content}\n</body></html>`;
   report.chapters = chapters.length;
   report.pagesToPrint = (body.match(/class="(worksheet|plan-page)"/g) || []).length;
   report.unfilledGaps = report.gaps.filter(g => !g.filled).length;

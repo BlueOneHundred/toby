@@ -5,6 +5,7 @@
 // Solid colours only (no transparency), so every PDF viewer shows the same book.
 // Fonts are bundled under the SIL Open Font License (book-fonts/LICENSES.txt).
 import {readFileSync} from 'node:fs';
+import {palette} from './palettes.mjs';
 
 const FONT_DIR = new URL('./book-fonts/', import.meta.url);
 const cache = new Map();
@@ -32,19 +33,20 @@ export const ICONS = {
 
 const cssString = value => String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ');
 
-export function styleCSS({pageW, pageH, sizeRule, title, runningHeads = []}) {
+export function styleCSS({pageW, pageH, sizeRule, title, runningHeads = [], palette: paletteName = 'pine'}) {
+  const P = palette(paletteName).book;
   const heads = runningHeads.map(({page, text}) => `@page ${page}{@top-right{content:"${cssString(text)}"}}`).join('\n');
   return `${fonts()}
-:root{--pine:#156A5F;--pine-deep:#0E4A43;--pine-soft:#1D7B6F;--marigold:#F2B23E;--ink:#1B2530;--muted:#66727E;--mint:#E7F2EF;--butter:#FFF3D4;--blush:#FBEAE5;--brick:#B9432E;--line:#DCE3E1;--fog:#F1F3F4;
+:root{--pine:${P.pine};--pine-deep:${P.pineDeep};--pine-soft:${P.pineSoft};--marigold:${P.marigold};--ink:${P.ink};--muted:${P.muted};--mint:${P.mint};--butter:${P.butter};--blush:${P.blush};--brick:${P.brick};--line:${P.line};--fog:${P.fog};
 --display:'Outfit','Segoe UI',Arial,sans-serif;--text:'Source Serif 4',Georgia,serif;--gutter:24mm;--content-h:calc(${pageH} - 43mm)}
 @page{size:${sizeRule};margin:23mm 16mm 20mm;
- @top-left{content:"${cssString(title)}";font:500 7.6pt 'Outfit',sans-serif;color:#7C8894;vertical-align:bottom;padding-bottom:2.6mm;border-bottom:.6pt solid #D3DBD9;width:50%;text-align:left}
- @top-right{content:"";font:600 7.6pt 'Outfit',sans-serif;color:#156A5F;vertical-align:bottom;padding-bottom:2.6mm;border-bottom:.6pt solid #D3DBD9;width:50%;text-align:right}
- @bottom-right{content:counter(page);font:700 9pt 'Outfit',sans-serif;color:#1B2530;vertical-align:top;padding-top:6mm}}
-@page cover{margin:0;background:#156A5F;@top-left{content:none;border:0}@top-right{content:none;border:0}@bottom-right{content:none}}
-@page opener{margin:0;background:#156A5F;@top-left{content:none;border:0}@top-right{content:none;border:0}@bottom-right{content:none}}
+ @top-left{content:"${cssString(title)}";font:500 7.6pt 'Outfit',sans-serif;color:${P.headMuted};vertical-align:bottom;padding-bottom:2.6mm;border-bottom:.6pt solid ${P.headRule};width:50%;text-align:left}
+ @top-right{content:"";font:600 7.6pt 'Outfit',sans-serif;color:${P.pine};vertical-align:bottom;padding-bottom:2.6mm;border-bottom:.6pt solid ${P.headRule};width:50%;text-align:right}
+ @bottom-right{content:counter(page);font:700 9pt 'Outfit',sans-serif;color:${P.ink};vertical-align:top;padding-top:6mm}}
+@page cover{margin:0;background:${P.pine};@top-left{content:none;border:0}@top-right{content:none;border:0}@bottom-right{content:none}}
+@page opener{margin:0;background:${P.pine};@top-left{content:none;border:0}@top-right{content:none;border:0}@bottom-right{content:none}}
 @page plain{@top-left{content:none;border:0}@top-right{content:none;border:0}@bottom-right{content:none}}
-@page closing{margin:30mm 26mm;background:#156A5F;@top-left{content:none;border:0}@top-right{content:none;border:0}@bottom-right{content:none}}
+@page closing{margin:30mm 26mm;background:${P.pine};@top-left{content:none;border:0}@top-right{content:none;border:0}@bottom-right{content:none}}
 ${heads}
 
 *{box-sizing:border-box}
@@ -74,10 +76,10 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .cover-title.t2{font-size:46pt;line-height:.98}
 .cover-title.t3{font-size:35pt;line-height:1.02;letter-spacing:-.014em}
 .cover-sub{font-family:var(--display);font-weight:500;font-size:15pt;line-height:1.25;margin:0 0 3.6mm;color:var(--marigold);text-wrap:balance}
-.cover-tag{font-family:var(--text);font-size:10.6pt;line-height:1.48;margin:0;color:#D5E9E4;max-width:112mm;text-wrap:balance}
+.cover-tag{font-family:var(--text);font-size:10.6pt;line-height:1.48;margin:0;color:${P.onDark};max-width:112mm;text-wrap:balance}
 .cover-by{font-family:var(--display);font-weight:600;font-size:10.5pt;margin:4mm 0 0;color:#fff}
-.cover-inside{position:absolute;left:15mm;right:15mm;bottom:9mm;display:flex;border-top:.6pt solid #4A9085;padding-top:3.2mm;font-family:var(--display);font-weight:600;font-size:9pt;line-height:1.2;color:#fff}
-.cover-inside span{flex:1;padding:0 4mm;border-left:.6pt solid #4A9085}
+.cover-inside{position:absolute;left:15mm;right:15mm;bottom:9mm;display:flex;border-top:.6pt solid ${P.darkRule};padding-top:3.2mm;font-family:var(--display);font-weight:600;font-size:9pt;line-height:1.2;color:#fff}
+.cover-inside span{flex:1;padding:0 4mm;border-left:.6pt solid ${P.darkRule}}
 .cover-inside span:first-child{padding-left:0;border-left:0}
 .seal{position:absolute;right:13mm;top:calc(57% - 21mm);width:41mm;height:41mm;border-radius:50%;background:var(--marigold);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transform:rotate(-8deg);box-shadow:0 0 0 1.4mm var(--pine)}
 .seal::before{content:'';position:absolute;inset:1.8mm;border-radius:50%;border:.6pt solid var(--ink)}
@@ -119,10 +121,10 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .opener h2{font-family:var(--display);font-weight:800;font-size:38pt;line-height:1;letter-spacing:-.012em;margin:0 0 7mm;color:#fff;max-width:128mm;text-wrap:balance}
 .opener-short{font-family:var(--text);font-size:12.6pt;line-height:1.5;color:#fff;max-width:118mm;padding-left:5mm;border-left:1.3mm solid var(--marigold)}
 .opener-short p{margin:0}
-.opener-short .cite{color:#D5E9E4}
-.opener-list{position:absolute;left:16mm;right:16mm;bottom:15mm;padding-top:4.5mm;border-top:.6pt solid #4A9085}
+.opener-short .cite{color:${P.onDark}}
+.opener-list{position:absolute;left:16mm;right:16mm;bottom:15mm;padding-top:4.5mm;border-top:.6pt solid ${P.darkRule}}
 .opener-list p{font-family:var(--display);font-weight:600;font-size:8.6pt;color:var(--marigold);margin:0 0 2.2mm}
-.opener-list ul{list-style:none;margin:0;padding:0;columns:2;column-gap:8mm;font-family:var(--display);font-size:9pt;line-height:1.35;color:#D5E9E4}
+.opener-list ul{list-style:none;margin:0;padding:0;columns:2;column-gap:8mm;font-family:var(--display);font-size:9pt;line-height:1.35;color:${P.onDark}}
 .opener-list li{margin:0 0 1.3mm;padding:0;break-inside:avoid}
 
 /* ---------- reading pages ---------- */
@@ -143,7 +145,7 @@ h2.plain-head{font-family:var(--display);font-weight:800;font-size:28pt;line-hei
 .box .ico{position:absolute;left:5.6mm;top:4.6mm;width:7.6mm;height:7.6mm;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .box .ico svg,.talk-head svg,.ws-tag svg{width:4.3mm;height:4.3mm;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .box-label{font-family:var(--display);font-weight:700;font-size:10.4pt;line-height:1.2;margin:0 0 1.4mm;padding-top:1.5mm}
-.box-try{background:var(--butter)}.box-try .ico{background:var(--marigold);color:var(--ink)}.box-try .box-label{color:#7A5200}
+.box-try{background:var(--butter)}.box-try .ico{background:var(--marigold);color:var(--ink)}.box-try .box-label{color:${P.accentText}}
 .box-tip,.box-from{background:var(--mint)}.box-tip .ico,.box-from .ico{background:var(--pine);color:#fff}.box-tip .box-label,.box-from .box-label{color:var(--pine)}
 .box-safety,.box-red{background:var(--blush)}.box-safety .ico,.box-red .ico{background:var(--brick);color:#fff}.box-safety .box-label,.box-red .box-label{color:var(--brick)}
 .box-plain{background:var(--fog);padding-left:6mm}
@@ -153,13 +155,13 @@ h2.plain-head{font-family:var(--display);font-weight:800;font-size:28pt;line-hei
 .recap{margin:7mm 0 0 calc(-1 * var(--gutter));padding:5.5mm 7mm 4mm;border-radius:3.5mm;background:var(--pine);color:#fff;break-inside:avoid;overflow:hidden;display:flex;flex-direction:column}
 .recap p.recap-title{font-family:var(--display);font-weight:700;font-size:13pt;line-height:1.1;margin:0 0 1.4mm;color:var(--marigold)}
 .recap ul{list-style:none;margin:0;padding:0;font-family:var(--display);font-weight:400;font-size:10pt;line-height:1.45}
-.recap li{position:relative;margin:0;padding:1.9mm 0 1.9mm 8mm;border-top:.6pt solid #4A9085}
+.recap li{position:relative;margin:0;padding:1.9mm 0 1.9mm 8mm;border-top:.6pt solid ${P.darkRule}}
 .recap li:first-child{border-top:0}
 .recap li::before{content:'';position:absolute;left:.6mm;top:3.5mm;width:3.6mm;height:1.9mm;border-left:1.6pt solid var(--marigold);border-bottom:1.6pt solid var(--marigold);transform:rotate(-45deg)}
-.recap .cite,.recap .cite-sep{color:#D5E9E4}
+.recap .cite,.recap .cite-sep{color:${P.onDark}}
 .recap p{margin:0}
 .recap-foot{display:none;margin-top:auto;justify-content:space-between;align-items:flex-end;gap:8mm}
-.recap-next{font-family:var(--display);font-size:9pt;line-height:1.3;color:#D5E9E4;padding-bottom:1mm}
+.recap-next{font-family:var(--display);font-size:9pt;line-height:1.3;color:${P.onDark};padding-bottom:1mm}
 .recap-next a{display:block;font-weight:700;font-size:11.5pt;color:#fff;margin-top:.6mm}
 .recap-num{font-family:var(--display);font-weight:800;font-size:120pt;line-height:.74;letter-spacing:-.05em;color:var(--pine-soft);margin:0 -5mm -9mm 0;white-space:nowrap}
 .recap.foot .recap-foot{display:flex}
@@ -235,7 +237,7 @@ h2.plain-head{font-family:var(--display);font-weight:800;font-size:28pt;line-hei
 /* checklists */
 .checklist{margin:5.5mm 0 6mm calc(-1 * var(--gutter));border:1pt solid var(--pine);border-radius:3.5mm;overflow:hidden;break-inside:avoid;font-family:var(--display);font-size:9.8pt;line-height:1.42}
 .checklist-title{background:var(--pine);color:#fff;font-weight:700;font-size:10.6pt;margin:0;padding:2.6mm 5.5mm 2.7mm}
-.checklist-title .cite{color:#D5E9E4}
+.checklist-title .cite{color:${P.onDark}}
 .checklist ul{list-style:none;margin:0;padding:1.4mm 5.5mm 1.8mm}
 .checklist.cols ul{columns:2;column-gap:9mm}
 .checklist li{display:flex;gap:3.2mm;align-items:flex-start;margin:0;padding:1.9mm 0;border-bottom:.6pt solid var(--line);break-inside:avoid}
@@ -300,7 +302,7 @@ td.src,th.src{width:1%;white-space:nowrap;text-align:right;color:var(--muted)}
 .bubble{padding:3.1mm 4.6mm 3.3mm;font-size:9.8pt;line-height:1.38}
 .bubble.yes{background:var(--pine);color:#fff;font-weight:500;border-radius:3.6mm 3.6mm 3.6mm 0}
 .bubble.no{background:var(--fog);color:#4A5661;border-radius:3.6mm 3.6mm 0 3.6mm}
-.bubble.yes .cite{color:#D5E9E4}
+.bubble.yes .cite{color:${P.onDark}}
 
 /* a day by the clock: times sit in the margin */
 .clock{margin:5mm 0 6.5mm calc(-1 * var(--gutter));font-family:var(--display);break-inside:avoid}
@@ -319,16 +321,16 @@ td.src,th.src{width:1%;white-space:nowrap;text-align:right;color:var(--muted)}
 .ws-tag svg{width:3.8mm;height:3.8mm;stroke-width:1.8}
 .ws-intro{max-width:122mm;margin:0 0 4.5mm}
 .worksheet table{width:100%;margin:0;border:1pt solid var(--pine);border-collapse:separate;border-spacing:0;border-radius:3mm;overflow:hidden;font-size:8.8pt;break-inside:avoid}
-.worksheet th{background:var(--pine);color:#fff;border-bottom:0;padding:2.4mm 2.6mm;vertical-align:middle;font-size:8.4pt;border-left:.6pt solid #4A9085}
+.worksheet th{background:var(--pine);color:#fff;border-bottom:0;padding:2.4mm 2.6mm;vertical-align:middle;font-size:8.4pt;border-left:.6pt solid ${P.darkRule}}
 .worksheet th:first-child{border-left:0}
-.worksheet td{padding:1.4mm 2.6mm;border-bottom:.6pt solid #C9D4D1;border-left:.6pt solid #C9D4D1;vertical-align:middle;line-height:1.3}
+.worksheet td{padding:1.4mm 2.6mm;border-bottom:.6pt solid ${P.grid};border-left:.6pt solid ${P.grid};vertical-align:middle;line-height:1.3}
 .worksheet td:first-child{border-left:0}
 .worksheet tr:last-child td{border-bottom:0}
 .worksheet td.lab{background:var(--mint);font-weight:600;font-size:9.2pt}
 .worksheet td.tickcell{text-align:center}
 .worksheet td.tickcell i{display:inline-block;width:5mm;height:5mm;border:1.2pt solid var(--pine);border-radius:1mm;vertical-align:middle;background:#fff}
 .plan-rows{font-family:var(--display);border-top:1.3pt solid var(--pine)}
-.plan-row{display:grid;grid-template-columns:15mm 38mm 1fr 8mm;column-gap:4mm;align-items:center;border-bottom:.6pt solid #C9D4D1;break-inside:avoid}
+.plan-row{display:grid;grid-template-columns:15mm 38mm 1fr 8mm;column-gap:4mm;align-items:center;border-bottom:.6pt solid ${P.grid};break-inside:avoid}
 .plan-n{font-weight:800;font-size:25pt;line-height:1;letter-spacing:-.02em;color:var(--pine)}
 .plan-focus{font-weight:700;font-size:11pt;line-height:1.25;color:var(--ink)}
 .plan-do{font-size:9.8pt;line-height:1.42}
