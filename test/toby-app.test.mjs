@@ -60,6 +60,7 @@ test('make_app and publish_app: build, check note, refuse a failed app, then pub
  const d=await temp(t),bots=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team')),dir=join(d,'team','ebooks','puppy','editions','sam');
  await mkdir(dir,{recursive:true});await mkdir(join(d,'team','templates','app'),{recursive:true});
  await writeFile(join(d,'team','templates','app','template.html'),TEMPLATE);await writeFile(join(d,'team','ebooks','puppy','cover.png'),Buffer.from('89504e470d0a1a0a','hex'));
+ await writeFile(join(dir,'edition-check.md'),'- Result: PASSED\n');
  const f=files();await writeFile(join(dir,'part-a.md'),PART_A.replace(/\| 30 \|.*\n/,''));await writeFile(join(dir,'part-b.md'),PART_B);await writeFile(join(dir,'part-c.md'),'');await writeFile(join(dir,'plan.md'),f.plan);await writeFile(join(dir,'voice.md'),f.voice);await writeFile(join(dir,'app.json'),f.appJson);
  const log=[];const base={conversationId:randomUUID(),files:bots,teamFolder:team,onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal,fetchImpl:github(log),wait:async()=>{}};
  const run=(connections,caps={})=>agentRuntime({...base,connections,bot:{id:randomUUID(),capabilities:{web:false,files:true,computer:false,connections:true,...caps}}});
@@ -78,11 +79,44 @@ test('make_app and publish_app: build, check note, refuse a failed app, then pub
  const again=await call('publish_app',{appDir:'ebooks/puppy/editions/sam/app',name:'other-name'});assert.equal(again.folder,pub.folder);
  assert.match((await call('make_app',{...args,bookDir:'ebooks/nope'})).error,/Not found in the team folder/);
 });
-test('the new team members have a place in the sidebar order',()=>{for(const n of ['App Builder','Store Manager','Marketing Kit'])assert.ok(TEAM_ORDER.includes(n));assert.ok(TEAM_ORDER.indexOf('App Builder')<TEAM_ORDER.indexOf('Outreach Writer'));});
+test('the new team members have a place in the sidebar order',()=>{for(const n of ['Edition Writer','App Builder','Store Manager','Marketing Kit'])assert.ok(TEAM_ORDER.includes(n));assert.ok(TEAM_ORDER.indexOf('App Builder')<TEAM_ORDER.indexOf('Outreach Writer'));});
 test('a save that Windows briefly refuses is tried again instead of being lost',async()=>{
  const {steadyRename}=await import('../src/storage-safety.mjs');let calls=0;const waits=[];
  const busy=async()=>{if(++calls<4)throw Object.assign(new Error('EPERM: operation not permitted, rename'),{code:'EPERM'});return 'moved';};
  assert.equal(await steadyRename('a','b',{move:busy,wait:async ms=>{waits.push(ms);}}),'moved');assert.equal(calls,4);assert.deepEqual(waits,[50,100,200]);
  await assert.rejects(steadyRename('a','b',{tries:3,move:async()=>{throw Object.assign(new Error('still busy'),{code:'EBUSY'});},wait:async()=>{}}),/still busy/);
  let once=0;await assert.rejects(steadyRename('a','b',{move:async()=>{once++;throw Object.assign(new Error('gone'),{code:'ENOENT'});},wait:async()=>{}}),/gone/);assert.equal(once,1);
+});
+
+import {checkEdition,sameness} from '../src/edition-check.mjs';
+const BASE=`## A note before you start\n\nWe read the guides so you do not have to.\n\n## Chapter 1: Calm starts\n\n> The short version: Short and happy sessions win every time [S1].\n\nPuppies learn fastest when lessons are short and end on a good moment, says the guide [S1].\n\nIn one study 46.9% of 145 puppies found being alone hard [S2].\n\nKeep the first week quiet and let the puppy sleep as much as it wants to.\n\nMost puppies need 18 to 20 hours of sleep a day [S1].\n\n| Say this | Not that |\n|---|---|\n| Good try | Bad dog |\n\n> Try tonight: Sit near the crate for 5 minutes and read a book.\n\n> Remember: Slow is fast.\n\n> Facts:\n>\n> - 18 to 20 hours | of sleep a day [S1]\n> - Short sessions work best [S1]\n\n## Sources\n\nS1. Guide one. Org One. 2024. https://example.org/one\nS2. Study two. Org Two. 2025. https://example.org/two\n`;
+const VOICED=BASE.replace('## A note before you start','## A note from Sam').replace('We read the guides so you do not have to.','Hello lovely, we went through every guide for you.')
+ .replace('Short and happy sessions win every time [S1].','Little and cheerful is the way, every single day [S1].')
+ .replace('Puppies learn fastest when lessons are short and end on a good moment, says the guide [S1].','Our squidgy babies pick things up quickest in tiny bursts that finish while everyone is smiling [S1].')
+ .replace('In one study 46.9% of 145 puppies found being alone hard [S2].','You are not the only one: 46.9% of the 145 pups in one piece of research struggled when left [S2].')
+ .replace('Keep the first week quiet and let the puppy sleep as much as it wants to.','Go gently for those first seven days, and let your little chunk snooze whenever the mood takes them.')
+ .replace('Most puppies need 18 to 20 hours of sleep a day [S1].','Did you know they want 18 to 20 hours of shut-eye? We did not either [S1].')
+ .replace('Sit near the crate for 5 minutes and read a book.','Pop yourself by the crate with a cuppa for 5 minutes.').replace('Slow is fast.','Gentle wins, promise.');
+test('an edition that is the base book with a new note fails the voice check; a real rewrite passes',()=>{
+ const copy=checkEdition({base:{parts:[BASE]},edition:{parts:[BASE.replace('## A note before you start','## A note from Sam')]}});
+ assert.equal(copy.passed,false);assert.equal(copy.report.textShare,0);assert.match(copy.toFix[0],/still the base book/);
+ const good=checkEdition({base:{parts:[BASE]},edition:{parts:[VOICED]}});
+ assert.deepEqual(good.toFix,[]);assert.equal(good.passed,true);assert.equal(good.report.textShare,100);assert.equal(good.report.boxShare,100);
+ assert.ok(sameness('Keep the first week quiet.','Keep the first week very quiet.')>0.8);assert.ok(sameness('Keep the first week quiet.','Go gently for seven days.')<0.5);
+});
+test('the edition check catches a lost source tag, a changed or new number, a dropped box, a changed table and dashes',()=>{
+ const broke=VOICED.replace('46.9% of the 145 pups','about half of the 150 pups').replace(' We did not either [S1].',' We did not either.').replace('> Remember: Gentle wins, promise.\n\n','').replace('| Good try | Bad dog |\n','').replace('Hello lovely,','Hello lovely —');
+ const r=checkEdition({base:{parts:[BASE]},edition:{parts:[broke]}}),all=r.toFix.join(' | ');
+ assert.equal(r.passed,false);assert.match(all,/source tags lost: S1 \(1\)/);assert.match(all,/missing or changed: .*46\.9%/);assert.match(all,/not in the base book or sources\.md: 150/);assert.match(all,/boxes missing: remember/);assert.match(all,/table 1 has 0 rows/);assert.match(all,/em or en dashes/);
+ const gaps=VOICED.replace('> Remember:','> From Sam’s kitchen: [Creator: add a line]\n\n> Remember:');assert.match(checkEdition({base:{parts:[BASE]},edition:{parts:[gaps]}}).toFix.join(' '),/nothing but a gap/);
+});
+test('check_edition writes the note, and make_app refuses an edition that has not passed it',async t=>{
+ const d=await temp(t),bots=new WorkspaceFiles(join(d,'bots')),team=new TeamFolder(join(d,'team')),book=join(d,'team','ebooks','puppy'),dir=join(book,'editions','sam');await mkdir(dir,{recursive:true});
+ for(const n of ['part-a.md','part-b.md','part-c.md']){await writeFile(join(book,n),n==='part-a.md'?BASE:'');await writeFile(join(dir,n),n==='part-a.md'?BASE:'');}
+ const rt=await agentRuntime({conversationId:randomUUID(),files:bots,teamFolder:team,onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal,connections:{status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set(),appPublisher:()=>null},bot:{id:randomUUID(),capabilities:{web:false,files:true,computer:false,connections:false}}});
+ const call=async(name,input)=>{const r=await rt.definitions.find(x=>x.name===name).handler(input);return r.isError?{error:r.content[0].text}:JSON.parse(r.content[0].text);};
+ const first=await call('check_edition',{editionDir:'ebooks/puppy/editions/sam'});assert.equal(first.passed,false);assert.match(await readFile(join(dir,'edition-check.md'),'utf8'),/Result: NEEDS FIXES/);
+ assert.match((await call('make_app',{bookDir:'ebooks/puppy/editions/sam',coverImage:'ebooks/puppy/cover.png'})).error,/must pass check_edition first/);
+ await writeFile(join(dir,'part-a.md'),VOICED);const second=await call('check_edition',{editionDir:'ebooks/puppy/editions/sam'});assert.equal(second.passed,true);assert.match(await readFile(join(dir,'edition-check.md'),'utf8'),/^- Result: PASSED$/m);
+ assert.match((await call('check_edition',{editionDir:'ebooks/puppy'})).error,/must look like/);
 });
