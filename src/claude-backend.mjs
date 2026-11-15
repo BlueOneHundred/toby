@@ -74,6 +74,8 @@ function publicError(error) {
   return String(error?.message || error).replace(/\u001b\[[0-9;]*m/g, '').replace(/sk-ant-[\w-]+/g, '[redacted]').slice(0, 1000);
 }
 
+// Toby: keep the reason a tool call failed, so a failure can be understood afterwards instead of guessed at.
+export function toolErrorText(content){const text=typeof content==='string'?content:Array.isArray(content)?content.map(part=>typeof part==='string'?part:part?.text||'').join(' '):'';return text.replace(/\s+/g,' ').trim().slice(0,1000)||'Tool failed.';}
 export function claudeToolHooks(onMetadata){
  const observe=async input=>{if(!input.tool_name||input.tool_name.startsWith('mcp__gratis__'))return{};const stage=input.hook_event_name;onMetadata({activity:{id:input.tool_use_id,name:input.tool_name,input:traceValue(input.tool_input),status:stage==='PreToolUse'?'running':stage==='PostToolUse'?'complete':'error',...(stage==='PreToolUse'?{startedAt:Date.now()}:{finishedAt:Date.now()}),...(stage==='PostToolUse'?{result:compactValue(traceValue(input.tool_response))}:{}),...(stage==='PostToolUseFailure'?{detail:String(input.error||'Tool failed.').slice(0,1000)}:{})}});return{};};
  return Object.fromEntries(['PreToolUse','PostToolUse','PostToolUseFailure'].map(name=>[name,[{hooks:[observe]}]]));
@@ -146,7 +148,7 @@ export function createClaudeReply({ query: injectedQuery, resolveExecutable = fi
             }
             if (event.error) throw new Error(event.error === 'authentication_failed' ? 'Claude authentication failed. Sign in again from Terminal.' : `Claude could not reply: ${event.error}`);
           }
-          if(event.type==='user')for(const block of event.message?.content||[])if(block.type==='tool_result')onMetadata({activity:{id:block.tool_use_id,status:block.is_error?'error':'complete',finishedAt:Date.now()}});
+          if(event.type==='user')for(const block of event.message?.content||[])if(block.type==='tool_result')onMetadata({activity:{id:block.tool_use_id,status:block.is_error?'error':'complete',finishedAt:Date.now(),...(block.is_error?{detail:toolErrorText(block.content)}:{})}});
           if (event.type === 'result') {
             if (event.subtype !== 'success' || event.is_error) throw new Error((event.errors || []).join(' ') || `Claude stopped: ${event.subtype}`);
             if (!output && event.result) { output = event.result; yield output; }
