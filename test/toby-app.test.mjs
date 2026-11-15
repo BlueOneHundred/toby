@@ -79,3 +79,10 @@ test('make_app and publish_app: build, check note, refuse a failed app, then pub
  assert.match((await call('make_app',{...args,bookDir:'ebooks/nope'})).error,/Not found in the team folder/);
 });
 test('the new team members have a place in the sidebar order',()=>{for(const n of ['App Builder','Store Manager','Marketing Kit'])assert.ok(TEAM_ORDER.includes(n));assert.ok(TEAM_ORDER.indexOf('App Builder')<TEAM_ORDER.indexOf('Outreach Writer'));});
+test('a save that Windows briefly refuses is tried again instead of being lost',async()=>{
+ const {steadyRename}=await import('../src/storage-safety.mjs');let calls=0;const waits=[];
+ const busy=async()=>{if(++calls<4)throw Object.assign(new Error('EPERM: operation not permitted, rename'),{code:'EPERM'});return 'moved';};
+ assert.equal(await steadyRename('a','b',{move:busy,wait:async ms=>{waits.push(ms);}}),'moved');assert.equal(calls,4);assert.deepEqual(waits,[50,100,200]);
+ await assert.rejects(steadyRename('a','b',{tries:3,move:async()=>{throw Object.assign(new Error('still busy'),{code:'EBUSY'});},wait:async()=>{}}),/still busy/);
+ let once=0;await assert.rejects(steadyRename('a','b',{move:async()=>{once++;throw Object.assign(new Error('gone'),{code:'ENOENT'});},wait:async()=>{}}),/gone/);assert.equal(once,1);
+});

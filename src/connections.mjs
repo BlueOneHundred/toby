@@ -1,13 +1,14 @@
 import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
 import {join} from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {steadyRename} from './storage-safety.mjs';
 import {Composio} from '@composio/core';
 
 // Credentials never enter workspace snapshots or the renderer.
 export class Connections {
   constructor({directory,encrypt,decrypt,createClient=credential=>new Composio(typeof credential==='string'?{apiKey:credential}:credential)}){this.directory=directory;this.encrypt=encrypt;this.decrypt=decrypt;this.createClient=createClient;this.value={userId:randomUUID()};this.sessionPromise=null;}
   async init(){await mkdir(this.directory,{recursive:true,mode:0o700});try{this.value=JSON.parse(await this.decrypt(await readFile(join(this.directory,'connections.secure'))));}catch(error){if(error.code!=='ENOENT')throw new Error('Could not unlock saved connections.');}return this;}
-  async save(){const temporary=join(this.directory,`.connections-${randomUUID()}`);await writeFile(temporary,await this.encrypt(JSON.stringify(this.value)),{mode:0o600});await rename(temporary,join(this.directory,'connections.secure'));}
+  async save(){const temporary=join(this.directory,`.connections-${randomUUID()}`);await writeFile(temporary,await this.encrypt(JSON.stringify(this.value)),{mode:0o600});await steadyRename(temporary,join(this.directory,'connections.secure'));}
   status(){return {composio:!!(this.value.composioKey||this.value.composioAccount),cloud:!!this.value.cloud?.token,cloudEndpoint:this.value.cloud?.endpoint||'',custom:(this.value.custom||[]).map(({name,url,askFirst})=>({name,url,askFirst:!!askFirst}))};}
   // Toby: custom MCP connections (e.g. treg or Apify). Tokens stay encrypted here and are never returned by status().
   // Toby: the custom connection named "app_publisher" is not an MCP server. It holds the GitHub repository that

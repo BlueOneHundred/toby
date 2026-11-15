@@ -9,7 +9,12 @@ export function requireVersion(value,label='Saved data'){
  if(!value||value.version!==1)throw new Error(`${label} has an unsupported version. Use a compatible Toby release; existing files were preserved.`);
 }
 async function regular(path){const s=await lstat(path);if(!s.isFile()||s.isSymbolicLink())throw new Error('Recovery files must be regular files.');if(s.size>256000000)throw new Error('Recovery file exceeds the supported size.');return s;}
-export async function atomicWrite(path,bytes){const temp=path+'.'+randomUUID()+'.tmp';let handle;try{handle=await open(temp,'wx',0o600);await handle.writeFile(bytes);await handle.sync();await handle.close();handle=null;await rename(temp,path);}finally{await handle?.close();await unlink(temp).catch(()=>{});}}
+// Toby: on Windows a rename fails with EPERM, EBUSY or EACCES while another program (a virus scanner, a backup tool,
+// a file viewer) has the target open for a moment. Wait and try again instead of losing the save.
+export async function steadyRename(from,to,{tries=12,wait=ms=>new Promise(r=>setTimeout(r,ms)),move=rename}={}){
+ for(let i=1;;i++){try{return await move(from,to);}catch(error){if(i>=tries||!['EPERM','EBUSY','EACCES'].includes(error.code))throw error;await wait(Math.min(50*2**(i-1),2000));}}
+}
+export async function atomicWrite(path,bytes){const temp=path+'.'+randomUUID()+'.tmp';let handle;try{handle=await open(temp,'wx',0o600);await handle.writeFile(bytes);await handle.sync();await handle.close();handle=null;await steadyRename(temp,path);}finally{await handle?.close();await unlink(temp).catch(()=>{});}}
 export async function assertStorageCompatible(directory){
  for(const name of ['storage-format.json','workspace.json']){try{await regular(join(directory,name));const data=JSON.parse(await readFile(join(directory,name),'utf8'));requireVersion(data,name);if(name==='storage-format.json'&&(!Number.isInteger(data.minimumReader)||data.minimumReader>STORAGE_VERSION))throw new Error('This data requires a newer Toby release. Existing files were preserved.');}catch(e){if(e.code!=='ENOENT')throw new Error(e instanceof SyntaxError?'Saved workspace is unreadable. Existing files were preserved.':e.message);}}
 }

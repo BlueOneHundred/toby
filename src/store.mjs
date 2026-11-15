@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import {assertStorageCompatible, createCheckpoint} from './storage-safety.mjs';
+import {assertStorageCompatible, createCheckpoint, steadyRename} from './storage-safety.mjs';
 import {validateRunLimits} from './run-limits.mjs';
 
 export const DEFAULT_SETTINGS = Object.freeze({ provider: 'demo', baseUrl: 'http://127.0.0.1:11434/v1', model: '', effort: 'medium', voiceCleanup: true, voiceLanguage: 'en', displayName: '', profileAvatarDataUrl: null });
@@ -86,7 +86,7 @@ export class JsonStore {
     const task = this.queue.then(async () => {
       await assertStorageCompatible(this.directory);
       const temp = join(this.directory, `.workspace-${randomUUID()}.tmp`);
-      try { await writeFile(temp, json, { flag: 'wx', mode: 0o600 }); await rename(temp, this.path); }
+      try { await writeFile(temp, json, { flag: 'wx', mode: 0o600 }); await steadyRename(temp, this.path); }
       finally { await unlink(temp).catch(() => {}); }
     });
     this.queue = task.catch(() => {});
