@@ -44,7 +44,9 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
     register('read_webpage','Read a public HTTPS webpage. Returns its title, source URL and text.',{url:z.string()},async({url})=>{
       publicURL(url);
       try{return text(await readWebpage(url,signal));}
-      catch(error){if(signal.aborted||error.code==='URL_BLOCKED')throw error;
+      catch(error){if(signal.aborted)throw error;
+        // Toby: some internet providers point a public site (Linktree, for one) at a private address. Nothing is fetched in that case; tell the bot plainly so it uses another route instead of counting a failure.
+        if(error.code==='URL_BLOCKED')return text({url,opened:false,reason:'This site cannot be reached from this computer (the internet provider may block it).',note:'Do not retry this link here. If you have a paid data connection such as treg, read the page through it instead; otherwise treat it as unavailable.'});
         // Toby: a page that refuses us is normal on the web, not a broken tool. Report it as a result so it doesn't count toward the failure limit.
         if(!canUseComputer()||!capabilities.computer||!connections.status().cloud)return text({url,opened:false,reason:String(error.message||error).slice(0,300),note:'This page could not be opened. Treat it as unavailable and move on; do not retry the same link.'});
         const result=await cloud.execute({botId:bot.id,conversationId,name:'browse_url',args:{url},signal,finishStarted:true});return text({url,output:result.output,observation:result.observation});}
