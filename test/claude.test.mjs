@@ -96,3 +96,18 @@ test('tool hooks expose actual external tool outcomes without changing tool perm
 test('changing recalled data keeps a Claude session warm; privacy changes require fresh context',async t=>{
  const calls=[];let metadata;const reply=setup(args=>{calls.push(args);return success();}),common={bot,settings,workspaceDir:await directory(t),signal:new AbortController().signal,onMetadata:m=>metadata=m};let messages=[{role:'user',content:'Hi'}];await collect(reply({...common,messages,turnContext:'Preference A',contextEpoch:0}));const first=metadata.claudeSession;messages.push({role:'assistant',content:'Hello'},{role:'user',content:'Next'});await collect(reply({...common,messages,claudeSession:first,turnContext:'Preference B',contextEpoch:0}));assert.equal(calls[1].options.resume,sessionId);assert.match(calls[1].prompt,/Preference B/);const second=metadata.claudeSession;messages.push({role:'assistant',content:'Hello'},{role:'user',content:'After forget'});await collect(reply({...common,messages,claudeSession:second,turnContext:'',contextEpoch:1}));assert.equal(calls[2].options.resume,undefined);
 });
+
+test('Toby: text written before and after tool use is kept as separate paragraphs', async t => {
+  const workspaceDir = await directory(t);
+  const start = { type: 'stream_event', parent_tool_use_id: null, event: { type: 'content_block_start', content_block: { type: 'text', text: '' } } };
+  const delta = text => ({ type: 'stream_event', parent_tool_use_id: null, event: { type: 'content_block_delta', delta: { type: 'text_delta', text } } });
+  const reply = setup(async function* () {
+    yield { type: 'system', subtype: 'init', session_id: sessionId, tools: [] };
+    yield start; yield delta("I'll start by reading the board."); yield { type: 'assistant', message: { content: [{ type: 'text', text: "I'll start by reading the board." }] } };
+    yield start; yield delta('Progress so far.\n'); yield { type: 'assistant', message: { content: [{ type: 'text', text: 'Progress so far.\n' }] } };
+    yield start; yield delta('Done.'); yield { type: 'assistant', message: { content: [{ type: 'text', text: 'Done.' }] } };
+    yield { type: 'result', subtype: 'success', session_id: sessionId, result: 'Done.', usage: { input_tokens: 1, output_tokens: 1 } };
+  });
+  const text = await collect(reply({ bot, settings, workspaceDir, signal: new AbortController().signal, onMetadata: () => {}, messages: [{ role: 'user', content: 'Hi' }] }));
+  assert.equal(text, "I'll start by reading the board.\n\nProgress so far.\nDone.");
+});

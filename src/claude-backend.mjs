@@ -130,6 +130,9 @@ export function createClaudeReply({ query: injectedQuery, resolveExecutable = fi
             sessionId = event.session_id;
             if (!runtime && Array.isArray(event.tools) && event.tools.length) throw new Error('Claude started with tools enabled. The chat was cancelled.');
           }
+          // Toby: a bot often writes a line, uses some tools, then writes again. Start each new piece of text on its
+          // own paragraph so progress notes never run together ("...the board.Progress so far...").
+          if (event.type === 'stream_event' && !event.parent_tool_use_id && event.event?.type === 'content_block_start' && event.event.content_block?.type === 'text' && output && !/\n\s*$/.test(output)) { output += '\n\n'; yield '\n\n'; }
           if (event.type === 'stream_event' && !event.parent_tool_use_id && event.event?.type === 'content_block_delta' && event.event.delta?.type === 'text_delta') {
             const chunk = event.event.delta.text;
             if (typeof chunk === 'string') { output += chunk; yield chunk; }
