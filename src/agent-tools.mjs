@@ -11,10 +11,11 @@ import {pictureRefs,picturePath,pictureEntry,placeEditionPictures,imageSize} fro
 import {PALETTE_NAMES} from './palettes.mjs';
 import {publishApp} from './app-publisher.mjs';
 import {checkEdition} from './edition-check.mjs';
+import {slideHtml,SLIDE_SCRIPT,HIDE_TEXT_CSS,contrastProblems,textProblems,carouselToFix,sheetHtml,checkNote,LAYOUTS,SLIDE_TYPES,SLIDE_W,SLIDE_H} from './carousel-builder.mjs';
 import {readFile as readTeamBytes} from 'node:fs/promises';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
-export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,shrinkImage,cropImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
+export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,renderPage,shrinkImage,cropImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
   const capabilities={...defaultCapabilities,...bot.capabilities},tools=[],definitions=[],mcpServers={};
   const register=(name,description,schema,handler)=>{const wrapped=async input=>{
     const id=crypto.randomUUID();onActivity({id,name,input:name.endsWith('_memory')?{scope:input.scope,query:input.query,manual:true}:traceValue(input),status:'running',startedAt:Date.now()});
@@ -115,6 +116,36 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
         if(pdfPath){checkNote=pdfPath.replace(/[^/\\]+$/,'book-check.md');const c=report.check||{};
           await teamFolder.writeBytes(null,checkNote,Buffer.from(['# Book check: '+title,'','- Built: '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC','- Result: '+(toFix.length?'NEEDS FIXES ('+toFix.length+')':'PASSED'),'- Palette: '+palette,'- Pages: '+(report.pages||'?')+', chapters: '+report.chapters+', pages to print: '+report.pagesToPrint,'- Lists, boxes or tables split across pages: '+(c.listsSplit??'not measured'),'- Empty spaces left: '+(c.emptySpaces??'not measured'),'- Spaces filled with a fact: '+report.gaps.filter(g=>g.filled).length,'- Pictures placed: '+(report.pictures?.placed||0)+', missing: '+(report.pictures?.missing.length||0)+', too small to print sharply: '+(report.pictures?.small.length||0),'- Blocks measured: '+(c.blocksMeasured??0)+', prints: '+(report.prints||1),'',...(toFix.length?['## To fix',...toFix.map(x=>'- '+x)]:['Nothing to fix.']),''].join('\n')));}
         return text({html:htmlPath,pdf,parts:parts.length,words,passed:toFix.length===0,toFix,checkNote,report});
+      });
+      if(renderPage)register('make_carousel','Make an Instagram carousel (1080 x 1350 JPEG slides) from a book\'s checked photos and real type, in the book\'s palette and fonts. No AI is used and it costs nothing. Give 5 to 10 slides in order: one "cover" first (photo, kicker, title, body), then "point" slides (photo, label such as "1" or "Evening", title, body, source) and at most one "flag" slide (no photo: a warning, kicker defaults to "Red flag"), and one "end" slide last (kicker, title = the book title, up to 4 short bullets, cta defaults to "Link in bio", body = one short line under it). image is a path in the team folder (use the book\'s checked photos, ebooks/<slug>/images/...); focus moves the crop, as "x% y%" (50% 50% is the middle). Wrap one or two words in **double stars** to colour them. layout "panel": photo on top fading into a solid colour panel; "card": photo on top at full width over a cream card with a label pill. Use the edition\'s palette (palette.md or the base book\'s "Palette:" line). bookCover is the edition\'s book.html (its cover is captured) or a cover picture. Saves <folder>/01.jpg and on, <folder>/sheet.jpg (all slides at a glance), <folder>/slides.json and <folder>/carousel-check.md, and returns passed and a toFix list. Headings that are too long are shrunk a little; if toFix is not empty, change the words or the photo focus and run it again. Only "Result: PASSED" may go to Visual Check.',{folder:z.string().min(1).max(300),title:z.string().min(1).max(120),handle:z.string().min(1).max(60),layout:z.enum(LAYOUTS).default('panel'),palette:z.enum(PALETTE_NAMES).default('pine'),bookCover:z.string().max(300).optional(),slides:z.array(z.object({type:z.enum(SLIDE_TYPES),image:z.string().max(300).optional(),focus:z.string().max(12).optional(),kicker:z.string().max(40).optional(),label:z.string().max(24).optional(),title:z.string().min(1).max(70),body:z.string().max(220).optional(),source:z.string().max(90).optional(),bullets:z.array(z.string().max(40)).max(4).optional(),cta:z.string().max(30).optional()})).min(5).max(10)},async({folder,title,handle,layout,palette:paletteName,bookCover,slides})=>{
+        folder=folder.replace(/\\/g,'/').replace(/\/+$/,'');
+        const textFix=textProblems(slides);
+        if(textFix.length)return text({passed:false,toFix:textFix,note:'Nothing was made. Fix the slide list and run make_carousel again.'});
+        const images={};
+        for(const s of slides)if(s.image&&!images[s.image]){let bytes;try{bytes=await readTeamBytes(await teamFolder.target(null,s.image));}catch(error){if(error.code==='ENOENT')return text({passed:false,toFix:['The picture '+s.image+' was not found in the team folder.']});throw error;}
+          const size=imageSize(bytes);if(size&&size.w<1080)textFix.push('The picture '+s.image+' is only '+size.w+' pixels wide; use one at least 1080 wide so the slide stays sharp.');
+          images[s.image]=imageDataUrl(shrinkImage?await shrinkImage(bytes,1600,88):bytes,shrinkImage?'x.jpg':s.image);}
+        let cover='';
+        if(bookCover){const target=await teamFolder.target(null,bookCover);
+          if(/\.html?$/i.test(bookCover)){const shot=await renderPage({file:target,width:672,height:960,root:teamFolder.root(),signal,clipSelector:'.cover',quality:90});cover=imageDataUrl(shot.jpeg,'x.jpg');}
+          else{const bytes=await readTeamBytes(target);cover=imageDataUrl(shrinkImage?await shrinkImage(bytes,1000,90):bytes,shrinkImage?'x.jpg':bookCover);}}
+        const scratch=folder+'/_slide.html',results=[],files=[],shots=[];
+        for(let i=0;i<slides.length;i++){
+          await teamFolder.writeBytes(null,scratch,Buffer.from(slideHtml({slide:slides[i],index:i+1,total:slides.length,layout,paletteName,handle,images,bookCover:cover})));
+          const shot=await renderPage({file:await teamFolder.target(null,scratch),width:SLIDE_W,height:SLIDE_H,root:teamFolder.root(),signal,script:SLIDE_SCRIPT,hideCss:HIDE_TEXT_CSS});
+          const measured=contrastProblems(shot.result.texts,shot.background.bitmap,SLIDE_W,SLIDE_H);
+          results.push({problems:[...shot.result.problems,...measured.problems],lowest:measured.lowest});
+          const name=String(i+1).padStart(2,'0')+'.jpg';files.push(name);shots.push(shot.jpeg);await teamFolder.writeBytes(null,folder+'/'+name,shot.jpeg);
+        }
+        const sheet=sheetHtml(shots.map(b=>imageDataUrl(b,'x.jpg')));
+        await teamFolder.writeBytes(null,scratch,Buffer.from(sheet.html));
+        const overview=await renderPage({file:await teamFolder.target(null,scratch),width:sheet.width,height:sheet.height,root:teamFolder.root(),signal,quality:85});
+        await teamFolder.writeBytes(null,folder+'/sheet.jpg',overview.jpeg);
+        await teamFolder.writeBytes(null,scratch,Buffer.from('<!doctype html><title>scratch</title>'));
+        const toFix=[...textFix,...carouselToFix(results)];
+        await teamFolder.writeBytes(null,folder+'/slides.json',Buffer.from(JSON.stringify({title,handle,layout,palette:paletteName,bookCover,slides},null,1)));
+        await teamFolder.writeBytes(null,folder+'/carousel-check.md',Buffer.from(checkNote({title,layout,paletteName,results,toFix,textFix,files})));
+        return text({folder,slides:files.map(f=>folder+'/'+f),sheet:folder+'/sheet.jpg',passed:toFix.length===0,toFix,checkNote:folder+'/carousel-check.md',note:'Look at every slide with zoom_team_image before calling it done.'});
       });
       register('place_edition_pictures','Copy the base book\'s pictures into a creator edition. Give the edition folder (ebooks/<slug>/editions/<handle>); the base book is ebooks/<slug>. Every picture line of the base book goes into the same chapter and the same ### section of the edition (or straight under the chapter heading for an opening picture), even when the edition renamed the chapter, pointing at the base book\'s picture files. Lines already there are left alone, so it is safe to run again. With us true, captions get US spelling (fiber, flavor, color). It never changes any other line. Returns how many were placed and any picture it could not place (its section was renamed or removed): place those lines by hand in the matching section.',{editionDir:z.string().min(1).max(300),us:z.boolean().default(false)},async({editionDir,us})=>{
         const dir=editionDir.replace(/\\/g,'/').replace(/\/+$/,''),m=dir.match(/^(.*)\/editions\/[^/]+$/);if(!m)throw new Error('editionDir must look like ebooks/<slug>/editions/<handle>.');
