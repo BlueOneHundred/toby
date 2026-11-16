@@ -256,6 +256,16 @@ textarea.input{resize:vertical;line-height:1.4}
 .toc .readmark{margin-left:auto;flex:none;width:26px;height:26px;border-radius:50%;background:var(--pine);display:flex;align-items:center;justify-content:center}
 .toc .readmark svg{width:14px;height:14px;stroke:#fff}
 .opener{background:var(--deep);color:#fff;border-radius:28px;padding:24px 22px 26px}
+.opener .opic{border-radius:18px;overflow:hidden;aspect-ratio:16/10;margin-bottom:18px;background:var(--pine)}
+.opener .opic img,.opener .opic svg{display:block;width:100%;height:100%;object-fit:cover}
+.opener.haspic .big{font-size:96px}
+.fig{margin:22px 0}
+.fig img{display:block;width:100%;height:auto;border-radius:16px;background:var(--mint)}
+.fig.svg{background:#fff;border-radius:16px;padding:14px}
+.fig.svg svg{display:block;width:100%;height:auto}
+@media (max-width:639px){.fig.svg .scroller{overflow-x:auto;-webkit-overflow-scrolling:touch}.fig.svg .scroller svg{width:720px}.fig.svg .swipe{display:block;font-size:13px;color:var(--soft);margin-bottom:6px}}
+.fig .swipe{display:none}
+.fig figcaption{font-size:14px;line-height:1.45;color:var(--soft);margin-top:10px;text-align:center}
 .opener .big{font-size:150px;font-weight:800;color:var(--marigold);line-height:.8;letter-spacing:-.05em;margin-left:-6px}
 .opener h1{font-size:34px;font-weight:700;line-height:1.05;margin-top:16px;max-width:16ch}
 .opener .short{font-family:var(--serif);font-size:18.5px;line-height:1.5;margin-top:14px;max-width:50ch}
@@ -447,6 +457,8 @@ textarea.input{resize:vertical;line-height:1.4}
   .chapside .back{flex:none;align-self:flex-start}
   .chapside .opener{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column}
   .chapside .opener .in{margin-top:auto}
+  .chapside .opener .opic{flex:none;aspect-ratio:auto;height:34vh;min-height:150px}
+  .chapside .opener.haspic .big{font-size:84px}
   .chapside .opener.nonum{align-items:center;text-align:center;gap:24px;overflow:hidden}
   .chapside .opener.nonum .coverwrap{flex:1;min-height:0;align-self:stretch;position:relative}
   .chapside .opener.nonum img{position:absolute;top:0;right:0;bottom:0;left:0;margin:auto;width:auto;height:auto;max-width:100%;max-height:100%;border-width:4px;border-radius:12px}
@@ -781,6 +793,7 @@ function blocksHtml(ch) {
     const b = B[i], id = ch.id + '-' + i;
     switch (b.t) {
       case 'p': out.push(`<p>${fmt(b.text)}</p>`); break;
+      case 'fig': if (!b.missing) out.push(`<figure class="fig${b.svg ? ' svg' : ''}">${b.svg ? `<span class="swipe">Swipe to see all of it</span><div class="scroller">${b.svg}</div>` : `<img src="${b.src}" alt="${esc(b.alt)}" width="${b.w}" height="${b.h}">`}${b.caption ? `<figcaption>${fmt(b.caption)}</figcaption>` : ''}</figure>`); break;
       case 'h3': out.push(`<h3 id="sec-${ch.id}-${sec++}" tabindex="-1">${fmt(b.text)}</h3>`); break;
       case 'ul': case 'ol': out.push(`<ul class="plain">${b.items.map((x) => `<li>${fmt(x)}</li>`).join('')}</ul>`); break;
       case 'quote': out.push(`<div class="blk quote"><p>${fmt(b.text)}</p></div>`); break;
@@ -816,7 +829,7 @@ function tableHtml(b) {
 function chapterView(ch) {
   const idx = BOOK.chapters.indexOf(ch), next = BOOK.chapters[idx + 1], prev = BOOK.chapters[idx - 1], mins = Math.max(1, Math.round(ch.words / 200));
   return `<div class="col chap"><div class="chapside"><button class="back" data-go="book">${IC.back} All chapters</button>
-  <header class="opener ${ch.num ? '' : 'nonum'}">${ch.num ? `<div class="big">${ch.num}</div>` : `<div class="coverwrap"><img src="${COVER}" alt="Book cover"></div>`}<h1>${fmt(ch.title)}</h1>
+  <header class="opener ${ch.num ? '' : 'nonum'}${ch.pic ? ' haspic' : ''}">${ch.pic ? `<div class="opic">${ch.pic.svg || `<img src="${ch.pic.src}" alt="${esc(ch.pic.alt)}">`}</div>` : ''}${ch.num ? `<div class="big">${ch.num}</div>` : `<div class="coverwrap"><img src="${COVER}" alt="Book cover"></div>`}<h1>${fmt(ch.title)}</h1>
     ${ch.short ? `<p class="short">${fmt(ch.short)}</p>` : ''}
     ${ch.sections.length ? `<div class="in"><h2>In this chapter, about ${mins} min</h2><ul>${ch.sections.map((s, k) => `<li><button data-act="sec" data-id="sec-${ch.id}-${k}">${fmt(s)}</button></li>`).join('')}</ul></div>` : ''}</header></div>
   <article class="read">${blocksHtml(ch)}

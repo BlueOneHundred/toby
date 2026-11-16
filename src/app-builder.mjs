@@ -3,6 +3,7 @@
 // turns the Markdown into the data the template shows, and checks it. Ported from the proven make-app.mjs script.
 import {readFileSync} from 'node:fs';
 import {palette, appRootCSS} from './palettes.mjs';
+import {pictureOf} from './book-pictures.mjs';
 const FONT_DIR = new URL('./book-fonts/', import.meta.url);
 let fontCss = '';
 function fonts() {
@@ -21,7 +22,7 @@ export function appSlug(bookDir) {
  * files: {parts: [markdown...], plan, voice, appJson} (plain text; missing ones are '').
  * Returns {html, check}; check.passed is false when check.problems lists anything.
  */
-export function buildApp({files, bookDir, coverDataUrl, template, creator = '', palette: paletteName = 'pine'}) {
+export function buildApp({files, bookDir, coverDataUrl, template, creator = '', palette: paletteName = 'pine', pictures = {}}) {
   let appJson = {};
   if (files.appJson) { try { appJson = JSON.parse(files.appJson); } catch (e) { throw new Error('app.json could not be read: ' + e.message); } }
   const planLine = (k) => (((files.plan || '') + '\n' + (files.voice || '')).match(new RegExp('^[-*\\s]*' + k + ':\\s*(.+)$', 'mi')) || [])[1];
@@ -118,6 +119,12 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
         blocks.push({ t: ordered ? 'ol' : 'ul', items });
         continue;
       }
+      const fig = pictureOf(line);
+      if (fig) {   // a picture on its own line: the photo or diagram is built into the app
+        const p = pictures[fig.href];
+        blocks.push(p ? { t: 'fig', alt: fig.alt, caption: clean(fig.caption), href: fig.href, ...(p.svg ? { svg: p.svg } : { src: p.src }), w: p.w, h: p.h } : { t: 'fig', alt: fig.alt, caption: clean(fig.caption), href: fig.href, missing: true });
+        i++; continue;
+      }
       blocks.push({ t: 'p', text: clean(line) }); i++;
     }
     return blocks;
@@ -153,6 +160,8 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
       ch = { id, num: 0, title: clean(s.heading) };
     }
     const blocks = parseBlocks(s.lines);
+    // a picture straight under the chapter heading goes on the chapter's opening panel
+    if (blocks[0] && blocks[0].t === 'fig' && !blocks[0].missing) ch.pic = blocks.shift();
     ch.short = (blocks.find((b) => b.t === 'short') || {}).text || '';
     ch.sections = blocks.filter((b) => b.t === 'h3').map((b) => b.text);
     ch.blocks = blocks.filter((b) => b.t !== 'short');
@@ -188,6 +197,8 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     title: CONFIG.title, author: CONFIG.creator, sample: CONFIG.sample, coming: book.coming.length,
     untypedTables: book.chapters.flatMap((c) => c.blocks.filter((b) => b.t === 'tool' && !b.tool).map((b) => c.id + ': ' + b.title)),
     words: book.chapters.reduce((n, c) => n + c.words, 0),
+    pictures: book.chapters.reduce((n, c) => n + (c.pic ? 1 : 0) + c.blocks.filter((b) => b.t === 'fig' && !b.missing).length, 0),
+    missingPictures: book.chapters.flatMap((c) => c.blocks.filter((b) => b.t === 'fig' && b.missing).map((b) => (c.num ? 'Chapter ' + c.num : c.title) + ': ' + b.href)),
   };
   const problems = [];
   if (CONFIG.title === 'Untitled') problems.push('No title found: add app.json or a "Title:" line in plan.md');
@@ -202,6 +213,8 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
   if (!book.sources.length) problems.push('No Sources list found: the last part needs "## Sources" with lines like "S1. Title. Org. 2024. https://..."');
   if (check.citedButMissing.length) problems.push('Cited but not in Sources: ' + check.citedButMissing.join(', '));
   for (const t of CONFIG.requiredTools) if (!check.tools.includes(t)) problems.push('Fill-in table not found: ' + t);
+  if (check.missingPictures.length) problems.push('Picture not found in the team folder: ' + check.missingPictures.join('; '));
+  if (pictures && Object.keys(pictures).length && !/case 'fig'/.test(template)) problems.push('The book has pictures but this app template cannot show them: use templates/app/template-general.html from build 20 or later');
   if (check.untypedTables.length) problems.push('Fill-in table with no app tool: ' + check.untypedTables.join('; '));
   check.passed = problems.length === 0; check.problems = problems;
 

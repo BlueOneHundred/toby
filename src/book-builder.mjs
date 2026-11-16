@@ -5,6 +5,7 @@
 // No scripts: everything is static HTML and CSS that Chromium prints to PDF.
 import {marked} from 'marked';
 import {styleCSS, ICONS} from './book-style.mjs';
+import {pictureOf} from './book-pictures.mjs';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const strip = html => String(html).replace(/<[^>]+>/g, '');
@@ -170,12 +171,43 @@ function table(t) {
   return plainTable(t);
 }
 
+// ---------- pictures ----------
+// Set by buildBook for the book being built: the pictures read from the team folder and what happened to each.
+let PIC = {pictures: {}, textW: 145.8, where: '', placed: [], missing: [], small: [], noAlt: []};
+const FIG_MAX_H = 118;   // mm: a tall picture is narrowed so it never takes more than about half a page
+const figOf = t => (t?.type === 'paragraph' ? pictureOf(t.raw.trim()) : null);
+function figSize(fig) {
+  const p = PIC.pictures[fig.href];
+  if (!p) return {w: PIC.textW, h: 30};
+  let w = PIC.textW, h = (w * p.h) / p.w;
+  if (h > FIG_MAX_H) { h = FIG_MAX_H; w = (h * p.w) / p.h; }
+  return {w, h};
+}
+// A photo printed at 180 dots per inch or better looks sharp; below that it looks soft.
+const sharpPx = mm => Math.round((mm / 25.4) * 180);
+function notePicture(fig, widthMm) {
+  const p = PIC.pictures[fig.href], where = PIC.where;
+  if (!p) { PIC.missing.push({where, href: fig.href}); return null; }
+  PIC.placed.push({where, href: fig.href});
+  if (!fig.alt) PIC.noAlt.push({where, href: fig.href});
+  if (p.px && p.px < sharpPx(widthMm)) PIC.small.push({where, href: fig.href, px: p.px, need: sharpPx(widthMm)});
+  return p;
+}
+function figureHTML(fig) {
+  const {w, h} = figSize(fig);
+  const p = notePicture(fig, w);
+  const art = !p ? `<div class="fig-missing">Picture not found: ${esc(fig.href)}</div>` : p.svg ? p.svg : `<img src="${p.src}" alt="${esc(fig.alt)}">`;
+  return `<figure class="fig${p?.svg ? ' fig-svg' : ''}"><div class="fig-art" style="width:${w.toFixed(1)}mm;height:${h.toFixed(1)}mm">${art}</div>${fig.caption ? `<figcaption>${inline(fig.caption)}</figcaption>` : ''}</figure>`;
+}
+
 // ---------- blocks ----------
 const smallTable = t => t.type === 'table' && t.rows.length <= 16 && !isPlan(t) && !isFillIn(t);
 // Rough height of a block in millimetres, from its wording. Used to decide what can share a page.
 function tall(t) {
   if (!t) return 0;
   const lines = (text, perLine) => Math.ceil(Math.max(1, String(text).length) / perLine);
+  const fig = figOf(t);
+  if (fig) return figSize(fig).h + (fig.caption ? lines(fig.caption, 88) * 4.3 + 2 : 0) + 6;
   if (t.type === 'paragraph') return lines(t.text, 74) * 5.7 + 3;
   if (t.type === 'list') return t.items.reduce((sum, item) => sum + lines(item.text, 70) * 5.7 + 1.5, 4);
   if (t.type === 'table') return t.rows.reduce((sum, r) => sum + Math.max(...r.map(c => lines(c.text, Math.max(18, 110 / r.length)))) * 4.6 + 5, 12);
@@ -191,6 +223,8 @@ function tall(t) {
 const whole = t => t && t.type !== 'heading' && (t.type === 'paragraph' ? t.text.length <= 560 : t.type === 'table' ? smallTable(t) : tall(t) <= 195) && labelOf(t)?.kind !== 'remember';
 const leadsIn = (t, next) => t?.type === 'paragraph' && t.text.length <= 320 && /:\s*$/.test(t.text) && whole(next) && tall(t) + tall(next) <= 190;
 function block(t) {
+  const fig = figOf(t);
+  if (fig) return figureHTML(fig);
   if (t.type === 'blockquote') {
     const label = labelOf(t);
     if (!label) return `<div class="box box-plain">${marked.parser(t.tokens)}</div>`;
@@ -253,6 +287,7 @@ function renderBlocks(tokens, ctx) {
       push(block(t), longSteps || (label?.kind === 'checklist' && (t.raw.match(/^>\s*[-*] /gm) || []).length > 18) ? 'f' : 's');
       continue;
     }
+    if (figOf(t)) { push(block(t)); continue; }   // a picture stays whole, with its caption
     if (leadsIn(t, list[i + 1])) { push(`<div class="keep">${block(t)}${block(list[++i])}</div>`); continue; }
     if (t.type === 'paragraph') { push(/:\s*$/.test(t.text) ? marked.parser([t]).replace(/^<p>/, '<p class="kw">') : block(t), 'f'); continue; }
     if (t.type === 'table' && isPlan(t)) { push(planPages(t, 'Day by day', '', ctx), 'p'); continue; }
@@ -368,11 +403,12 @@ function sourcesHTML(section) {
   return `<section class="sources" id="${section.id}" style="page:${section.page}"><h2>${heading(esc(section.title))}</h2><p class="sources-note">The small raised numbers in the text point to this list.</p><div class="sources-list">${items.join('')}</div></section>`;
 }
 
-export function buildBook({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', highlights = [], pageSize = 'Book', pageNumbers = {}, fill = {}, gaps = {}, palette = 'pine'}) {
+export function buildBook({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', highlights = [], pageSize = 'Book', pageNumbers = {}, fill = {}, gaps = {}, palette = 'pine', pictures = {}}) {
   if (!title) throw new Error('Give the book a title.');
   if (!Array.isArray(parts) || !parts.length) throw new Error('Give at least one Markdown part.');
   const size = PAGE_SIZES[pageSize] ? pageSize : 'Book';
   const [pageW, pageH, sizeRule] = PAGE_SIZES[size];
+  PIC = {pictures: pictures || {}, textW: parseFloat(pageW) - 32, where: '', placed: [], missing: [], small: [], noAlt: []};
   const sections = splitSections(parts.flatMap(part => [...marked.lexer(String(part || ''), {gfm: true})]));
   const chapters = sections.filter(s => s.kind === 'chapter');
   let plainCount = 0;
@@ -391,20 +427,25 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const probeIds = [];
   const body = sections.map((s, index) => {
     Object.assign(ctx, {section: s.id, name: s.kind === 'chapter' ? `Chapter ${s.n}` : s.title, gapFill: {}});
+    PIC.where = ctx.name;
     if (s.kind === 'sources') return sourcesHTML(s);
     if (s.kind === 'coming') return comingHTML(s, chapters);
     if (s.kind === 'closing') return `<section class="closing" id="${s.id}"><h2>${heading(esc(s.title))}</h2>${renderBlocks(s.tokens, ctx)}</section>`;
     if (s.kind === 'plain') return `<section class="part" id="${s.id}" style="page:${s.page};break-before:page"><div class="flow">${s.title ? `<h2 class="plain-head">${heading(esc(s.title))}</h2>` : ''}${renderBlocks(s.tokens, ctx)}</div></section>`;
     const facts = takeFacts(s.tokens);
-    const body = s.tokens.filter(t => labelOf(t)?.kind !== 'facts');
-    if (labelOf(body[0])?.kind !== 'short') report.notes.push(`Chapter ${s.n} does not start with "> The short version:".`);
-    if (labelOf(body[body.length - 1])?.kind !== 'remember') report.notes.push(`Chapter ${s.n} does not end with "> Remember:" (the Facts block may come after it).`);
+    // A picture straight under the chapter heading goes on the chapter's opening page.
     const tokens = s.tokens.filter(t => labelOf(t)?.kind !== 'facts');
+    const leadFig = figOf(tokens[0]);
+    if (leadFig) tokens.shift();
+    if (labelOf(tokens[0])?.kind !== 'short') report.notes.push(`Chapter ${s.n} does not start with "> The short version:"${leadFig ? ' (straight after its opening picture)' : ''}.`);
+    if (labelOf(tokens[tokens.length - 1])?.kind !== 'remember') report.notes.push(`Chapter ${s.n} does not end with "> Remember:" (the Facts block may come after it).`);
     report.facts[`Chapter ${s.n}`] = facts.length;
     let short = '';
     if (labelOf(tokens[0])?.kind === 'short') { const first = tokens.shift(); short = boxParts(first, labelOf(first)).body; }
     const heads = tokens.filter(t => t.type === 'heading' && t.depth === 3).map(t => plain(inline(t.text))).filter(k => !repeated(k.toLowerCase()));
-    const opener = `<section class="opener" id="${s.id}"><div class="opener-num">${String(s.n).padStart(2, '0')}</div><div class="opener-body"><p class="opener-label">Chapter ${s.n}</p><h2>${heading(esc(s.name))}</h2>${short ? `<div class="opener-short">${short}</div>` : ''}</div>${heads.length >= 3 ? `<div class="opener-list"><p>In this chapter</p><ul>${heads.slice(0, 12).map(h => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}</section>`;
+    const leadPic = leadFig ? notePicture(leadFig, parseFloat(pageW)) : null;
+    const leadArt = !leadFig ? '' : !leadPic ? `<div class="fig-missing">Picture not found: ${esc(leadFig.href)}</div>` : leadPic.svg || `<img src="${leadPic.src}" alt="${esc(leadFig.alt)}">`;
+    const opener = `<section class="opener${leadFig ? ' has-pic' : ''}" id="${s.id}">${leadFig ? `<div class="opener-pic">${leadArt}</div>` : ''}<div class="opener-num">${String(s.n).padStart(2, '0')}</div><div class="opener-body"><p class="opener-label">Chapter ${s.n}</p><h2>${heading(esc(s.name))}</h2>${short ? `<div class="opener-short">${short}</div>` : ''}</div>${heads.length >= 3 ? `<div class="opener-list"><p>In this chapter</p><ul>${heads.slice(0, 12).map(h => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}</section>`;
     // The chapter's "Remember" box closes it: a pine panel that runs to the foot of the page.
     let recap = '';
     if (labelOf(tokens[tokens.length - 1])?.kind === 'remember') {
@@ -447,6 +488,9 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   report.pagesToPrint = (body.match(/class="(worksheet|plan-page)"/g) || []).length;
   report.unfilledGaps = report.gaps.filter(g => !g.filled).length;
   report.listsTooLongForOnePage = [...new Set(ctx.longLists)];
+  // (a dry run can meet the same picture twice, so each is counted once)
+  const once = list => [...new Map(list.map(x => [`${x.where}|${x.href}`, x])).values()];
+  report.pictures = {placed: once(PIC.placed).length, missing: once(PIC.missing), small: once(PIC.small), noAlt: once(PIC.noAlt)};
   return {html, report};
 }
 export const bookHTML = options => buildBook(options).html;
@@ -473,6 +517,10 @@ export function bookToFix(report, printed = true) {
   for (const gap of report.gaps || []) if (!gap.filled) (empty[gap.where] ||= []).push(gap.roomMm);
   for (const [where, rooms] of Object.entries(empty)) out.push(`${where} still has ${rooms.length} empty space${rooms.length > 1 ? 's' : ''} (${rooms.join(', ')} mm high) and no spare fact that fits. Add ${rooms.length + 1} more facts to its "> Facts:" block${rooms.some(r => r < 24) ? ', at least one of them under 60 characters' : ''}.`);
   for (const where of report.listsTooLongForOnePage || []) out.push(`${where} has a list or set of steps too long for one page. Split it into two shorter lists, each under its own heading.`);
+  const pics = report.pictures || {};
+  for (const x of pics.missing || []) out.push(`${x.where}: the picture ${x.href} is not in the team folder. Check the path (it is read from the book's own folder), or ask Creative Studio for it.`);
+  for (const x of pics.small || []) out.push(`${x.where}: the picture ${x.href} is ${x.px} pixels wide and will print blurry at this size. Ask Creative Studio for one at least ${x.need} pixels wide.`);
+  for (const x of pics.noAlt || []) out.push(`${x.where}: the picture ${x.href} has no description. Put a few words on what it shows between the square brackets: ![A bubbly starter in a jar](...).`);
   const check = report.check;
   if (check?.listsSplit) out.push(`A list, box or table is split across two pages in ${check.listsSplitIn.join(', ')}. Make it shorter, or split it into two under their own headings.`);
   if (printed && report.measured === false) out.push('Toby could not measure this PDF, so page numbers, spare facts and stretched chapter endings are missing. Run make_book once more; if this message comes back, tell Toby.');

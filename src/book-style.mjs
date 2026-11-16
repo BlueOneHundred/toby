@@ -120,6 +120,15 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .toc ol.prints .toc-p{font-size:9pt;font-weight:600}
 .toc ol.prints .toc-n svg{width:4mm;height:4mm;fill:none;stroke:var(--pine);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transform:translateY(.8mm)}
 
+/* ---------- pictures ---------- */
+.fig{margin:1.5mm 0 4.6mm;break-inside:avoid}
+.fig-art{margin:0 auto;overflow:hidden;border-radius:2.2mm;background:var(--fog)}
+.fig-art img{display:block;width:100%;height:100%;object-fit:cover}
+.fig-svg .fig-art{background:none;border-radius:0;overflow:visible}
+.fig-art svg{display:block;width:100%;height:100%}
+.fig figcaption{font-family:var(--display);font-size:8.4pt;line-height:1.4;color:var(--muted);margin:2.2mm auto 0;max-width:124mm;text-align:center;text-wrap:balance}
+.fig-missing{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border:.5mm dashed var(--brick);color:var(--brick);font:600 9pt var(--display);border-radius:2.2mm}
+
 /* ---------- chapter opener ---------- */
 .opener{page:opener;position:relative;width:${pageW};height:calc(${pageH} - .6mm);overflow:hidden;break-before:page;break-after:page;background:var(--pine);color:#fff}
 .opener-num{position:absolute;right:-5mm;top:-9mm;font-family:var(--display);font-weight:800;font-size:215pt;line-height:1;letter-spacing:-.05em;color:var(--pine-soft)}
@@ -133,6 +142,13 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .opener-list p{font-family:var(--display);font-weight:600;font-size:8.6pt;color:var(--marigold);margin:0 0 2.2mm}
 .opener-list ul{list-style:none;margin:0;padding:0;columns:2;column-gap:8mm;font-family:var(--display);font-size:9pt;line-height:1.35;color:${P.onDark}}
 .opener-list li{margin:0 0 1.3mm;padding:0;break-inside:avoid}
+.opener-pic{position:absolute;left:0;right:0;top:0;height:100mm;background:var(--pine-deep);overflow:hidden}
+.opener-pic img,.opener-pic svg{display:block;width:100%;height:100%;object-fit:cover}
+.opener-pic .fig-missing{border-radius:0}
+.opener.has-pic .opener-num{display:none}
+.opener.has-pic .opener-body{top:110mm}
+.opener.has-pic h2{font-size:32pt;margin-bottom:5mm}
+.opener.has-pic .opener-short{font-size:11.8pt}
 
 /* ---------- reading pages ---------- */
 .flow{padding-left:var(--gutter)}
