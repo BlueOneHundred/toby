@@ -31,6 +31,7 @@ export function sections(parts) {
     }
     inFacts = false;
     if (line.startsWith('#')) continue;
+    if (/^!\[[^\]]*\]\(/.test(line)) continue;   // a picture line is shared with the base book, not text to rewrite
     if (/^(-|\d+\.)\s/.test(line)) cur.lists.push(line); else if (!/^\[Creator:[^\]]*\]$/.test(line)) cur.text.push(line);
   }
   return out;

@@ -103,3 +103,11 @@ test('make_book and make_app read pictures from the book\'s own folder in the te
  await writeFile(join(dir,'part-a.md'),'## Chapter 1: X\n\n![Bad](images/../../../../outside.png)\n');
  assert.ok((await call('make_book',{parts:['ebooks/bread/part-a.md'],title:'Bread',htmlPath:'ebooks/bread/book.html'})).error,'a path outside the team folder is refused');
 });
+
+test('the edition check does not count a picture line as text the creator left unchanged',async()=>{
+ const {checkEdition}=await import('../src/edition-check.mjs');
+ const base='## Chapter 1: Bread\n\n![A loaf](images/a.png "A caption [S1].")\n\nThe base sentence about flour and water here [S1].\n\nAnother base sentence about salt and time [S1].\n';
+ const edition='## Chapter 1: Bread\n\n![A loaf](images/a.png "A caption [S1].")\n\nMy own words on mixing the flour with water [S1].\n\nIn my kitchen salt goes in after a little wait [S1].\n';
+ const r=checkEdition({base:{parts:[base]},edition:{parts:[edition]}});
+ assert.equal(r.report.textBase,2);assert.equal(r.report.textChanged,2);
+});
