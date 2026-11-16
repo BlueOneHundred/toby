@@ -121,7 +121,7 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .toc ol.prints .toc-n svg{width:4mm;height:4mm;fill:none;stroke:var(--pine);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transform:translateY(.8mm)}
 
 /* ---------- pictures ---------- */
-.fig{margin:1.5mm 0 4.6mm;break-inside:avoid}
+.fig{margin:1.5mm 0 4.6mm calc(-1 * var(--gutter));break-inside:avoid}
 .fig-art{margin:0 auto;overflow:hidden;border-radius:2.2mm;background:var(--fog)}
 .fig-art img{display:block;width:100%;height:100%;object-fit:cover}
 .fig-svg .fig-art{background:none;border-radius:0;overflow:visible}

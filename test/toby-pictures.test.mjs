@@ -45,6 +45,8 @@ test('pictures go in the text with their caption, and a lead picture fills the o
  assert.match(html,/<div class="keep"><h3>Shaping<\/h3><figure class="fig fig-svg"><div class="fig-art" style="width:145\.8mm;height:72\.9mm"><svg/);
  assert.match(html,/<figcaption>Fold, turn, drag, rest\.<sup class="cite"><a href="#src-1">1<\/a><\/sup><\/figcaption>/);
  assert.ok(!report.notes.some(n=>/short version/.test(n)),report.notes.join('; '));
+ // a figure spans the full text width like a box does, or Chrome shrinks every page to fit it
+ assert.match(html,/\.fig\{margin:[^}]*calc\(-1 \* var\(--gutter\)\)/);
  assert.equal(report.pictures.placed,2);assert.deepEqual(bookToFix(report,false),[]);
 });
 
