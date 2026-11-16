@@ -162,7 +162,8 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
       if (b.t === 'timeline') book.weeks = b.items.map((x) => x.replace(/^Week \d+:\s*/, ''));
       if (b.t === 'tool' && b.tool) book.tools[b.tool] = { title: b.title, head: b.head, rows: b.rows, chapter: ch.num };
       if (b.t === 'facts') for (const f of b.items) if (!book.facts.some((x) => x.text === f)) book.facts.push({ text: f, ch: ch.num });
-      if (b.t === 'table' && /^what you see/i.test(b.head[0])) book.stalls = { head: b.head, rows: b.rows, chapter: ch.num };
+      // a book may split its troubleshooting into several tables (for example starter and loaf): the app shows them all
+      if (b.t === 'table' && /^what you see/i.test(b.head[0])) book.stalls = book.stalls ? { ...book.stalls, rows: book.stalls.rows.concat(b.rows) } : { head: b.head, rows: b.rows, chapter: ch.num };
       if (b.t === 'table' && /^problem/i.test(b.head[0])) book.whoToCall = { head: b.head, rows: b.rows, chapter: ch.num };
     }
     book.chapters.push(ch);

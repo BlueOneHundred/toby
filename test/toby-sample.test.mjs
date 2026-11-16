@@ -59,3 +59,11 @@ test('check_edition on a sample: only the parts the base book has are checked, a
  const note=await readFile(join(dir,'edition-check.md'),'utf8');assert.match(note,/Sample: only part-a\.md of the base book exist so far/);
  assert.match((await call('check_edition',{editionDir:'ebooks/empty/editions/jane'})).error,/No base book text found/);
 });
+
+test('two "When it stalls" tables are both kept in the app',()=>{
+ const stalls=(name,a,b)=>`### ${name}\n\n| What you see | Likely reason | Try this |\n|---|---|---|\n| ${a} | r [S1] | t [S1] |\n| ${b} | r [S2] | t [S2] |\n`;
+ const part=`## Chapter 3: Fixes\n\n> The short version: x [S1].\n\n${stalls('When the starter stalls','No bubbles','Slow')}\n${stalls('When the loaf stalls','Flat loaf','Pale crust')}\n> Remember:\n> - a\n> - b\n> - c\n`;
+ const {html}=app([PART_A,part,END.replace(/## In the full book[\s\S]*?## Sources/,'## Sources')],JSON.stringify({title:'X',requiredTools:[],planDays:30}));
+ const stallsData=html.slice(html.indexOf('"stalls":'),html.indexOf('"whoToCall"'));
+ for(const w of ['No bubbles','Slow','Flat loaf','Pale crust'])assert.ok(stallsData.includes(w),w);
+});
