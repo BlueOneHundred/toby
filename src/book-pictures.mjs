@@ -89,3 +89,50 @@ export function pictureOf(line) {
   const m = PICTURE_LINE.exec(String(line || ''));
   return m ? {alt: m[1].trim(), href: m[2], caption: (m[3] || '').trim()} : null;
 }
+
+/**
+ * Copies a base book's picture lines into a creator edition: same chapter number and same "###" section (or straight
+ * under the chapter heading for an opening picture), whatever the edition renamed. Paths become team paths (baseDir/...)
+ * so the edition uses the base book's files. With us=true, captions get US spelling.
+ * base and edition: arrays of Markdown parts. Returns {parts, placed, total, missing}.
+ */
+export function placeEditionPictures({base, edition, baseDir, us = false}) {
+  const isPic = line => /^!\[[^\]]*\]\(/.test(line);
+  const items = [];
+  for (const part of base) {
+    let chap = null, head = null, seen = false;
+    for (const line of String(part).replace(/\r\n/g, '\n').split('\n')) {
+      const m = /^## Chapter (\d+):/.exec(line);
+      if (m) { chap = Number(m[1]); head = null; seen = false; continue; }
+      if (line.startsWith('## ')) { chap = null; continue; }
+      if (line.startsWith('### ')) { head = line.slice(4).trim(); continue; }
+      if (isPic(line) && chap) items.push({chap, head: head || seen ? head : null, line});
+      else if (line.trim()) seen = true;
+    }
+  }
+  const norm = h => h.toLowerCase().replace(/flavou?r/g, 'flavor').replace(/fibre/g, 'fiber').replace(/colou?r/g, 'color').replace(/\s+/g, ' ').trim();
+  const spell = line => line.replace(/fibre/g, 'fiber').replace(/Fibre/g, 'Fiber').replace(/flavour/g, 'flavor').replace(/Flavour/g, 'Flavor').replace(/colour/g, 'color').replace(/Colour/g, 'Color');
+  const dir = String(baseDir).replace(/\\/g, '/').replace(/\/+$/, '');
+  const repath = line => line.replace(/\]\(\s*<?(?!ebooks\/)([^)\s>]+)/, (m, p) => `](${dir}/${p.replace(/^\.\//, '')}`);
+  const missing = [], placedLines = new Set();
+  const parts = edition.map(text => {
+    const lines = String(text).replace(/\r\n/g, '\n').split('\n');
+    for (const item of items) {
+      const pic = repath(us ? spell(item.line) : item.line);
+      if (lines.includes(pic)) { placedLines.add(item.line); continue; }
+      const start = lines.findIndex(l => new RegExp(`^## Chapter ${item.chap}:`).test(l));
+      if (start < 0) continue;
+      let end = lines.findIndex((l, i) => i > start && l.startsWith('## ')); if (end < 0) end = lines.length;
+      if (item.head === null) { lines.splice(start + 1, 0, '', pic); placedLines.add(item.line); continue; }
+      const h = lines.findIndex((l, i) => i > start && i < end && l.startsWith('### ') && norm(l.slice(4)) === norm(item.head));
+      if (h < 0) continue;
+      let next = lines.findIndex((l, i) => i > h && l.startsWith('#')); if (next < 0) next = lines.length;
+      while (next > h + 1 && !lines[next - 1].trim()) next--;
+      lines.splice(next, 0, '', pic); placedLines.add(item.line);
+    }
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+  });
+  for (const item of items) if (!placedLines.has(item.line)) missing.push(`Chapter ${item.chap}${item.head ? `, "### ${item.head}"` : ' opening'}: ${(/\]\(([^)\s]+)/.exec(item.line) || [])[1]}`);
+  const total = parts.reduce((n, p) => n + p.split('\n').filter(isPic).length, 0);
+  return {parts, placed: placedLines.size, total, missing};
+}

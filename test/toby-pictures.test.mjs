@@ -111,3 +111,29 @@ test('the edition check does not count a picture line as text the creator left u
  const r=checkEdition({base:{parts:[base]},edition:{parts:[edition]}});
  assert.equal(r.report.textBase,2);assert.equal(r.report.textChanged,2);
 });
+
+test('zoom_team_image shows a picture in the team folder, or one part of it, at full detail',async t=>{
+ const {mkdtemp,rm,writeFile,mkdir}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {randomUUID}=await import('node:crypto');
+ const {agentRuntime}=await import('../src/agent-tools.mjs');const {WorkspaceFiles}=await import('../src/workspace-files.mjs');const {TeamFolder}=await import('../src/team-folder.mjs');
+ const d=await mkdtemp(join(tmpdir(),'toby-zoom-'));t.after(()=>rm(d,{recursive:true,force:true}));await mkdir(join(d,'team','ebooks','b','images'),{recursive:true});
+ await writeFile(join(d,'team','ebooks','b','images','a.jpg'),jpeg(2000,1000));
+ const calls=[];const cropImage=async(bytes,region,max)=>{calls.push({region,max});return {bytes:Buffer.from([0xff,0xd8]),width:2000,height:1000,shownWidth:Math.round((region[2]-region[0])*2000),shownHeight:Math.round((region[3]-region[1])*1000)};};
+ const none={status:()=>({}),customMcp:()=>({}),customAskFirst:()=>new Set(),appPublisher:()=>null};
+ const rt=await agentRuntime({conversationId:randomUUID(),files:new WorkspaceFiles(join(d,'bots')),teamFolder:new TeamFolder(join(d,'team')),cropImage,onActivity:()=>{},approve:async()=>false,signal:new AbortController().signal,wait:async()=>{},connections:none,bot:{id:randomUUID(),capabilities:{web:false,files:true,computer:false,connections:false}}});
+ const tool=rt.definitions.find(x=>x.name==='zoom_team_image');assert.ok(tool);
+ const whole=await tool.handler({path:'ebooks/b/images/a.jpg'});assert.match(whole.content[0].text,/2000 x 1000 pixels in full\./);assert.equal(whole.content[1].type,'image');
+ const part=await tool.handler({path:'ebooks/b/images/a.jpg',region:[0.5,0.2,1,0.6]});assert.match(part.content[0].text,/showing region \[0\.5, 0\.2, 1, 0\.6\], 1000 x 400 pixels/);
+ assert.deepEqual(calls.map(c=>c.region),[[0,0,1,1],[0.5,0.2,1,0.6]]);
+ const bad=await tool.handler({path:'ebooks/b/images/a.jpg',region:[0.6,0,0.2,1]});assert.ok(bad.isError||/right > left/.test(JSON.stringify(bad)));
+});
+
+test('a creator edition gets the base book\'s pictures in the same chapters and sections, whatever it renamed',async()=>{
+ const {placeEditionPictures}=await import('../src/book-pictures.mjs');
+ const base=['## Chapter 1: Start Here\n\n![Open](images/o.jpg)\n\n> The short version: x.\n\n### Fibre and grains\n\nText.\n\n![Loaf](images/l.jpg "Less fibre in white bread [S1].")\n\n### Next\n\nMore.\n'];
+ const edition=['## Chapter 1: Let\'s Get Started\n\n> The short version: mine.\n\n### Fiber and grains\n\nMy text.\n\n### Next\n\nMy more.\n'];
+ const r=placeEditionPictures({base,edition,baseDir:'ebooks/bread',us:true});
+ assert.deepEqual(r.missing,[]);assert.equal(r.total,2);
+ assert.match(r.parts[0],/## Chapter 1: Let's Get Started\n\n!\[Open\]\(ebooks\/bread\/images\/o\.jpg\)\n\n> The short version: mine\./);
+ assert.match(r.parts[0],/My text\.\n\n!\[Loaf\]\(ebooks\/bread\/images\/l\.jpg "Less fiber in white bread \[S1\]\."\)\n\n### Next/);
+ assert.equal(placeEditionPictures({base,edition:r.parts,baseDir:'ebooks/bread',us:true}).parts[0],r.parts[0],'running it twice changes nothing');
+});
