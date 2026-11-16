@@ -32,6 +32,11 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     creator: creator || appJson.author || planLine('Author') || (((files.voice || '').match(/^[-*\s"]*by\s+([^"\n(]+?)["\s]*(\(.*)?$/mi) || [])[1] || ''),
     listStarters: appJson.listStarters || ["Vet's phone number", 'Emergency vet number', 'Poison line number', "Midday helper's phone number"],
     requiredTools: Array.isArray(appJson.requiredTools) ? appJson.requiredTools : ['potty', 'tracker', 'planner', 'list', 'social'],
+    // A general book says how long its plan is; the first book (no app.json) has a 30 day plan.
+    planDays: Number.isInteger(appJson.planDays) && appJson.planDays > 0 ? appJson.planDays : 30,
+    // A sample carries part of the book plus an "In the full book" list of the chapters still to come.
+    sample: appJson.sample === true,
+    disclaimer: typeof appJson.disclaimer === 'string' && appJson.disclaimer.trim() ? appJson.disclaimer.trim() : '',
   };
   for (const k of ['title', 'subtitle', 'creator']) CONFIG[k] = String(CONFIG[k]).trim();
   const parts = files.parts.map((f) => String(f).replace(/\r\n/g, '\n')).join('\n\n');
@@ -119,7 +124,7 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
   }
 
   // ---------- build the book model ----------
-  const book = { ...CONFIG, chapters: [], sources: [], plan: [], weeks: [], tools: {}, facts: [], stalls: null, whoToCall: null };
+  const book = { ...CONFIG, chapters: [], sources: [], plan: [], weeks: [], tools: {}, facts: [], stalls: null, whoToCall: null, coming: [] };
 
   for (const s of sections) {
     if (/^Sources$/i.test(s.heading)) {
@@ -134,6 +139,10 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
       continue;
     }
     if (/^contents$/i.test(s.heading)) continue; // the app has its own chapter list
+    if (/^in the full book$/i.test(s.heading)) { // a sample's list of the chapters still to come: "- Chapter 5: Title"
+      for (const l of s.lines) { const m = l.match(/^\s*[-*]\s+Chapter (\d+):\s*(.+?)\s*$/); if (m) book.coming.push({ num: +m[1], title: clean(m[2]) }); }
+      continue;
+    }
     const cm = s.heading.match(/^Chapter (\d+):\s*(.+)$/);
     let ch;
     if (cm) ch = { id: 'ch-' + cm[1], num: +cm[1], title: clean(cm[2]) };
@@ -175,14 +184,21 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     tryTonight: book.chapters.reduce((n, c) => n + c.blocks.filter((b) => b.t === 'try').length, 0),
     creatorGaps: (all.match(/\[Creator:/g) || []).length,
     fromBoxes: book.chapters.reduce((n, c) => n + c.blocks.filter((b) => b.t === 'from').length, 0),
-    title: CONFIG.title, author: CONFIG.creator,
+    title: CONFIG.title, author: CONFIG.creator, sample: CONFIG.sample, coming: book.coming.length,
     untypedTables: book.chapters.flatMap((c) => c.blocks.filter((b) => b.t === 'tool' && !b.tool).map((b) => c.id + ': ' + b.title)),
     words: book.chapters.reduce((n, c) => n + c.words, 0),
   };
   const problems = [];
   if (CONFIG.title === 'Untitled') problems.push('No title found: add app.json or a "Title:" line in plan.md');
   const ids = book.chapters.map((c) => c.id); if (new Set(ids).size !== ids.length) problems.push('Two sections share an id: ' + ids.join(', '));
-  if (check.planDays !== 30) problems.push('Plan table does not have 30 days');
+  const days = book.plan.map((p) => p.day), consecutive = days.every((d, i) => d === i + 1);
+  if (CONFIG.sample && !days.length) { /* a sample may stop before the plan chapter */ }
+  else if (days.length !== CONFIG.planDays || !consecutive) problems.push(`Plan table does not have ${CONFIG.planDays} days` + (days.length && !consecutive ? ' numbered 1 to ' + CONFIG.planDays + ' in order' : ''));
+  if (CONFIG.sample && !book.coming.length) problems.push('A sample needs an "## In the full book" section listing the chapters still to come, one per line: "- Chapter 5: Title"');
+  if (!CONFIG.sample && book.coming.length) problems.push('The book has an "## In the full book" section but app.json does not say "sample": true');
+  const nums = book.chapters.filter((c) => c.num).map((c) => c.num).concat(book.coming.map((c) => c.num));
+  if (new Set(nums).size !== nums.length) problems.push('A chapter number is used twice (check the "In the full book" list against the chapters in the sample)');
+  if (!book.sources.length) problems.push('No Sources list found: the last part needs "## Sources" with lines like "S1. Title. Org. 2024. https://..."');
   if (check.citedButMissing.length) problems.push('Cited but not in Sources: ' + check.citedButMissing.join(', '));
   for (const t of CONFIG.requiredTools) if (!check.tools.includes(t)) problems.push('Fill-in table not found: ' + t);
   if (check.untypedTables.length) problems.push('Fill-in table with no app tool: ' + check.untypedTables.join('; '));

@@ -343,7 +343,7 @@ function splitSections(tokens) {
     if (t.type === 'heading' && t.depth <= 2) {
       const title = plain(inline(t.text));
       const chapter = /^chapter\s+(\d+)\s*[:.]?\s*(.*)$/i.exec(title);
-      current = {title, tokens: [], kind: chapter ? 'chapter' : /^(table of )?contents$/i.test(title) ? 'contents' : /^(sources|references)\b/i.test(title) ? 'sources' : /^(a )?(last|final|closing) word\b/i.test(title) ? 'closing' : 'plain'};
+      current = {title, tokens: [], kind: chapter ? 'chapter' : /^(table of )?contents$/i.test(title) ? 'contents' : /^(sources|references)\b/i.test(title) ? 'sources' : /^in the full book$/i.test(title) ? 'coming' : /^(a )?(last|final|closing) word\b/i.test(title) ? 'closing' : 'plain'};
       if (chapter) { current.n = Number(chapter[1]); current.name = chapter[2] || title; }
       sections.push(current);
     } else if (t.type !== 'space') {
@@ -377,7 +377,7 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const chapters = sections.filter(s => s.kind === 'chapter');
   let plainCount = 0;
   for (const s of sections) {
-    s.id = s.kind === 'chapter' ? `ch-${s.n}` : s.kind === 'sources' ? 'sources' : s.kind === 'closing' ? 'closing' : `sec-${++plainCount}`;
+    s.id = s.kind === 'chapter' ? `ch-${s.n}` : s.kind === 'sources' ? 'sources' : s.kind === 'closing' ? 'closing' : s.kind === 'coming' ? 'coming' : `sec-${++plainCount}`;
     s.page = s.kind === 'closing' ? 'closing' : `p-${s.id}`;
   }
   // Section titles that repeat in most chapters (like a "Say this, not that" table) stay off the opener lists.
@@ -392,6 +392,7 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const body = sections.map((s, index) => {
     Object.assign(ctx, {section: s.id, name: s.kind === 'chapter' ? `Chapter ${s.n}` : s.title, gapFill: {}});
     if (s.kind === 'sources') return sourcesHTML(s);
+    if (s.kind === 'coming') return comingHTML(s, chapters);
     if (s.kind === 'closing') return `<section class="closing" id="${s.id}"><h2>${heading(esc(s.title))}</h2>${renderBlocks(s.tokens, ctx)}</section>`;
     if (s.kind === 'plain') return `<section class="part" id="${s.id}" style="page:${s.page};break-before:page"><div class="flow">${s.title ? `<h2 class="plain-head">${heading(esc(s.title))}</h2>` : ''}${renderBlocks(s.tokens, ctx)}</div></section>`;
     const facts = takeFacts(s.tokens);
@@ -439,7 +440,7 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const titleSize = title.length <= 20 ? '' : title.length <= 34 ? ' t2' : ' t3';
   const probes = `<div class="probes">${['cal-top', ...ends].map(id => `<a href="#${id}"></a>`).join('')}</div>`;
   const cover = `<section class="cover"><div class="cover-photo"${coverDataUrl ? ` style="background-image:url('${coverDataUrl}')"` : ''}></div><div class="cover-band"></div>${seal}<div class="cover-text"><div class="cover-title${titleSize}">${esc(title)}</div>${subtitle ? `<p class="cover-sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="cover-tag">${esc(tagline)}</p>` : ''}${author ? `<p class="cover-by">${esc(author)}</p>` : ''}</div>${inside.length ? `<div class="cover-inside">${inside.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}${probes}</section>`;
-  const titlePage = `<section class="title-page"><div><span id="cal-top"></span><p class="tp-title">${esc(title)}</p>${subtitle ? `<p class="tp-sub">${esc(subtitle)}</p>` : ''}<div class="tp-rule"></div></div><div class="tp-foot">${author ? `<p>${esc(author)}</p>` : ''}${badge ? `<p>${esc(badge)}. Every fact in this book carries a small number that links to its source at the back.</p>` : ''}</div></section>`;
+  const titlePage = `<section class="title-page"><div><span id="cal-top"></span><p class="tp-title">${esc(title)}</p>${subtitle ? `<p class="tp-sub">${esc(subtitle)}</p>` : ''}<div class="tp-rule"></div></div><div class="tp-foot">${author ? `<p>${esc(author)}</p>` : ''}${badge ? `<p>${esc(badge)}. Every fact in this book carries a small number that links to its source at the back.</p>` : ''}${sections.some(x => x.kind === 'coming') ? `<p class="tp-sample">Sample edition: ${chapters.length} of ${chapters.length + comingList(sections.find(x => x.kind === 'coming').tokens).length} chapters. The rest are listed on the last pages.</p>` : ''}</div></section>`;
   const content = smartQuotes(`${cover}\n${titlePage}\n<nav class="toc"><h2>Contents</h2><ol>${toc}</ol>${prints}</nav>\n<main>${cite(clean(body))}</main>`);
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${styleCSS({pageW, pageH, sizeRule, title: clip(title, 46), runningHeads, palette})}</style></head><body>\n${content}\n</body></html>`;
   report.chapters = chapters.length;
@@ -449,6 +450,20 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   return {html, report};
 }
 export const bookHTML = options => buildBook(options).html;
+
+// A sample's "In the full book" page: the chapters still to come, set like the contents page.
+// Markdown: "## In the full book" then one line per chapter, "- Chapter 5: Title".
+export function comingList(tokens) {
+  const lines = tokens.flatMap(t => (t.type === 'list' ? t.items.map(i => i.text) : [])).map(x => /^Chapter (\d+):\s*(.+)$/.exec(String(x).trim())).filter(Boolean);
+  return lines.map(m => ({n: +m[1], title: m[2].trim()}));
+}
+function comingHTML(s, chapters) {
+  const items = comingList(s.tokens), have = chapters.map(c => c.n);
+  const span = have.length ? (have.length === 1 ? `chapter ${have[0]}` : `chapters ${Math.min(...have)} to ${Math.max(...have)}`) : 'the opening pages';
+  return `<section class="coming-page" id="${s.id}" style="page:${s.page};break-before:page"><div class="flow"><h2 class="plain-head">${heading(esc(s.title))}</h2>`
+    + `<p class="coming-lead">This sample holds ${span} of ${have.length + items.length}. The full book adds these chapters:</p>`
+    + `<ol class="coming-list">${items.map(i => `<li><span class="cn">${String(i.n).padStart(2, '0')}</span><span class="ct">${inline(i.title)}</span></li>`).join('')}</ol></div></section>`;
+}
 
 // Plain instructions for the bot that wrote the book: what to change in the Markdown before running make_book again.
 export function bookToFix(report, printed = true) {

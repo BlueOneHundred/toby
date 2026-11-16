@@ -97,7 +97,14 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .tp-rule{width:14mm;height:1.4mm;background:var(--marigold);margin:9mm 0 0}
 .tp-foot{font-family:var(--display);font-size:8.6pt;line-height:1.55;color:var(--muted);max-width:105mm}
 .tp-foot p{margin:0 0 1.5mm}
+.tp-foot p.tp-sample{font-weight:700;color:var(--pine)}
 .toc{page:plain;break-after:page}
+.coming-lead{font-family:var(--display);font-size:11pt;line-height:1.5;color:var(--muted);margin:0 0 6mm;max-width:120mm}
+.coming-list{list-style:none;padding:0;margin:0;max-width:125mm}
+.coming-list li{display:flex;align-items:baseline;gap:4mm;padding:3mm 0;border-top:.6pt solid var(--line);font-family:var(--display);break-inside:avoid}
+.coming-list li:last-child{border-bottom:.6pt solid var(--line)}
+.coming-list .cn{flex:0 0 10mm;font-weight:800;font-size:14pt;color:var(--pine-soft)}
+.coming-list .ct{font-weight:600;font-size:12pt;color:var(--ink);line-height:1.3}
 .toc h2{font-family:var(--display);font-weight:800;font-size:30pt;line-height:1;color:var(--pine);margin:2mm 0 8mm}
 .toc ol{list-style:none;padding:0;margin:0}
 .toc li{margin:0;padding:0}
