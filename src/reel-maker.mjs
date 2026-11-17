@@ -113,7 +113,13 @@ export async function makeReel({board, teamFolder, renderPage, renderFrames, sig
       const mux = async (signalWav, out) => {
         const w = join(work, 'mix.wav'); await writeFile(w, wav(signalWav));
         const o = join(work, 'out.mp4');
-        await ffmpeg(['-y', '-i', silent, '-i', w, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-ar', '48000', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', o], {signal});
+        // Loudness in two passes: measure first, then one steady gain to about -14 LUFS (ffmpeg only falls back to
+        // its gentle dynamic mode when a steady gain would push the peaks past -1.5 dB). One pass misjudged
+        // tracks that are mostly quiet (17 Nov, Windows build check).
+        const {stderr} = await ffmpeg(['-i', w, '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json', '-f', 'null', '-'], {signal});
+        const m = JSON.parse(stderr.slice(stderr.lastIndexOf('{'), stderr.lastIndexOf('}') + 1));
+        const norm = Number.isFinite(Number(m.input_i)) ? `loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true` : 'loudnorm=I=-14:TP=-1.5:LRA=11';
+        await ffmpeg(['-y', '-i', silent, '-i', w, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', norm, '-ar', '48000', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', o], {signal});
         loud[out.split('/').pop()] = await loudness(o, {signal});
         await save(o, out);
       };
