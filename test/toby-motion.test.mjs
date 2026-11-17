@@ -155,3 +155,12 @@ test('connections: the ElevenLabs key is a key, not an MCP server; the fal key c
   assert.deepEqual(Object.keys(c.customMcp()), ['fal']); assert.ok(!c.customAskFirst().has('elevenlabs'));
   await rm(dir, {recursive: true, force: true});
 });
+
+test('team files: deep folders are listed; videos and large text files are described, not refused', async () => {
+  const dir = await tmp(), team = new TeamFolder(dir), deep = 'ebooks/s/editions/h/video/v2/clips';
+  await mkdir(join(dir, deep), {recursive: true}); await writeFile(join(dir, deep, 'a.mp4'), Buffer.alloc(300000)); await writeFile(join(dir, deep, 'big.html'), '<p>' + 'x'.repeat(250000) + '<img src="data:image/jpeg;base64,' + 'A'.repeat(100000) + '">');
+  assert.ok((await team.list()).some(f => f.path.replace(/\\/g, '/') === deep + '/a.mp4'));
+  assert.match((await team.content(null, deep + '/a.mp4')).content[0].text, /contact sheet/);
+  const big = (await team.content(null, deep + '/big.html')).content[0].text; assert.match(big, /^<p>x/); assert.ok(big.length < 260000);
+  await rm(dir, {recursive: true, force: true});
+});
