@@ -14,8 +14,12 @@ export class Connections {
   // Toby: the custom connection named "app_publisher" is not an MCP server. It holds the GitHub repository that
   // companion apps are published to (address https://github.com/<owner>/<repo>) and a token that can write to it.
   appPublisher(){const c=(this.value.custom||[]).find(c=>c.name===APP_PUBLISHER);if(!c||!c.token)return null;const url=new URL(c.url),m=url.pathname.match(/^\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);if(url.hostname!=='github.com'||!m)return null;return{owner:m[1],repo:m[2],token:c.token,site:(url.searchParams.get('site')||'https://app.blueonehundred.com').replace(/\/+$/,'')};}
-  customMcp(){return Object.fromEntries((this.value.custom||[]).filter(c=>c.name!==APP_PUBLISHER).map(c=>[c.name,{type:'http',url:c.url,...(c.token?{headers:{Authorization:'Bearer '+c.token}}:{})}]));}
-  customAskFirst(){return new Set((this.value.custom||[]).filter(c=>c.askFirst&&c.name!==APP_PUBLISHER).map(c=>c.name));}
+  // Toby: API keys kept as custom connections (never MCP servers): "elevenlabs" (Tavin's ElevenLabs key, address
+  // https://api.elevenlabs.io). The fal key is the token of the fal connection (Creative Studio's MCP connection).
+  apiKey(kind){const list=(this.value.custom||[]).filter(c=>c.token);const host=c=>{try{return new URL(c.url).hostname;}catch{return '';}};
+    const c=kind==='fal'?list.find(c=>c.name==='fal')||list.find(c=>/(^|\.)fal\.(ai|run)$/.test(host(c))):kind==='elevenlabs'?list.find(c=>c.name==='elevenlabs')||list.find(c=>host(c)==='api.elevenlabs.io'&&!/\/mcp/.test(new URL(c.url).pathname)):null;return c?c.token:null;}
+  customMcp(){return Object.fromEntries((this.value.custom||[]).filter(c=>c.name!==APP_PUBLISHER&&!isKeyOnly(c)).map(c=>[c.name,{type:'http',url:c.url,...(c.token?{headers:{Authorization:'Bearer '+c.token}}:{})}]));}
+  customAskFirst(){return new Set((this.value.custom||[]).filter(c=>c.askFirst&&c.name!==APP_PUBLISHER&&!isKeyOnly(c)).map(c=>c.name));}
   async configure({composioKey,cloudEndpoint,cloudToken,customAdd,customRemove}={}){
     if(customRemove!==undefined){this.value.custom=(this.value.custom||[]).filter(c=>c.name!==customRemove);}
     if(customAdd!==undefined)this.value.custom=[...(this.value.custom||[]).filter(c=>c.name!==validateCustom(customAdd).name),validateCustom(customAdd)];
@@ -46,6 +50,8 @@ export class Connections {
   async mcp(){const session=await this.session();const {type,url,headers}=session.mcp;return {type,url,headers};}
 }
 export const APP_PUBLISHER='app_publisher';
+// A connection that only holds an API key (no MCP server behind it): ElevenLabs' plain API address.
+const isKeyOnly=c=>{try{const u=new URL(c.url);return u.hostname==='api.elevenlabs.io'&&!/\/mcp/.test(u.pathname);}catch{return false;}};
 export function validateCustom(value){
   const name=String(value?.name||'').trim().toLowerCase();
   if(!/^[a-z][a-z0-9_]{1,29}$/.test(name)||['gratis','composio'].includes(name))throw new Error('Name the connection with 2 to 30 letters, numbers or underscores (not gratis or composio).');

@@ -13,9 +13,10 @@ import {publishApp} from './app-publisher.mjs';
 import {checkEdition} from './edition-check.mjs';
 import {slideHtml,SLIDE_SCRIPT,HIDE_TEXT_CSS,contrastProblems,textProblems,carouselToFix,sheetHtml,checkNote,LAYOUTS,SLIDE_TYPES,SLIDE_W,SLIDE_H} from './carousel-builder.mjs';
 import {readFile as readTeamBytes} from 'node:fs/promises';
+import {registerMotionTools} from './motion-tools.mjs';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
-export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,renderPage,shrinkImage,cropImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
+export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,renderPage,renderFrames,cropToRatio,spendLedger,shrinkImage,cropImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
   const capabilities={...defaultCapabilities,...bot.capabilities},tools=[],definitions=[],mcpServers={};
   const register=(name,description,schema,handler)=>{const wrapped=async input=>{
     const id=crypto.randomUUID();onActivity({id,name,input:name.endsWith('_memory')?{scope:input.scope,query:input.query,manual:true}:traceValue(input),status:'running',startedAt:Date.now()});
@@ -193,6 +194,7 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
         const source=await teamFolder.target(null,htmlPath);const bytes=await makePdf({file:source,pageSize,signal});
         const saved=await teamFolder.writeBytes(null,pdfPath,bytes);return text({path:pdfPath,pages:pdfPageCount(bytes),bytes:bytes.length,saved:Boolean(saved)});
       });
+      registerMotionTools({register,text,teamFolder,connections,renderPage,renderFrames,cropToRatio,ledger:spendLedger,approve,signal,fetchImpl,wait});
     }
   }
   if(capabilities.computer&&connections.status().cloud){
