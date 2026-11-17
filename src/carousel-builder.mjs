@@ -93,7 +93,7 @@ const topBar = (handle, i, n) => `<div class="top"><span>${esc(handle)}</span><s
 export function slideHtml({slide, index, total, layout = 'panel', paletteName = 'pine', handle = '', images = {}, bookCover = ''}) {
   const C = carouselColours(paletteName);
   const css = baseCss(C) + (layout === 'card' ? cardCss(C) : panelCss(C)) + endCss(C);
-  const top = topBar(handle, index, total);
+  const top = topBar(handle && !String(handle).startsWith('@') ? '@' + handle : handle, index, total);
   const img = slide.image ? images[slide.image] : '';
   const src = slide.source ? `<div class="src">${esc(slide.source)}</div>` : '';
   const body = slide.body ? `<div class="b">${rich(slide.body)}</div>` : '';
@@ -120,9 +120,9 @@ export function slideHtml({slide, index, total, layout = 'panel', paletteName = 
   }
   // panel layout
   if (slide.type === 'cover') {
-    return page(css, `<div class="slide dark">${img ? `<img class="photo" src="${img}" style="height:100%;object-position:${focusCss(slide.focus)}" alt="">` : ''}
-<div class="shade" style="height:86%;background:linear-gradient(to bottom,${hexA(C.deep, 0)} 0%,${hexA(C.deep, .86)} 34%,${hexA(C.deep, .97)} 60%)"></div>${top}
-<div class="txt fit">${slide.kicker ? `<div class="kick">${esc(slide.kicker)}</div>` : ''}<div class="h" style="font-size:128px">${rich(slide.title)}</div>${body}<div class="swipe">Swipe &rarr;</div></div></div>`);
+    return page(css, `<div class="slide dark">${img ? `<img class="photo" src="${img}" style="height:820px;object-position:${focusCss(slide.focus)}" alt="">` : ''}
+<div class="shade" style="top:660px;background:linear-gradient(to bottom,${hexA(C.deep, 0)} 0px,${C.deep} 160px)"></div>${top}
+<div class="txt fit" style="bottom:84px">${slide.kicker ? `<div class="kick">${esc(slide.kicker)}</div>` : ''}<div class="h" style="font-size:112px">${rich(slide.title)}</div>${body}<div class="swipe" style="margin-top:26px">Swipe &rarr;</div></div></div>`);
   }
   const badge = label ? `<div class="badge">${esc(label)}</div>` : '';
   return page(css, `<div class="slide dark">${img ? `<img class="photo" src="${img}" style="height:880px;object-position:${focusCss(slide.focus)}" alt="">` : ''}

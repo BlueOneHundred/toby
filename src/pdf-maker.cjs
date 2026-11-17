@@ -62,6 +62,9 @@ async function renderPage({ file, width, height, root, signal, script, hideCss, 
     const result = script ? await wc.executeJavaScript(script, true) : null;
     const shoot = async clip => nativeImage.createFromBuffer(Buffer.from((await cdp('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, ...(clip ? { clip: { ...clip, scale: 1 } } : {}) })).data, 'base64'));
     if (clipSelector) {
+      // Scrollbars must never show in a captured cover: hide them in the page itself too (the emulation setting above was not always applied on Windows).
+      await wc.insertCSS('html,body{overflow:hidden!important;scrollbar-width:none!important}::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}');
+      await wc.executeJavaScript('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))', true);
       const rect = await wc.executeJavaScript(`(()=>{const e=document.querySelector(${JSON.stringify(clipSelector)});if(!e)return null;const r=e.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),width:Math.round(r.width),height:Math.round(r.height)};})()`, true);
       if (!rect) throw new Error('Nothing on that page matches ' + clipSelector + '.');
       const part = await shoot(rect);

@@ -26,6 +26,8 @@ test('every slide type renders in both layouts with the words escaped and one co
   if(slide.type==='cover')assert.match(html,/<b>ready<\/b>/);
   if(slide.type==='end')assert.match(html,/Link in bio/);
  }
+ assert.match(slideHtml({slide:plan()[1],index:2,total:5,handle:'jane__doughh',images:{}}),/<span>@jane__doughh<\/span>/);
+ assert.match(slideHtml({slide:plan()[1],index:2,total:5,handle:'@jane',images:{}}),/<span>@jane<\/span>/);
 });
 
 test('slide colours come from the book palette and every palette keeps words readable on its solid colours',()=>{
