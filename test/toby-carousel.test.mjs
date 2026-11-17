@@ -54,6 +54,7 @@ test('contrast is measured on the real pixels behind each word',()=>{
  const r=contrastProblems([white,onLight,pill],bitmap,w,h);
  assert.deepEqual(r.problems.map(p=>p.text),['on light']);assert.ok(r.lowest<1.5);
  assert.match(carouselToFix([{problems:r.problems},{problems:[{kind:'outside',text:'Long'}]}]).join('\n'),/Slide 1: "on light" is hard to read.*\n.*Slide 2: "Long" does not fit/s);
+ assert.match(carouselToFix([{problems:[{kind:'widow',text:'When and how much to fold in',word:'in'}]}]).join(''),/Slide 1: "in" sits alone on the last line of "When and how much to fold in"/);
 });
 
 test('the overview sheet and the check note describe every slide',()=>{

@@ -33,6 +33,8 @@ body{font-family:'Source Serif 4',serif;color:${C.ink};-webkit-font-smoothing:an
 .top span{background:${C.ink};padding:8px 18px;border-radius:999px}
 .h{font-family:'Outfit';font-weight:800;line-height:1.02;letter-spacing:-.01em}
 .h b,.b b{color:${C.accent};font-weight:inherit}
+.h,.kick,.cta .t{text-wrap:balance}
+.b,li,.cta .s{text-wrap:pretty}
 .kick{font-family:'Outfit';font-weight:700;font-size:32px;letter-spacing:.14em;text-transform:uppercase}
 .src{font-family:'Outfit';font-weight:500;font-size:24px}
 .photo{position:absolute;left:0;top:0;width:100%;object-fit:cover;display:block}
@@ -153,6 +155,11 @@ for(const el of document.querySelectorAll('.slide *')){const own=[...el.childNod
  if(!el.closest('.top')&&r.top<topB+10)problems.push({kind:'topbar',text:t});
  let bg=null;for(let p=el;p&&p!==document.body;p=p.parentElement){const c=getComputedStyle(p).backgroundColor;if(c&&c!=='transparent'&&!/rgba\\([^)]*,\\s*0\\)$/.test(c)){if(p===el||!p.classList.contains('slide'))bg=c;break;}}
  texts.push({text:t,box:[r.left,r.top,r.right,r.bottom],color:cs.color,size:parseFloat(cs.fontSize),bold:parseInt(cs.fontWeight)>=600,own:getComputedStyle(el).backgroundColor!=='rgba(0, 0, 0, 0)'?getComputedStyle(el).backgroundColor:null});}
+// A word left alone on the last line (a widow) looks like a mistake on a phone: find it in every block of words.
+const lineTops=el=>{const out=[];const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;while((n=walker.nextNode())){const re=/\\S+/g;let m;while((m=re.exec(n.textContent))){const r=document.createRange();r.setStart(n,m.index);r.setEnd(n,m.index+m[0].length);const b=r.getClientRects()[0];if(b)out.push({word:m[0],top:Math.round(b.top)});}}return out;};
+for(const el of document.querySelectorAll('.h,.b,li,.cta .t,.cta .s,.kick')){if(el.closest('.top'))continue;const words=lineTops(el);if(words.length<3)continue;
+ const lines=[];for(const w of words){const last=lines[lines.length-1];if(last&&Math.abs(last.top-w.top)<8)last.words.push(w.word);else lines.push({top:w.top,words:[w.word]});}
+ const end=lines[lines.length-1],big=el.matches('.h,.kick,.cta .t'),letters=(end.words[0]||'').replace(/[^A-Za-z0-9]/g,'').length;if(lines.length>1&&end.words.length===1&&(!big||letters<=5))problems.push({kind:'widow',text:el.textContent.trim().slice(0,60),word:end.words[0]});}
 for(const i of document.images)if(!i.naturalWidth)problems.push({kind:'image',text:'a picture did not load'});
 const families=new Set([...document.fonts].filter(f=>f.status==='loaded').map(f=>f.family.replace(/["']/g,'')));
 for(const f of ['Outfit','Source Serif 4'])if(!families.has(f))problems.push({kind:'font',text:f});
@@ -212,6 +219,7 @@ export function carouselToFix(results) {
       const n = `Slide ${i + 1}`;
       if (p.kind === 'outside' || p.kind === 'topbar' || p.kind === 'cut') out.push(`${n}: "${p.text}" does not fit. Shorten the title or body.`);
       else if (p.kind === 'contrast') out.push(`${n}: "${p.text}" is hard to read (${p.ratio}:1, needs ${p.need}:1). Move the photo focus so the words sit on a calmer part, or use the other layout.`);
+      else if (p.kind === 'widow') out.push(`${n}: "${p.word}" sits alone on the last line of "${p.text}". Shorten or reword that line so no word stands alone.`);
       else if (p.kind === 'image') out.push(`${n}: the picture did not load. Check the image path.`);
       else if (p.kind === 'font') out.push(`${n}: the font ${p.text} did not load. Run make_carousel again; tell Toby if it repeats.`);
     }
@@ -227,7 +235,7 @@ export function sheetHtml(dataUrls) {
 
 export function checkNote({title, layout, paletteName, results, toFix, textFix, files}) {
   const lines = [`# Carousel check: ${title}`, '', `- Built: ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`, `- Result: ${toFix.length ? `NEEDS FIXES (${toFix.length})` : 'PASSED'}`, `- Layout: ${layout}, palette: ${paletteName}, slides: ${results.length}`,
-    '- Checked: text inside the safe area, nothing cut off, nothing under the top bar, contrast on the real background (4.5:1 small, 3:1 large), pictures and fonts loaded, house writing rules', ''];
+    '- Checked: text inside the safe area, nothing cut off, no word alone on a line, nothing under the top bar, contrast on the real background (4.5:1 small, 3:1 large), pictures and fonts loaded, house writing rules', ''];
   lines.push('| Slide | File | Lowest contrast | Notes |', '|---|---|---|---|');
   results.forEach((r, i) => lines.push(`| ${i + 1} | ${files[i]} | ${r.lowest ?? 'n/a'}:1 | ${r.problems.filter(p => p.kind === 'shrunk').map(p => `title shrunk ${p.from} to ${p.to} px`).join('; ') || ''} |`));
   lines.push('', ...(toFix.length ? ['## To fix', ...toFix.map(x => '- ' + x)] : ['Nothing to fix. A person still looks at every slide before it goes to the creator.']), '');
