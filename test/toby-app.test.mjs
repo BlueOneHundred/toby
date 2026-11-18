@@ -125,3 +125,12 @@ test('make_pdf reports the page count, and a PDF can be checked without text ext
  const pdf=Buffer.from('%PDF-1.4\n1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n2 0 obj\n<</Type /Pages /Count 3 /Kids [3 0 R 4 0 R 5 0 R]>>\nendobj\n3 0 obj\n<</Type /Page>>\nendobj\n4 0 obj\n<</Type /Page>>\nendobj\n5 0 obj\n<</Type /Page>>\nendobj\n','latin1');
  assert.equal(pdfPageCount(pdf),3);assert.equal(pdfPageCount(Buffer.from('%PDF-1.4\n3 0 obj\n<</Type /Page>>\nendobj\n')),1);assert.equal(pdfPageCount(Buffer.from('not a pdf')),0);
 });
+test('build 33: only a "Week N:" timeline becomes the plan week lines',()=>{
+ const loaf='\n\n### Cooling\n\n> Timeline:\n> - First hours: Leave it on a rack [S1].\n> - Up to a day: Cover it loosely [S1].\n';
+ const weeks='\n\n### Your month\n\n> Timeline:\n> - Week 1: Settling in [S1].\n> - Week 2: Short spells alone [S1].\n';
+ const a=buildApp({files:files({parts:[PART_A+loaf,PART_B]}),bookDir:'ebooks/puppy',coverDataUrl:'',template:TEMPLATE}).html;
+ assert.ok(!/"weeks":\["First hours/.test(a),'a loaf timeline must not become week lines');
+ assert.match(a,/"weeks":\[\]/);
+ const b=buildApp({files:files({parts:[PART_A+weeks+loaf,PART_B]}),bookDir:'ebooks/puppy',coverDataUrl:'',template:TEMPLATE}).html;
+ assert.match(b,/"weeks":\["Settling in \[S1\]\.","Short spells alone \[S1\]\."\]/);
+});

@@ -168,7 +168,9 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     ch.words = s.lines.join(' ').split(/\s+/).length;
     for (const b of blocks) {
       if (b.t === 'plan') book.plan = b.rows;
-      if (b.t === 'timeline') book.weeks = b.items.map((x) => x.replace(/^Week \d+:\s*/, ''));
+      // Toby build 33: only a "Week 1: ..." timeline describes the plan's weeks. Other timelines (a loaf's first hours,
+      // a starter's days) are not week summaries, so they must never become the Plan tab's week lines.
+      if (b.t === 'timeline' && b.items.length && b.items.every((x) => /^Week \d+:/.test(x))) book.weeks = b.items.map((x) => x.replace(/^Week \d+:\s*/, ''));
       if (b.t === 'tool' && b.tool) book.tools[b.tool] = { title: b.title, head: b.head, rows: b.rows, chapter: ch.num };
       if (b.t === 'facts') for (const f of b.items) if (!book.facts.some((x) => x.text === f)) book.facts.push({ text: f, ch: ch.num });
       // a book may split its troubleshooting into several tables (for example starter and loaf): the app shows them all
