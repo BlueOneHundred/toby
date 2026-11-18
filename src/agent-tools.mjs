@@ -14,6 +14,7 @@ import {checkEdition} from './edition-check.mjs';
 import {slideHtml,SLIDE_SCRIPT,HIDE_TEXT_CSS,contrastProblems,textProblems,carouselToFix,sheetHtml,checkNote,LAYOUTS,SLIDE_TYPES,SLIDE_W,SLIDE_H} from './carousel-builder.mjs';
 import {readFile as readTeamBytes} from 'node:fs/promises';
 import {registerMotionTools} from './motion-tools.mjs';
+import {softResult} from './soft-results.mjs';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
 export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,renderPage,renderFrames,cropToRatio,spendLedger,shrinkImage,cropImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
@@ -21,7 +22,7 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
   const register=(name,description,schema,handler)=>{const wrapped=async input=>{
     const id=crypto.randomUUID();onActivity({id,name,input:name.endsWith('_memory')?{scope:input.scope,query:input.query,manual:true}:traceValue(input),status:'running',startedAt:Date.now()});
     try{signal.throwIfAborted();if(['computer','save_cloud_file'].includes(name)&&!canUseComputer())throw new Error('The user has control of the computer. Wait for them to give control back.');const result=await handler(input);onActivity({id,name,status:result.isError?'error':'complete',result:toolResultCheckpoint(result),finishedAt:Date.now()});const {checkpoint,...response}=result;return response;}
-    catch(error){onActivity({id,name,status:signal.aborted?'cancelled':'error',detail:String(error.message).slice(0,500),finishedAt:Date.now()});return {isError:true,content:[{type:'text',text:String(error.message)}]};}
+    catch(error){const soft=!signal.aborted&&softResult(name,input,error);if(soft){onActivity({id,name,status:'complete',result:toolResultCheckpoint(soft),finishedAt:Date.now()});return soft;}onActivity({id,name,status:signal.aborted?'cancelled':'error',detail:String(error.message).slice(0,500),finishedAt:Date.now()});return {isError:true,content:[{type:'text',text:String(error.message)}]};}
   };tools.push(tool(name,description,schema,wrapped));definitions.push({name,description,schema:z.object(schema),handler:wrapped});};
   const text=value=>({content:[{type:'text',text:typeof value==='string'?value:JSON.stringify(value)}]});
   if(pages&&capabilities.files){
