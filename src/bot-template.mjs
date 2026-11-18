@@ -9,7 +9,7 @@ function text(value,max){if(typeof value!=='string'||value.length>max)throw new 
 export function validateTemplate(value){
  if(!value||Object.keys(value).some(k=>!['format','version','bot','checksum'].includes(k))||value.format!=='gratis-bot-template'||value.version!==1)throw new Error('Unsupported bot template.');
  const bot=value.bot;if(!bot||Object.keys(bot).some(k=>!KEYS.includes(k))||KEYS.some(k=>!Object.hasOwn(bot,k)))throw new Error('Template contains unexpected or missing fields.');
- if(!text(bot.name,255).trim()||!text(bot.userPromptTemplate,16000).includes('{{message}}'))throw new Error('Template needs a name and {{message}} in its user prompt.');text(bot.instructions,16000);
+ if(!text(bot.name,255).trim()||!text(bot.userPromptTemplate,16000).includes('{{message}}'))throw new Error('Template needs a name and {{message}} in its user prompt.');text(bot.instructions,32000);
  if(!SHAPES.has(bot.avatarShape)||!COLORS.has(bot.avatarColor))throw new Error('Unsupported template avatar.');
  if(bot.avatarDataUrl!==null&&(typeof bot.avatarDataUrl!=='string'||bot.avatarDataUrl.length>2000000||!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(bot.avatarDataUrl)))throw new Error('Template avatar must be a PNG.');
  if(!['','haiku','sonnet','opus'].includes(bot.model)||typeof bot.codexModel!=='string'||bot.codexModel.length>200||bot.codexModel&&!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(bot.codexModel))throw new Error('Unsupported model preference.');

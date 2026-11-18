@@ -11,6 +11,8 @@ import { userPrompt } from './claude-backend.mjs';
 import { generateBotPrompt } from './auto-prompt.mjs';
 
 const COLORS = ['#496e57', '#806549', '#635f9a', '#397c89', '#a05765'];
+// Toby build 31: bot instructions may be up to 32,000 characters (Gratis: 16,000), so a bot's rules need not be cut to fit.
+export const INSTRUCTIONS_MAX = 32_000;
 const text = (value, label, max, allowEmpty = false) => {
   if (typeof value !== 'string' || value.length > max || (!allowEmpty && !value.trim())) throw new Error(`${label} must be ${allowEmpty ? '' : 'non-empty '}text under ${max} characters.`);
   return value;
@@ -42,7 +44,7 @@ export class ChatService {
     this.state.conversations.push(c); this.state.activeBotId = botId; this.state.activeConversationId = c.id; return c;
   }
   async createBot({ name, instructions = '', userPromptTemplate = '{{message}}', avatarShape, avatarColor, promptMode } = {}) {
-    this._ready(); name = text(name, 'Bot name', 255).trim(); instructions = text(instructions, 'Instructions', 16_000, true);
+    this._ready(); name = text(name, 'Bot name', 255).trim(); instructions = text(instructions, 'Instructions', INSTRUCTIONS_MAX, true);
     const auto = promptMode === 'auto' || (promptMode === undefined && !instructions.trim());
     if (promptMode !== undefined && !['auto','manual'].includes(promptMode)) throw new Error('Invalid prompt mode.');
     this._validateCharacter(avatarShape, avatarColor);
@@ -67,7 +69,7 @@ export class ChatService {
       pending = (async () => {
         const instructions = await this.promptGenerator({name:b.name,intention,settings,workspaceDir:join(workspaceDir,'setup'),signal});
         signal.throwIfAborted();
-        if (b.promptMode === 'auto' && !b.promptGenerated) { b.instructions = text(instructions,'Generated instructions',16000); b.promptGenerated=true; b.promptGeneratedAt=Date.now(); if(source)b.promptSource=source; await this._changed(); }
+        if (b.promptMode === 'auto' && !b.promptGenerated) { b.instructions = text(instructions,'Generated instructions',INSTRUCTIONS_MAX); b.promptGenerated=true; b.promptGeneratedAt=Date.now(); if(source)b.promptSource=source; await this._changed(); }
       })();
       this.promptTasks.set(b.id,pending);
       pending.finally(()=>{if(this.promptTasks.get(b.id)===pending)this.promptTasks.delete(b.id);}).catch(()=>{});
@@ -136,7 +138,7 @@ export class ChatService {
   async updateBot({ id: botId, name, instructions, userPromptTemplate, avatarDataUrl, avatarShape, avatarColor, capabilities, model, codexModel, pinned, memory, memoryProfileAccess } = {}) {
     const b = this._bot(botId), patch = {};
     if (name !== undefined) {patch.name = text(name, 'Bot name', 255).trim();if(!b.avatarSeed)patch.avatarSeed=b.name;}
-    if (instructions !== undefined && instructions !== b.instructions) { patch.instructions = text(instructions, 'Instructions', 16_000, true); patch.promptMode='manual'; patch.promptGenerated=true;patch.promptSource=null; }
+    if (instructions !== undefined && instructions !== b.instructions) { patch.instructions = text(instructions, 'Instructions', INSTRUCTIONS_MAX, true); patch.promptMode='manual'; patch.promptGenerated=true;patch.promptSource=null; }
     this._validateCharacter(avatarShape,avatarColor);
     if(avatarShape!==undefined)patch.avatarShape=avatarShape;
     if(avatarColor!==undefined)patch.avatarColor=avatarColor;
