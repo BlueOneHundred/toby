@@ -7,6 +7,7 @@ import {readFile,writeFile,rename,mkdir,stat,readdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {runPackageCheck,validHandle,validBase,CAROUSEL_LINE} from './package-check.mjs';
+import {CreatorLog} from './creator-log.mjs';
 
 export const PIPELINE_BOTS = ['Creator Partnerships', 'Creative Studio', 'Edition Writer', 'App Builder', 'Art Director', 'Marketing Kit', 'Visual Check', 'Outreach Writer'];
 // The steps. Saved to pipeline/steps.json in the team folder the first time, so they can change without a build.
@@ -65,7 +66,10 @@ export class Pipelines {
   constructor({directory, teamRoot, teamFolder, service, busy, checkApp, now = Date.now, onChange = () => {}}) {
     Object.assign(this, {directory, teamRoot, teamFolder, service, busy, checkApp, now, onChange});
     this.runs = []; this.ticking = false; this.closed = false; this.persist = Promise.resolve();
+    // Build 38: the creator progress log (creators/creators-log.csv and .html). Never allowed to break a run.
+    this.log = new CreatorLog({teamRoot, teamFolder, now});
   }
+  logged(promise) { return Promise.resolve(promise).catch(() => {}); }
   file() { return join(this.directory, 'pipelines.json'); }
   async init() {
     try { const data = JSON.parse(await readFile(this.file(), 'utf8')); if (Array.isArray(data.runs)) this.runs = data.runs; } catch (e) { if (e.code !== 'ENOENT') throw new Error('Could not read saved package runs.'); }
@@ -102,12 +106,13 @@ export class Pipelines {
     await this.teamFolder.append(decisions, (text && !text.endsWith('\n') ? '\n' : '') + decisionLine({n, handle, base, contact, notes, when}));
     const run = {id: randomUUID(), handle, base, contact, notes, decision: n, status: 'running', startedAt: when, step: 0, attempt: 0, queue: [], history: []};
     this.runs.push(run); await this.save(); await this.writeStatus(run, `Started by Tavin through Toby (decided line I${n}).`);
+    await this.logged(this.log.started(run));
     return structuredClone(run);
   }
   async stop(handle, reason = 'Stopped by Tavin.') {
     const run = this.find(handle); if (!run || !['running', 'review'].includes(run.status)) throw new Error(`No open package run for @${String(handle).replace(/^@/, '')}.`);
     run.status = 'stopped'; run.reason = reason; run.finishedAt = this.now(); run.queue = []; delete run.current;
-    await this.save(); await this.writeStatus(run, reason); return structuredClone(run);
+    await this.save(); await this.writeStatus(run, reason); await this.logged(this.log.stopped(run, reason)); return structuredClone(run);
   }
   async approve(handle, note = '') {
     const run = this.find(handle); if (!run || run.status !== 'review') throw new Error(`@${String(handle).replace(/^@/, '')} has no package waiting for review.`);
@@ -116,6 +121,7 @@ export class Pipelines {
     const n = nextInstruction(text);
     await this.teamFolder.append(decisions, `${localDate(when)} I${n} | for: Outreach Writer, Toby | instruction: Tavin APPROVED @${run.handle}'s package at ${localTime(when)} (package run I${run.decision}): both carousels and the ${run.contact === 'dm' ? 'DM' : 'email'} draft as they are. Drafts only (I11): Tavin sends.${note ? ' Note: ' + note.replace(/\|/g, '/').slice(0, 500) : ''} | status: decided | ${localTime(when)}\n`);
     run.status = 'approved'; run.finishedAt = when; await this.save(); await this.writeStatus(run, `Approved by Tavin (I${n}).`); await this.runLine(`@${run.handle} package approved by Tavin`);
+    await this.logged(this.log.approved(run));
     return structuredClone(run);
   }
 
@@ -187,7 +193,8 @@ export class Pipelines {
 
   async tick() {
     if (this.ticking || this.closed) return; this.ticking = true;
-    try { for (const run of this.runs.filter(r => r.status === 'running')) await this.advance(run).catch(async e => { await this.fail(run, 'The package run hit an error: ' + e.message); }); }
+    try { await this.logged(this.log.tick());
+      for (const run of this.runs.filter(r => r.status === 'running')) await this.advance(run).catch(async e => { await this.fail(run, 'The package run hit an error: ' + e.message); }); }
     finally { this.ticking = false; }
   }
   async advance(run) {
@@ -213,6 +220,8 @@ export class Pipelines {
       run.step++; run.attempt = 0; run.queue = []; run.messages = []; await this.save();
       await this.runLine(`@${run.handle} step "${step.id}" (${step.bot}) passed the automatic check`);
       await this.writeStatus(run, `Step "${step.id}" passed.`);
+      const next = all[run.step], link = step.id === 'app' ? await readFile(join(this.teamRoot, fill('{edition}/app/app-link.md', this.vars(run))), 'utf8').then(t => t.match(/https:\/\/\S+/)?.[0] || '', () => '') : '';
+      await this.logged(this.log.stepPassed(run, step.id, next && !next.review ? `${next.bot}: ${next.task}` : '', link));
       return;
     }
     return this.retryOrStop(run, step, all, reasons);
@@ -228,7 +237,7 @@ export class Pipelines {
   }
   async fail(run, reason) {
     run.status = 'stopped'; run.reason = reason; run.finishedAt = this.now(); run.queue = []; delete run.current;
-    await this.save(); await this.writeStatus(run, reason);
+    await this.save(); await this.writeStatus(run, reason); await this.logged(this.log.stopped(run, reason));
     await this.runLine(`@${run.handle} package run stopped; needs a look`, reason.split('\n').slice(0, 3).join(' '));
   }
   async toReview(run, all) {
