@@ -15,6 +15,7 @@ import {slideHtml,SLIDE_SCRIPT,HIDE_TEXT_CSS,contrastProblems,textProblems,carou
 import {readFile as readTeamBytes} from 'node:fs/promises';
 import {registerMotionTools} from './motion-tools.mjs';
 import {softResult} from './soft-results.mjs';
+import {ownToolResultPath,readToolResult} from './tool-results.mjs';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
 export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,renderPage,renderFrames,cropToRatio,spendLedger,shrinkImage,cropImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
@@ -68,7 +69,7 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
   }
   if(capabilities.files){
     register('list_files','List files in this bot’s private workspace. Paths are relative.',{},async()=>text(await files.list(bot.id)));
-    register('read_file','Read a text file, PDF or image in this bot’s workspace. Use this to inspect attached files.',{path:z.string()},async({path})=>files.content(bot.id,path));
+    register('read_file','Read a text file, PDF or image in this bot’s workspace. Use this to inspect attached files. It also reads a tool answer that was too big for the chat and was saved to a tool-results file for you: pass that exact path, and part 2, 3 and so on for more.',{path:z.string(),part:z.number().int().min(1).optional()},async({path,part})=>{const own=ownToolResultPath(path,conversationId);if(own)return {content:[{type:'text',text:JSON.stringify(await readToolResult(own,part||1))}]};return files.content(bot.id,path);});
     register('write_file','Create or replace a UTF-8 text file in this bot’s workspace. Use this for deliverables and memory notes.',{path:z.string(),content:z.string()},async({path,content})=>text(await files.write(bot.id,path,content)));
     if(teamFolder){
       register('list_team_files','List files in the shared team folder that every bot on the team can read and write. Paths are relative.',{},async()=>text(await teamFolder.list()));
