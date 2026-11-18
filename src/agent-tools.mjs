@@ -11,11 +11,12 @@ import {pictureRefs,picturePath,pictureEntry,placeEditionPictures,imageSize} fro
 import {PALETTE_NAMES} from './palettes.mjs';
 import {publishApp} from './app-publisher.mjs';
 import {checkEdition} from './edition-check.mjs';
-import {slideHtml,SLIDE_SCRIPT,HIDE_TEXT_CSS,contrastProblems,textProblems,carouselToFix,sheetHtml,checkNote,LAYOUTS,SLIDE_TYPES,SLIDE_W,SLIDE_H} from './carousel-builder.mjs';
-import {readFile as readTeamBytes} from 'node:fs/promises';
+import {slideHtml,SLIDE_SCRIPT,HIDE_TEXT_CSS,contrastProblems,textProblems,carouselToFix,sheetHtml,checkNote,staleSlides,LAYOUTS,SLIDE_TYPES,SLIDE_W,SLIDE_H} from './carousel-builder.mjs';
+import {readFile as readTeamBytes,readdir,mkdir,rename} from 'node:fs/promises';
+import {join} from 'node:path';
 import {registerMotionTools} from './motion-tools.mjs';
 import {softResult} from './soft-results.mjs';
-import {ownToolResultPath,readToolResult} from './tool-results.mjs';
+import {ownToolResultPath,readToolResult,findInToolResult} from './tool-results.mjs';
 
 export const defaultCapabilities={web:true,files:true,computer:true,connections:true};
 export async function agentRuntime({bot,conversationId,files,cloud,connections,signal,onActivity,approve,collaboration,memory,t3,schedules,pages,teamFolder,makePdf,renderPage,renderFrames,cropToRatio,spendLedger,shrinkImage,cropImage,requestComputerHelp,canUseComputer=()=>true,fetchImpl=globalThis.fetch,wait}) {
@@ -69,7 +70,7 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
   }
   if(capabilities.files){
     register('list_files','List files in this bot’s private workspace. Paths are relative.',{},async()=>text(await files.list(bot.id)));
-    register('read_file','Read a text file, PDF or image in this bot’s workspace. Use this to inspect attached files. It also reads a tool answer that was too big for the chat and was saved to a tool-results file for you: pass that exact path, and part 2, 3 and so on for more.',{path:z.string(),part:z.number().int().min(1).optional()},async({path,part})=>{const own=ownToolResultPath(path,conversationId);if(own)return {content:[{type:'text',text:JSON.stringify(await readToolResult(own,part||1))}]};return files.content(bot.id,path);});
+    register('read_file','Read a text file, PDF or image in this bot’s workspace. Use this to inspect attached files. It also reads a tool answer that was too big for the chat and was saved to a tool-results file for you: pass that exact path, and part 2, 3 and so on for more. To search that saved answer, pass find with a word or phrase: you get only the matching lines, with line numbers. You have no Bash, grep or Read tool, so always use read_file for this.',{path:z.string(),part:z.number().int().min(1).optional(),find:z.string().min(1).max(200).optional()},async({path,part,find})=>{const own=ownToolResultPath(path,conversationId);if(own)return {content:[{type:'text',text:JSON.stringify(find?await findInToolResult(own,find):await readToolResult(own,part||1))}]};return files.content(bot.id,path);});
     register('write_file','Create or replace a UTF-8 text file in this bot’s workspace. Use this for deliverables and memory notes.',{path:z.string(),content:z.string()},async({path,content})=>text(await files.write(bot.id,path,content)));
     if(teamFolder){
       register('list_team_files','List files in the shared team folder that every bot on the team can read and write. Paths are relative.',{},async()=>text(await teamFolder.list()));
@@ -140,6 +141,9 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
           results.push({problems:[...shot.result.problems,...measured.problems],lowest:measured.lowest});
           const name=String(i+1).padStart(2,'0')+'.jpg';files.push(name);shots.push(shot.jpeg);await teamFolder.writeBytes(null,folder+'/'+name,shot.jpeg);
         }
+        let movedOld=[];
+        {const dir=await teamFolder.target(null,folder);const names=await readdir(dir).catch(()=>[]);const stale=staleSlides(names,slides.length);
+          if(stale.length){const away='_old-'+new Date().toISOString().slice(0,19).replace(/[-:T]/g,'');await mkdir(join(dir,away),{recursive:true});for(const n of stale){await rename(join(dir,n),join(dir,away,n));movedOld.push(folder+'/'+away+'/'+n);}}}
         const sheet=sheetHtml(shots.map(b=>imageDataUrl(b,'x.jpg')));
         await teamFolder.writeBytes(null,scratch,Buffer.from(sheet.html));
         const overview=await renderPage({file:await teamFolder.target(null,scratch),width:sheet.width,height:sheet.height,root:teamFolder.root(),signal,quality:85});
@@ -148,7 +152,7 @@ export async function agentRuntime({bot,conversationId,files,cloud,connections,s
         const toFix=[...textFix,...carouselToFix(results)];
         await teamFolder.writeBytes(null,folder+'/slides.json',Buffer.from(JSON.stringify({title,handle,layout,palette:paletteName,bookCover,slides},null,1)));
         await teamFolder.writeBytes(null,folder+'/carousel-check.md',Buffer.from(checkNote({title,layout,paletteName,results,toFix,textFix,files})));
-        return text({folder,slides:files.map(f=>folder+'/'+f),sheet:folder+'/sheet.jpg',passed:toFix.length===0,toFix,checkNote:folder+'/carousel-check.md',note:'Look at every slide with zoom_team_image before calling it done.'});
+        return text({folder,slides:files.map(f=>folder+'/'+f),sheet:folder+'/sheet.jpg',passed:toFix.length===0,toFix,checkNote:folder+'/carousel-check.md',...(movedOld.length?{movedOld,oldNote:'This carousel now has fewer slides than before, so the old extra slides were moved into '+movedOld[0].split('/').slice(0,-1).join('/')+'. They are not part of the carousel.'}:{}),note:'Look at every slide with zoom_team_image before calling it done.'});
       });
       register('place_edition_pictures','Copy the base book\'s pictures into a creator edition. Give the edition folder (ebooks/<slug>/editions/<handle>); the base book is ebooks/<slug>. Every picture line of the base book goes into the same chapter and the same ### section of the edition (or straight under the chapter heading for an opening picture), even when the edition renamed the chapter, pointing at the base book\'s picture files. Lines already there are left alone, so it is safe to run again. With us true, captions get US spelling (fiber, flavor, color). It never changes any other line. Returns how many were placed and any picture it could not place (its section was renamed or removed): place those lines by hand in the matching section.',{editionDir:z.string().min(1).max(300),us:z.boolean().default(false)},async({editionDir,us})=>{
         const dir=editionDir.replace(/\\/g,'/').replace(/\/+$/,''),m=dir.match(/^(.*)\/editions\/[^/]+$/);if(!m)throw new Error('editionDir must look like ebooks/<slug>/editions/<handle>.');

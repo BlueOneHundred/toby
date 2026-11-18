@@ -28,6 +28,10 @@ export const ICONS = {
   flag: svg('<path d="M6 21V4M6 4.5h11l-2.5 4 2.5 4H6"/>'),
   bulb: svg('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>'),
   paw: svg('<circle cx="7" cy="10" r="1.8"/><circle cx="17" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><path d="M12 12.5c-3 0-5.5 3-5.5 5.2 0 1.6 1.4 2.3 3 2.3 1 0 1.6-.4 2.5-.4s1.5.4 2.5.4c1.6 0 3-.7 3-2.3 0-2.2-2.5-5.2-5.5-5.2z"/>'),
+  // Toby build 35: niche-neutral icons. The paw (from the puppy book) was on every "From" box and "Did you know?"
+  // card in every book, including the sourdough books. quote = the creator's own words; spark = a fact.
+  quote: svg('<path d="M10 7.5C7.2 8.4 5.5 10.6 5.5 13.6v3.4h5v-5H8c0-1.8 1-3 2.6-3.6zM18.5 7.5c-2.8.9-4.5 3.1-4.5 6.1v3.4h5v-5h-2.5c0-1.8 1-3 2.6-3.6z"/>'),
+  spark: svg('<path d="M12 3.5l1.9 5.6 5.6 1.9-5.6 1.9L12 18.5l-1.9-5.6L4.5 11l5.6-1.9z"/><circle cx="18.5" cy="18" r="1.4"/><circle cx="5.5" cy="5" r="1.1"/>'),
   print: svg('<path d="M7 9V4h10v5M7 17H5a1 1 0 0 1-1-1v-5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5a1 1 0 0 1-1 1h-2"/><path d="M7 14h10v6H7z"/>'),
 };
 

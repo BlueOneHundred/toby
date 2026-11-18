@@ -23,3 +23,14 @@ export async function readToolResult(full,part=1){
   const text=await readFile(full,'utf8'),parts=Math.max(1,Math.ceil(text.length/PART_CHARS)),n=Math.min(Math.max(1,part|0),parts);
   return {file:basename(full),part:n,parts,text:text.slice((n-1)*PART_CHARS,n*PART_CHARS),note:n<parts?`Part ${n} of ${parts}. Call read_file again with the same path and part ${n+1} for more.`:`Part ${n} of ${parts}: the end.`};
 }
+
+// Toby build 35: search a saved tool result for a word (bots have no Bash or grep). Returns the matching lines with
+// their line numbers, case-insensitive, at most 200 lines, each cut to 400 characters.
+export const FIND_MAX=200;
+export async function findInToolResult(full,find){
+  const info=await stat(full);if(!info.isFile())throw new Error('Not a saved tool result.');
+  const needle=String(find||'').trim().toLowerCase();if(!needle)throw new Error('Give some text to find.');
+  const lines=(await readFile(full,'utf8')).split(/\r?\n/),hits=[];
+  for(let i=0;i<lines.length;i++)if(lines[i].toLowerCase().includes(needle)){hits.push(`${i+1}: ${lines[i].slice(0,400)}`);if(hits.length>=FIND_MAX)break;}
+  return {file:basename(full),find:String(find),matches:hits.length,lines:hits,note:hits.length>=FIND_MAX?`Only the first ${FIND_MAX} matching lines are shown. Search for something more exact.`:hits.length?'Line numbers count from 1. Use part with no find to read the whole file.':'No line contains that text.'};
+}

@@ -45,7 +45,7 @@ export function smartQuotes(html) {
 // ---------- labelled blocks ----------
 const BOXES = {'the short version': 'short', 'try tonight': 'try', 'try this': 'try', 'remember': 'remember', 'safety note': 'safety', 'red flag': 'red', 'tip': 'tip'};
 const VISUAL = {fact: 'facts', facts: 'facts', 'did you know': 'facts', stat: 'stat', steps: 'steps', before: 'before', after: 'after', checklist: 'checklist', timeline: 'timeline', quote: 'quote', 'key idea': 'key-idea'};
-const BOX_ICON = {try: 'moon', tip: 'bulb', from: 'paw', safety: 'warn', red: 'flag'};
+const BOX_ICON = {try: 'moon', tip: 'bulb', from: 'quote', safety: 'warn', red: 'flag'};
 
 function labelOf(token) {
   if (!token || token.type !== 'blockquote') return null;
@@ -318,7 +318,7 @@ function takeFacts(tokens) {
 // The largest setting of a fact card whose text is sure to fit in the room (millimetres).
 function factCard(fact, room) {
   const number = fact.num ? `<div class="filler-num">${esc(fact.num).replace(/[A-Za-z]+/g, word => `<span class="unit">${word}</span>`)}</div>` : '';
-  const card = (cls, style = '') => `<aside class="filler ${cls}${fact.num ? ' has-num' : ''}" style="height:${room.toFixed(1)}mm${style}"><span class="ico">${ICONS.paw}</span><div class="filler-in"><p class="filler-label">Did you know?</p>${number}<p class="filler-text">${fact.text}</p></div></aside>`;
+  const card = (cls, style = '') => `<aside class="filler ${cls}${fact.num ? ' has-num' : ''}" style="height:${room.toFixed(1)}mm${style}"><span class="ico">${ICONS.spark}</span><div class="filler-in"><p class="filler-label">Did you know?</p>${number}<p class="filler-text">${fact.text}</p></div></aside>`;
   // A full card: the type grows with the room. Heights are estimated from the wording, with a margin.
   const mmPerPt = 0.3528;
   const height = f => {

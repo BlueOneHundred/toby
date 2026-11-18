@@ -107,7 +107,9 @@ export function slideHtml({slide, index, total, layout = 'panel', paletteName = 
 <div class="cta fit"><div class="t">${esc(slide.cta || 'Link in bio')}</div>${slide.body ? `<div class="s">${esc(slide.body)}</div>` : ''}</div></div>`);
   }
   if (slide.type === 'flag') {
-    const bg = layout === 'card' ? C.main : C.deep;
+    // Toby build 35: the flag slide always sits on the deep colour. On the card layout's main colour the accent kicker
+    // and source line fell below 4.5:1 (terracotta 4.4:1), so Bagel's and Erica's Safety note slides could never pass.
+    const bg = C.deep;
     return page(css + `.slide.flagged{background:${bg}}`, `<div class="slide flagged">${top}
 <div class="txt fit" style="position:absolute;left:72px;right:72px;top:300px;color:#fff"><div class="kick" style="color:${C.accent};margin-bottom:22px">${esc(slide.kicker || 'Red flag')}</div><div class="h" style="font-size:100px;text-transform:uppercase">${rich(slide.title)}</div>
 <div class="b" style="font-size:46px;line-height:1.35;margin-top:22px;color:${C.card}">${rich(slide.body || '')}</div>${slide.source ? `<div class="src" style="margin-top:30px;color:${C.accent}">${esc(slide.source)}</div>` : ''}</div></div>`);
@@ -240,6 +242,12 @@ export function checkNote({title, layout, paletteName, results, toFix, textFix, 
   results.forEach((r, i) => lines.push(`| ${i + 1} | ${files[i]} | ${r.lowest ?? 'n/a'}:1 | ${r.problems.filter(p => p.kind === 'shrunk').map(p => `title shrunk ${p.from} to ${p.to} px`).join('; ') || ''} |`));
   lines.push('', ...(toFix.length ? ['## To fix', ...toFix.map(x => '- ' + x)] : ['Nothing to fix. A person still looks at every slide before it goes to the creator.']), '');
   return lines.join('\n');
+}
+
+// Toby build 35: slide files a remade carousel no longer has (a 8-slide carousel remade with 7 leaves an old 08.jpg).
+// Returns the names to move out of the way, in order.
+export function staleSlides(names, count) {
+  return names.filter(n => /^\d{2}\.jpg$/.test(n) && Number(n.slice(0, 2)) > count).sort();
 }
 
 export {contrast};
