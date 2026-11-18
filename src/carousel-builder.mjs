@@ -46,6 +46,10 @@ function panelCss(C) {
 .slide.dark{background:${C.deep}}
 .shade{position:absolute;left:0;right:0;bottom:0}
 .txt{position:absolute;left:72px;right:72px;bottom:96px;color:#fff}
+/* Toby build 36: the words always sit on the deep colour. A long cover title made the text block taller than the
+   fixed shade, so the kicker landed on the photo (Hillary's carousel A cover, 18 Nov 2026: 2:1 contrast). */
+.slide.dark .txt{z-index:2}
+.slide.dark .txt::before{content:'';position:absolute;left:-72px;right:-72px;top:-150px;bottom:-240px;background:linear-gradient(to bottom,${hexA(C.deep, 0)} 0px,${C.deep} 140px);z-index:-1;pointer-events:none}
 .txt .h{font-size:88px;text-transform:uppercase}
 .txt .b{font-size:40px;line-height:1.35;margin-top:22px;color:${C.card}}
 .txt .kick{color:${C.accent};margin-bottom:22px}
