@@ -14,22 +14,27 @@ const tagsIn = (s) => [...s.matchAll(/\[S[\d,\sS]+\]/g)].flatMap((m) => [...m[0]
 const numbersIn = (s) => [...s.replace(/\[S[\d,\sS]+\]/g, ' ').replace(/^\s*(>\s*)?\d+\.\s/, ' ').matchAll(/\d+(?:[.,]\d+)*%?/g)].map((m) => m[0].replace(/,/g, ''));
 const count = (list) => { const m = new Map(); for (const v of list) m.set(v, (m.get(v) || 0) + 1); return m; };
 /** Split Markdown parts into sections ("## ..."), each with its lines sorted by kind. */
-export function sections(parts) {
-  const out = []; let cur = null, inFacts = false;
+// Toby build 42: in a typed book (plan.md "Type: ..."), recipe, project and week cards hold data (amounts, materials,
+// steps, days) that is kept rather than rewritten: their lines are counted per card instead of as box text.
+const CARDS = /^(recipe|project|this week)$/i;
+export function sections(parts, typed = false) {
+  const out = []; let cur = null, inFacts = false, card = null;
   for (const raw of parts.join('\n\n').replace(/\r\n/g, '\n').split('\n')) {
     const line = raw.trim(); const h = line.match(/^## (.+)$/);
-    if (h) { const c = h[1].match(/^Chapter (\d+):/); cur = { heading: h[1].trim(), key: c ? 'Chapter ' + c[1] : /^sources$/i.test(h[1]) ? 'Sources' : /^last word/i.test(h[1]) ? 'Last word' : /^a note/i.test(h[1]) ? 'Note' : /^contents$/i.test(h[1]) ? 'Contents' : h[1].trim(), chapter: c ? +c[1] : 0, text: [], boxes: [], lists: [], tables: [], facts: [], labels: [], all: [] }; out.push(cur); inFacts = false; continue; }
-    if (!cur || !line) { if (!line) inFacts = false; continue; }
+    if (h) { const c = h[1].match(/^Chapter (\d+):/); cur = { heading: h[1].trim(), key: c ? 'Chapter ' + c[1] : /^sources$/i.test(h[1]) ? 'Sources' : /^last word/i.test(h[1]) ? 'Last word' : /^a note/i.test(h[1]) ? 'Note' : /^contents$/i.test(h[1]) ? 'Contents' : h[1].trim(), chapter: c ? +c[1] : 0, text: [], boxes: [], lists: [], tables: [], facts: [], labels: [], cards: [], all: [] }; out.push(cur); inFacts = false; card = null; continue; }
+    if (!cur || !line) { if (!line) { inFacts = false; card = null; } continue; }
     cur.all.push(line);
     if (line.startsWith('|')) { if (!/^\|[\s:|-]+\|$/.test(line)) { const last = cur.tables[cur.tables.length - 1]; if (last && last.open) last.rows.push(line); else cur.tables.push({ head: norm(line).toLowerCase(), rows: [], open: true }); } continue; }
     for (const t of cur.tables) t.open = false;
     if (line.startsWith('>')) {
       const body = line.replace(/^>\s?/, ''); const label = body.match(/^([A-Za-z][A-Za-z '’,.-]*?):/);
+      if (typed && label && !card && CARDS.test(label[1].trim())) { card = { label: label[1].trim().toLowerCase(), title: body.slice(label[0].length).trim(), lines: 0 }; cur.cards.push(card); cur.labels.push(card.label); inFacts = false; continue; }
+      if (card) { if (body.trim()) card.lines++; continue; }
       if (label && !/^[-\d]/.test(body)) { inFacts = /^facts$/i.test(label[1].trim()); cur.labels.push(/^from\s/i.test(label[1]) ? 'From' : label[1].trim().toLowerCase()); }
       if (inFacts) { if (/^-\s/.test(body)) cur.facts.push(body); } else if (body && !/^from\s/i.test(body)) cur.boxes.push(body);
       continue;
     }
-    inFacts = false;
+    inFacts = false; card = null;
     if (line.startsWith('#')) continue;
     if (/^!\[[^\]]*\]\(/.test(line)) continue;   // a picture line is shared with the base book, not text to rewrite
     if (/^(-|\d+\.)\s/.test(line)) cur.lists.push(line); else if (!/^\[Creator:[^\]]*\]$/.test(line)) cur.text.push(line);
@@ -44,8 +49,8 @@ function rewritten(baseLines, editionLines) {
 }
 export const EDITION_RULES = Object.freeze({ textOverall: 0.75, textPerChapter: 0.6, boxesOverall: 0.5 });
 /** base and edition: {parts: [markdown...]}; sources: text of sources.md (numbers found there may appear in new facts). */
-export function checkEdition({ base, edition, sources = '', rules = EDITION_RULES }) {
-  const B = sections(base.parts), E = sections(edition.parts), toFix = [], chapters = [];
+export function checkEdition({ base, edition, sources = '', rules = EDITION_RULES, type = '' }) {
+  const B = sections(base.parts, Boolean(type)), E = sections(edition.parts, Boolean(type)), toFix = [], chapters = [];
   const find = (key) => E.find((s) => s.key === key);
   const baseNumbers = new Set([...base.parts, sources].flatMap((p) => p.split('\n').flatMap(numbersIn)));
   let textBase = 0, textChanged = 0, boxBase = 0, boxChanged = 0;
@@ -64,10 +69,12 @@ export function checkEdition({ base, edition, sources = '', rules = EDITION_RULE
     const newNumbers = [...en.keys()].filter((v) => !bn.has(v) && !baseNumbers.has(v));
     if (newNumbers.length) toFix.push(`${b.key}: numbers that are not in the base book or sources.md: ${newNumbers.slice(0, 12).join(', ')}. Never add a new figure.`);
     if (e.tables.length !== b.tables.length) toFix.push(`${b.key}: has ${e.tables.length} table(s), the base book has ${b.tables.length}. Keep every table.`);
-    else b.tables.forEach((t, i) => { if (e.tables[i].rows.length !== t.rows.length) toFix.push(`${b.key}: table ${i + 1} has ${e.tables[i].rows.length} rows, the base book has ${t.rows.length}.`); if (/^\|\s*(say this|day|time)\b/.test(t.head) && e.tables[i].head !== t.head) toFix.push(`${b.key}: the heading row of table ${i + 1} must stay exactly "${t.head}".`); });
+    else b.tables.forEach((t, i) => { if (e.tables[i].rows.length !== t.rows.length) toFix.push(`${b.key}: table ${i + 1} has ${e.tables[i].rows.length} rows, the base book has ${t.rows.length}.`); if ((type ? /^\|\s*(say this|do this|day|time|what went wrong|looks like|habit)\b/ : /^\|\s*(say this|day|time)\b/).test(t.head) && e.tables[i].head !== t.head) toFix.push(`${b.key}: the heading row of table ${i + 1} must stay exactly "${t.head}".`); });
     const bl = count(b.labels), el = count(e.labels);
     const lostBoxes = [...bl].filter(([l, n]) => (el.get(l) || 0) < n).map(([l]) => l);
     if (lostBoxes.length) toFix.push(`${b.key}: boxes missing: ${lostBoxes.join(', ')}. Keep every box, with its label spelled exactly.`);
+    if (b.cards.length !== e.cards.length) toFix.push(`${b.key}: has ${e.cards.length} recipe, project or week card(s), the base book has ${b.cards.length}. Keep every card.`);
+    else b.cards.forEach((c, i) => { const x = e.cards[i]; if (x.label !== c.label) toFix.push(`${b.key}: card ${i + 1} must stay a "${c.label}" card.`); else if (x.lines !== c.lines) toFix.push(`${b.key}: the ${c.label} card "${c.title}" has ${x.lines} lines, the base book has ${c.lines}. Keep every ingredient, material, step and day line.`); });
     if (b.facts.length && e.facts.length < b.facts.length) toFix.push(`${b.key}: the Facts block has ${e.facts.length} facts, the base book has ${b.facts.length}.`);
     // voice
     const t = rewritten(b.text, e.text), x = rewritten(b.boxes, e.boxes);

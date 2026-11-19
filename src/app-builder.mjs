@@ -4,6 +4,7 @@
 import {readFileSync} from 'node:fs';
 import {palette, appRootCSS} from './palettes.mjs';
 import {pictureOf} from './book-pictures.mjs';
+import {BOOK_TYPES, typeNotes} from './book-types.mjs';
 const FONT_DIR = new URL('./book-fonts/', import.meta.url);
 let fontCss = '';
 function fonts() {
@@ -22,7 +23,9 @@ export function appSlug(bookDir) {
  * files: {parts: [markdown...], plan, voice, appJson} (plain text; missing ones are '').
  * Returns {html, check}; check.passed is false when check.problems lists anything.
  */
-export function buildApp({files, bookDir, coverDataUrl, template, creator = '', palette: paletteName = 'pine', pictures = {}}) {
+export function buildApp({files, bookDir, coverDataUrl, template, creator = '', palette: paletteName = 'pine', pictures = {}, bookType = null}) {
+  // Toby build 42: a typed book (plan.md "Type: ...") gets its type's blocks and tabs; with no type the app is built as before.
+  const TYPE = bookType?.type && !bookType.error ? bookType.type : '';
   let appJson = {};
   if (files.appJson) { try { appJson = JSON.parse(files.appJson); } catch (e) { throw new Error('app.json could not be read: ' + e.message); } }
   const planLine = (k) => (((files.plan || '') + '\n' + (files.voice || '')).match(new RegExp('^[-*\\s]*' + k + ':\\s*(.+)$', 'mi')) || [])[1];
@@ -32,7 +35,7 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     slug: appJson.slug || appSlug(bookDir),
     creator: creator || appJson.author || planLine('Author') || (((files.voice || '').match(/^[-*\s"]*by\s+([^"\n(]+?)["\s]*(\(.*)?$/mi) || [])[1] || ''),
     listStarters: appJson.listStarters || ["Vet's phone number", 'Emergency vet number', 'Poison line number', "Midday helper's phone number"],
-    requiredTools: Array.isArray(appJson.requiredTools) ? appJson.requiredTools : ['potty', 'tracker', 'planner', 'list', 'social'],
+    requiredTools: Array.isArray(appJson.requiredTools) ? appJson.requiredTools : TYPE ? [] : ['potty', 'tracker', 'planner', 'list', 'social'],
     // A general book says how long its plan is; the first book (no app.json) has a 30 day plan.
     planDays: Number.isInteger(appJson.planDays) && appJson.planDays > 0 ? appJson.planDays : 30,
     // A sample carries part of the book plus an "In the full book" list of the chapters still to come.
@@ -66,10 +69,12 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     'the short version': 'short', 'try tonight': 'try', remember: 'remember', stat: 'stat', steps: 'steps',
     checklist: 'checklist', timeline: 'timeline', before: 'before', after: 'after', quote: 'quote',
     'key idea': 'key', facts: 'facts', 'red flag': 'redflag', 'safety note': 'safety',
+    ...(TYPE ? { recipe: 'recipe', project: 'project', 'this week': 'week' } : {}),
   };
   const TOOLS = [
     [/potty log/i, 'potty'], [/try tracker/i, 'tracker'], [/weekly planner/i, 'planner'],
     [/list page/i, 'list'], [/socialising checklist/i, 'social'],
+    ...(TYPE ? [[/habit tracker/i, 'habit'], [/project tracker/i, 'progress']] : []),
   ];
 
   function parseBlocks(lines) {
@@ -91,7 +96,15 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
         const head = m[2].trim();
         const rest = raw.slice(1).filter((l) => l.trim());
         const items = rest.filter(isList).map((l) => clean(l.replace(/^(-|\d+\.)\s+/, '')));
-        if (type === 'stat') { const [v, ...d] = head.split('|'); blocks.push({ t: 'stat', value: clean(v), text: clean(d.join('|')) }); }
+        if (type === 'recipe' || type === 'project') {
+          // "> Recipe: name", a "Key: value | Key: value" line, "- a | b | c" lines, then numbered steps
+          const meta = rest.filter((l) => !isList(l)).join(' | ').split('|').map((x) => x.trim()).filter(Boolean).map((x) => { const mm = x.match(/^([^:]{1,24}):\s*(.+)$/); return mm ? { k: clean(mm[1]), v: clean(mm[2]) } : { k: '', v: clean(x) }; });
+          const cells = rest.filter((l) => /^-\s+/.test(l)).map((l) => l.replace(/^-\s+/, '').split('|').map((c) => clean(c)));
+          const steps = rest.filter((l) => /^\d+\.\s+/.test(l)).map((l) => clean(l.replace(/^\d+\.\s+/, '')));
+          blocks.push({ t: type, title: clean(head), meta, items: cells, steps });
+        }
+        else if (type === 'week') blocks.push({ t: 'week', title: clean(head), items: items.map((x) => { const mm = x.match(/^\**([^:*]{1,24})\**:\s*(.+)$/); return mm ? { day: mm[1].trim(), job: mm[2].trim() } : { day: '', job: x }; }) });
+        else if (type === 'stat') { const [v, ...d] = head.split('|'); blocks.push({ t: 'stat', value: clean(v), text: clean(d.join('|')) }); }
         else if (['remember', 'steps', 'facts'].includes(type)) blocks.push({ t: type, items: items.map((x) => x.replace(/\s*\|\s*/, ' ')) });
         else if (['checklist', 'timeline'].includes(type)) blocks.push({ t: type, title: clean(head), items });
         else blocks.push({ t: type, text: clean(head) });
@@ -104,12 +117,14 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
         const body = rows.slice(1).filter((r) => !(/^\s*\|[\s:|-]+\|\s*$/.test(r) && r.includes('-'))).map(splitRow);
         const h0 = head[0].toLowerCase();
         const fillIn = body.length > 0 && body.every((r) => r.slice(1).every((c) => !c));
-        if (/^(say this|instead of thinking)/.test(h0)) blocks.push({ t: 'say', head, rows: body });
+        if ((TYPE ? /^(say this|do this|instead of thinking)/ : /^(say this|instead of thinking)/).test(h0)) blocks.push({ t: 'say', head, rows: body });
         else if (h0 === 'time' && head.length === 2) blocks.push({ t: 'clock', rows: body });
         else if (h0 === 'day' && /focus/i.test(head[1] || '')) blocks.push({ t: 'plan', rows: body.map((r) => ({ day: +r[0], focus: r[1], text: r[2] })) });
         else if (fillIn) {
           const tool = (TOOLS.find(([re]) => re.test(lastH3)) || [null, null])[1];
-          blocks.push({ t: 'tool', tool, title: clean(lastH3), head, rows: body.map((r) => r[0]) });
+          // a typed book's other pages to print stay in the chapter as a table (the book prints them)
+          if (TYPE && !tool) blocks.push({ t: 'table', head, rows: body });
+          else blocks.push({ t: 'tool', tool, title: clean(lastH3), head, rows: body.map((r) => r[0]) });
         } else blocks.push({ t: 'table', head, rows: body });
         continue;
       }
@@ -131,7 +146,8 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
   }
 
   // ---------- build the book model ----------
-  const book = { ...CONFIG, chapters: [], sources: [], plan: [], weeks: [], tools: {}, facts: [], stalls: null, whoToCall: null, coming: [] };
+  const book = { ...CONFIG, chapters: [], sources: [], plan: [], weeks: [], tools: {}, facts: [], stalls: null, whoToCall: null, coming: [],
+    type: TYPE, tabs: TYPE ? BOOK_TYPES[TYPE].tabs : [], stallsTitle: TYPE ? BOOK_TYPES[TYPE].stalls : 'When it stalls', recipes: [], projects: [], week: null };
 
   for (const s of sections) {
     if (/^Sources$/i.test(s.heading)) {
@@ -174,7 +190,10 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
       if (b.t === 'tool' && b.tool) book.tools[b.tool] = { title: b.title, head: b.head, rows: b.rows, chapter: ch.num };
       if (b.t === 'facts') for (const f of b.items) if (!book.facts.some((x) => x.text === f)) book.facts.push({ text: f, ch: ch.num });
       // a book may split its troubleshooting into several tables (for example starter and loaf): the app shows them all
-      if (b.t === 'table' && /^what you see/i.test(b.head[0])) book.stalls = book.stalls ? { ...book.stalls, rows: book.stalls.rows.concat(b.rows) } : { head: b.head, rows: b.rows, chapter: ch.num };
+      if (b.t === 'recipe') book.recipes.push({ id: 'rc-' + book.recipes.length, ch: ch.num, chId: ch.id, title: b.title, meta: b.meta, items: b.items, steps: b.steps });
+      if (b.t === 'project') book.projects.push({ id: 'pj-' + book.projects.length, ch: ch.num, chId: ch.id, title: b.title, meta: b.meta, items: b.items, steps: b.steps });
+      if (b.t === 'week' && !book.week) book.week = { title: b.title, items: b.items, ch: ch.num, chId: ch.id };
+      if (b.t === 'table' && (TYPE ? /^(what you see|what went wrong|looks like)/i : /^what you see/i).test(b.head[0])) book.stalls = book.stalls ? { ...book.stalls, rows: book.stalls.rows.concat(b.rows) } : { head: b.head, rows: b.rows, chapter: ch.num };
       if (b.t === 'table' && /^problem/i.test(b.head[0])) book.whoToCall = { head: b.head, rows: b.rows, chapter: ch.num };
     }
     book.chapters.push(ch);
@@ -203,10 +222,17 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     missingPictures: book.chapters.flatMap((c) => c.blocks.filter((b) => b.t === 'fig' && b.missing).map((b) => (c.num ? 'Chapter ' + c.num : c.title) + ': ' + b.href)),
   };
   const problems = [];
+  if (bookType && (bookType.type || bookType.error || bookType.confirm)) {
+    const count = (t) => book.chapters.reduce((n, c) => n + c.blocks.filter((b) => b.t === t).length, 0);
+    const where = (t) => book.chapters.filter((c) => c.blocks.some((b) => b.t === t)).map((c) => (c.num ? 'Chapter ' + c.num : c.title));
+    problems.push(...typeNotes(bookType, { talk: where('say'), tryTonight: where('try'), recipe: count('recipe'), project: count('project'), week: count('week') }));
+  }
+  check.type = TYPE; check.tabs = TYPE ? ['Today', ...BOOK_TYPES[TYPE].tabs.map((x) => x[1]), 'Read', 'Yours'] : [];
   if (CONFIG.title === 'Untitled') problems.push('No title found: add app.json or a "Title:" line in plan.md');
   const ids = book.chapters.map((c) => c.id); if (new Set(ids).size !== ids.length) problems.push('Two sections share an id: ' + ids.join(', '));
   const days = book.plan.map((p) => p.day), consecutive = days.every((d, i) => d === i + 1);
   if (CONFIG.sample && !days.length) { /* a sample may stop before the plan chapter */ }
+  else if (TYPE && TYPE !== 'care') { if (days.length && !consecutive) problems.push('The day plan must be numbered 1 to ' + days.length + ' in order'); }
   else if (days.length !== CONFIG.planDays || !consecutive) problems.push(`Plan table does not have ${CONFIG.planDays} days` + (days.length && !consecutive ? ' numbered 1 to ' + CONFIG.planDays + ' in order' : ''));
   if (CONFIG.sample && !book.coming.length) problems.push('A sample needs an "## In the full book" section listing the chapters still to come, one per line: "- Chapter 5: Title"');
   if (!CONFIG.sample && book.coming.length) problems.push('The book has an "## In the full book" section but app.json does not say "sample": true');

@@ -6,6 +6,7 @@
 import {marked} from 'marked';
 import {styleCSS, ICONS} from './book-style.mjs';
 import {pictureOf} from './book-pictures.mjs';
+import {typeNotes} from './book-types.mjs';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const strip = html => String(html).replace(/<[^>]+>/g, '');
@@ -46,6 +47,10 @@ export function smartQuotes(html) {
 const BOXES = {'the short version': 'short', 'try tonight': 'try', 'try this': 'try', 'remember': 'remember', 'safety note': 'safety', 'red flag': 'red', 'tip': 'tip'};
 const VISUAL = {fact: 'facts', facts: 'facts', 'did you know': 'facts', stat: 'stat', steps: 'steps', before: 'before', after: 'after', checklist: 'checklist', timeline: 'timeline', quote: 'quote', 'key idea': 'key-idea'};
 const BOX_ICON = {try: 'moon', tip: 'bulb', from: 'quote', safety: 'warn', red: 'flag'};
+// Toby build 42: blocks that only a typed book has (plan.md "Type: ..."). A book with no type never gets them,
+// so a finished book is laid out exactly as before.
+const TYPED = {recipe: 'recipe', project: 'project', 'this week': 'week'};
+let TYPE = '';
 
 function labelOf(token) {
   if (!token || token.type !== 'blockquote') return null;
@@ -56,6 +61,7 @@ function labelOf(token) {
   const name = match[1].trim(), key = name.toLowerCase();
   if (BOXES[key]) return {name, kind: BOXES[key], skip: match[0].length};
   if (VISUAL[key]) return {name, kind: VISUAL[key], skip: match[0].length};
+  if (TYPE && TYPED[key]) return {name, kind: TYPED[key], skip: match[0].length};
   if (/^from\b/i.test(name)) return {name, kind: 'from', skip: match[0].length};
   return null;
 }
@@ -70,7 +76,51 @@ function boxParts(token, label) {
   return {body: marked.parser([...restTokens, ...others]), restOnly: rest ? inline(rest.split('\n')[0]) : '', others: marked.parser(others)};
 }
 
+// A recipe or project card: the title and "Key: value | Key: value" line, then a list (ingredients or materials,
+// cells split by "|"), numbered steps, and any notes.
+function cardParts(token, label) {
+  const tokens = token.tokens.filter(t => t.type !== 'space');
+  const first = tokens.find(t => t.type === 'paragraph');
+  const lines = (first.raw || first.text).slice(label.skip).split('\n').map(x => x.trim()).filter(Boolean);
+  const meta = lines.slice(1).join(' | ').split('|').map(x => x.trim()).filter(Boolean).map(x => { const m = /^([^:]{1,24}):\s*(.+)$/.exec(x); return m ? {k: m[1].trim(), v: m[2].trim()} : {k: '', v: x}; });
+  const lists = tokens.filter(t => t.type === 'list');
+  const items = (lists.find(t => !t.ordered)?.items || []).map(item => item.text.split('|').map(c => c.trim()));
+  const steps = (lists.find(t => t.ordered)?.items || []).map(item => item.text.trim());
+  const notes = marked.parser(tokens.filter(t => t !== first && t.type !== 'list'));
+  return {title: lines[0] || '', meta, items, steps, notes};
+}
+const metaChips = meta => meta.map(x => `<span>${x.k ? `<b>${esc(x.k)}</b> ` : ''}${inline(x.v)}</span>`).join('');
+function cardTable(items, heads) {
+  const cols = Math.max(...items.map(r => r.length));
+  const head = heads[cols] || heads[2];
+  return `<table class="rc-list"><thead><tr>${head.slice(0, cols).map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${items.map(r => `<tr>${Array.from({length: cols}, (_, i) => `<td>${inline(r[i] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+function recipeCard(token, label, long) {
+  const c = cardParts(token, label);
+  const list = c.items.length ? cardTable(c.items, {1: ['Ingredient'], 2: ['Ingredient', 'Amount'], 3: ['Ingredient', 'Metric', 'US'], 4: ['Ingredient', 'Metric', 'US', 'Note']}) : '';
+  const method = c.steps.length ? `<ol class="rc-steps">${c.steps.map((x, i) => `<li><span class="rc-n">${i + 1}</span><span>${inline(x)}</span></li>`).join('')}</ol>` : '';
+  return `<div class="rcard${long ? ' long' : ''}"><div class="rc-head"><p class="rc-kind">${esc(label.name)}</p><p class="rc-title">${inline(c.title)}</p>${c.meta.length ? `<div class="rc-meta">${metaChips(c.meta)}</div>` : ''}</div><div class="rc-body${list && method ? ' two' : ''}">${list ? `<div class="rc-col">${list}</div>` : ''}${method ? `<div class="rc-col">${method}</div>` : ''}</div>${c.notes ? `<div class="rc-notes">${c.notes}</div>` : ''}</div>`;
+}
+function projectCard(token, label, long) {
+  const c = cardParts(token, label);
+  const level = c.meta.find(x => /^difficulty$/i.test(x.k));
+  const n = level ? Math.max(0, Math.min(5, parseInt(level.v, 10) || 0)) : 0;
+  const dots = level ? `<span class="rc-dots" aria-label="Difficulty ${n} of 5"><b>Difficulty</b> ${Array.from({length: 5}, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>` : '';
+  const list = c.items.length ? cardTable(c.items, {1: ['You need'], 2: ['You need', 'Which one'], 3: ['You need', 'Which one', 'Note']}) : '';
+  const steps = c.steps.length ? `<ol class="rc-steps">${c.steps.map((x, i) => `<li><span class="rc-n">${i + 1}</span><span>${inline(x)}</span></li>`).join('')}</ol>` : '';
+  return `<div class="rcard pcard${long ? ' long' : ''}"><div class="rc-head"><p class="rc-kind">${esc(label.name)}</p><p class="rc-title">${inline(c.title)}</p><div class="rc-meta">${dots}${metaChips(c.meta.filter(x => x !== level))}</div></div><div class="rc-body">${list}${steps}</div>${c.notes ? `<div class="rc-notes">${c.notes}</div>` : ''}</div>`;
+}
+function weekGrid(body, restOnly) {
+  const items = listItems(body).map(item => {
+    const m = /^(?:<strong>)?([^:<]{1,24}):?(?:<\/strong>)?:?\s*([\s\S]*)$/.exec(item);
+    return m && m[2] ? {when: m[1], what: m[2]} : {when: '', what: item};
+  });
+  return `<div class="wgrid">${restOnly ? `<p class="wg-title">${restOnly}</p>` : ''}<div class="wg-row n${Math.min(items.length, 7)}">${items.map(x => `<div class="wg-day">${x.when ? `<p class="wg-when">${x.when}</p>` : ''}<div class="wg-what">${x.what}</div></div>`).join('')}</div></div>`;
+}
+
 function renderBox(token, label) {
+  if (label.kind === 'recipe') return recipeCard(token, label, tall(token) > 195);
+  if (label.kind === 'project') return projectCard(token, label, tall(token) > 195);
   const {body, restOnly, others} = boxParts(token, label);
   switch (label.kind) {
     case 'stat': {
@@ -105,6 +155,7 @@ function renderBox(token, label) {
       if (items.length >= 2 && items.length <= 4 && items.every(item => plain(item.what).length <= 64)) return `<div class="stages">${title}<div class="stages-row n${items.length}">${items.map(item => `<div class="stage">${item.when ? `<p class="stage-when">${item.when}</p>` : ''}${item.what}</div>`).join('')}</div></div>`;
       return `<div class="stages">${title}<div class="clock">${items.map(item => `<div class="clock-row"><div class="clock-time">${item.when}</div><div class="clock-what">${item.what}</div></div>`).join('')}</div></div>`;
     }
+    case 'week': return weekGrid(body, restOnly);
     case 'quote': return `<blockquote class="pull">${body}</blockquote>`;
     case 'key-idea': return `<div class="key-idea"><span class="ico">${ICONS.bulb}</span>${body}</div>`;
     case 'before': case 'after': return `<div class="ba-side ba-${label.kind}"><p class="box-label">${esc(label.name)}</p>${body}</div>`;
@@ -165,8 +216,11 @@ function plainTable(t) {
   const cls = i => (onlyCites[i] ? ' class="src"' : longest[i] <= 22 && i < cols - 1 ? ' class="nw"' : '');
   return `<table class="${t.rows.length <= 16 ? 'small' : 'long'}"><thead><tr>${t.header.map((c, i) => `<th${cls(i)}>${inline(c.text)}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r => `<tr>${r.map((c, i) => `<td${cls(i)}>${inline(c.text)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
+// Toby build 42: a typed book's troubleshooting table ("What went wrong | Why | Fix next time", "Looks like | What to do").
+const isTrouble = t => TYPE && t.header.length >= 2 && /^(what went wrong|looks like)\b/i.test(cellText(t.header[0]));
 function table(t) {
   if (isTalk(t)) return talkTable(t);
+  if (isTrouble(t)) return plainTable(t).replace(/^<table class="/, '<table class="trouble ');
   if (isClock(t)) return clockTable(t);
   return plainTable(t);
 }
@@ -215,6 +269,12 @@ function tall(t) {
     const kind = labelOf(t)?.kind, items = (t.raw.match(/^>\s*(?:[-*]|\d+\.) .*$/gm) || []);
     if (kind === 'steps') return items.reduce((sum, item) => sum + lines(item, 72) * 5.7 + 7, 0);
     if (kind === 'checklist') return items.length * 8.5 + 14;
+    if (kind === 'recipe' || kind === 'project') {
+      // the card's head, then (for a recipe) ingredients beside the method, or (for a project) materials above the steps
+      const list = (t.raw.match(/^>\s*[-*] .*$/gm) || []).length, steps = t.raw.match(/^>\s*\d+\. .*$/gm) || [];
+      const stepH = per => steps.reduce((sum, item) => sum + lines(item, per) * 4.9 + 2.2, 0);
+      return 34 + (kind === 'recipe' && list ? Math.max(list * 6.6 + 8, stepH(46)) : list * 6.6 + (list ? 8 : 0) + stepH(80));
+    }
     return lines(t.raw, 78) * 5.4 + 14;
   }
   return 12;
@@ -284,7 +344,8 @@ function renderBlocks(tokens, ctx) {
       if (label?.kind === 'before' && labelOf(list[i + 1])?.kind === 'after') { push(`<div class="ba">${renderBox(t, label)}${renderBox(list[i + 1], labelOf(list[i + 1]))}</div>`); i++; continue; }
       const longSteps = label?.kind === 'steps' && tall(t) * 0.84 > 198;
       if (longSteps) ctx.longLists.push(ctx.name);
-      push(block(t), longSteps || (label?.kind === 'checklist' && (t.raw.match(/^>\s*[-*] /gm) || []).length > 18) ? 'f' : 's');
+      const longCard = (label?.kind === 'recipe' || label?.kind === 'project') && tall(t) > 195;
+      push(block(t), longSteps || longCard || (label?.kind === 'checklist' && (t.raw.match(/^>\s*[-*] /gm) || []).length > 18) ? 'f' : 's');
       continue;
     }
     if (figOf(t)) { push(block(t)); continue; }   // a picture stays whole, with its caption
@@ -403,9 +464,11 @@ function sourcesHTML(section) {
   return `<section class="sources" id="${section.id}" style="page:${section.page}"><h2>${heading(esc(section.title))}</h2><p class="sources-note">The small raised numbers in the text point to this list.</p><div class="sources-list">${items.join('')}</div></section>`;
 }
 
-export function buildBook({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', highlights = [], pageSize = 'Book', pageNumbers = {}, fill = {}, gaps = {}, palette = 'pine', pictures = {}}) {
+export function buildBook({title, subtitle = '', author = '', tagline = '', badge = '', parts = [], coverDataUrl = '', highlights = [], pageSize = 'Book', pageNumbers = {}, fill = {}, gaps = {}, palette = 'pine', pictures = {}, bookType = null}) {
   if (!title) throw new Error('Give the book a title.');
   if (!Array.isArray(parts) || !parts.length) throw new Error('Give at least one Markdown part.');
+  // bookType is plan.md's Type line ({type, confirm, value} from book-types.mjs); none means the layout from before build 42
+  TYPE = bookType?.type && !bookType.error ? bookType.type : '';
   const size = PAGE_SIZES[pageSize] ? pageSize : 'Book';
   const [pageW, pageH, sizeRule] = PAGE_SIZES[size];
   PIC = {pictures: pictures || {}, textW: parseFloat(pageW) - 32, where: '', placed: [], missing: [], small: [], noAlt: []};
@@ -423,7 +486,18 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
 
   const ctx = {prints: [], longLists: []};
   const ends = [];
-  const report = {gaps: [], facts: {}, notes: []};
+  const report = {gaps: [], facts: {}, notes: [], type: TYPE};
+  if (bookType && (bookType.type || bookType.error || bookType.confirm)) {
+    const found = {talk: [], tryTonight: [], recipe: 0, project: 0, week: 0};
+    for (const s of sections) for (const t of s.tokens) {
+      const where = s.kind === 'chapter' ? `Chapter ${s.n}` : s.title || 'The opening pages';
+      if (t.type === 'table' && isTalk(t)) found.talk.push(where);
+      const label = labelOf(t);
+      if (label && /^try tonight$/i.test(label.name)) found.tryTonight.push(where);
+      if (label && label.kind in found && typeof found[label.kind] === 'number') found[label.kind]++;
+    }
+    report.notes.push(...typeNotes(bookType, found));
+  }
   const probeIds = [];
   const body = sections.map((s, index) => {
     Object.assign(ctx, {section: s.id, name: s.kind === 'chapter' ? `Chapter ${s.n}` : s.title, gapFill: {}});
@@ -484,7 +558,7 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const cover = `<section class="cover"><div class="cover-photo"${coverDataUrl ? ` style="background-image:url('${coverDataUrl}')"` : ''}></div><div class="cover-band"></div>${seal}<div class="cover-text"><div class="cover-title${titleSize}">${esc(title)}</div>${subtitle ? `<p class="cover-sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="cover-tag">${esc(tagline)}</p>` : ''}${author ? `<p class="cover-by">${esc(author)}</p>` : ''}</div>${inside.length ? `<div class="cover-inside">${inside.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}${probes}</section>`;
   const titlePage = `<section class="title-page"><div><span id="cal-top"></span><p class="tp-title">${esc(title)}</p>${subtitle ? `<p class="tp-sub">${esc(subtitle)}</p>` : ''}<div class="tp-rule"></div></div><div class="tp-foot">${author ? `<p>${esc(author)}</p>` : ''}${badge ? `<p>${esc(badge)}. Every fact in this book carries a small number that links to its source at the back.</p>` : ''}${sections.some(x => x.kind === 'coming') ? `<p class="tp-sample">Sample edition: ${chapters.length} of ${chapters.length + comingList(sections.find(x => x.kind === 'coming').tokens).length} chapters. The rest are listed on the last pages.</p>` : ''}</div></section>`;
   const content = smartQuotes(`${cover}\n${titlePage}\n<nav class="toc"><h2>Contents</h2><ol>${toc}</ol>${prints}</nav>\n<main>${cite(clean(body))}</main>`);
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${styleCSS({pageW, pageH, sizeRule, title: clip(title, 46), runningHeads, palette})}</style></head><body>\n${content}\n</body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${styleCSS({pageW, pageH, sizeRule, title: clip(title, 46), runningHeads, palette, typed: Boolean(TYPE)})}</style></head><body>\n${content}\n</body></html>`;
   report.chapters = chapters.length;
   report.pagesToPrint = (body.match(/class="(worksheet|plan-page)"/g) || []).length;
   report.unfilledGaps = report.gaps.filter(g => !g.filled).length;

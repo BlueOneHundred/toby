@@ -37,7 +37,45 @@ export const ICONS = {
 
 const cssString = value => String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ');
 
-export function styleCSS({pageW, pageH, sizeRule, title, runningHeads = [], palette: paletteName = 'pine'}) {
+// Toby build 42: styles for typed books only, so a book with no type gets exactly the stylesheet it had before.
+const typedCSS = P => `/* Toby build 42: blocks for typed books (recipe and project cards, the week grid, troubleshooting tables) */
+.rcard{margin:5.5mm 0 6.5mm calc(-1 * var(--gutter));border:1pt solid var(--pine);border-radius:3.5mm;overflow:hidden;break-inside:avoid;font-family:var(--display)}
+.rcard.long{break-inside:auto}
+.rc-head{background:var(--pine);color:#fff;padding:3.6mm 5.5mm 3.4mm;break-after:avoid}
+.rc-kind{margin:0;font-weight:700;font-size:7.6pt;letter-spacing:.14em;text-transform:uppercase;color:var(--marigold)}
+.rc-title{margin:.6mm 0 0;font-weight:800;font-size:15pt;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
+.rc-title .cite,.rc-meta .cite{color:${P.onDark}}
+.rc-meta{display:flex;flex-wrap:wrap;gap:1.6mm 2mm;margin-top:2.6mm}
+.rc-meta span{background:var(--pine-deep);border-radius:5mm;padding:.9mm 3mm 1mm;font-size:8.2pt;line-height:1.3}
+.rc-meta b{font-weight:700;color:var(--marigold)}
+.rc-dots i{display:inline-block;width:2.4mm;height:2.4mm;border-radius:50%;background:var(--pine-soft);margin-left:.8mm;vertical-align:-.1mm}
+.rc-dots i.on{background:var(--marigold)}
+.rc-body{padding:3.2mm 5.5mm 3.6mm;display:grid;gap:5mm}
+.rc-body.two{grid-template-columns:minmax(0,44%) minmax(0,1fr)}
+.rc-list{width:100%;margin:0;font-size:8.8pt;font-variant-numeric:tabular-nums;break-inside:auto}
+.rc-list th{font-size:7.8pt;padding:0 2.5mm 1.6mm 0}
+.rc-list td{padding:1.7mm 2.5mm 1.7mm 0}
+.rc-list td:not(:first-child){color:var(--muted);white-space:nowrap}
+.pcard .rc-list td:not(:first-child){white-space:normal}
+.rc-steps{list-style:none;margin:0;padding:0;font-size:9.6pt;line-height:1.42}
+.rc-steps li{display:grid;grid-template-columns:7mm 1fr;margin:0 0 2.2mm;break-inside:avoid}
+.rc-steps li:last-child{margin-bottom:0}
+.rc-n{font-weight:800;font-size:10pt;color:var(--pine)}
+.rc-notes{padding:0 5.5mm 3.6mm;font-family:var(--text);font-size:9.6pt}
+.rc-notes p:last-child{margin-bottom:0}
+.wgrid{margin:5.5mm 0 6.5mm calc(-1 * var(--gutter));break-inside:avoid;font-family:var(--display)}
+.wg-title{font-weight:700;font-size:10.6pt;color:var(--pine);margin:0 0 2.6mm}
+.wg-row{display:grid;gap:2mm}
+.wg-row.n1{grid-template-columns:repeat(1,minmax(0,1fr))}.wg-row.n2{grid-template-columns:repeat(2,minmax(0,1fr))}.wg-row.n3{grid-template-columns:repeat(3,minmax(0,1fr))}.wg-row.n4{grid-template-columns:repeat(4,minmax(0,1fr))}.wg-row.n5{grid-template-columns:repeat(5,minmax(0,1fr))}.wg-row.n6{grid-template-columns:repeat(6,minmax(0,1fr))}.wg-row.n7{grid-template-columns:repeat(7,minmax(0,1fr))}
+.wg-day{min-width:0;overflow-wrap:break-word;border:1pt solid var(--line);border-top:1.6mm solid var(--pine);border-radius:2mm;padding:2.2mm 2.2mm 2.6mm;min-height:24mm;font-size:8.6pt;line-height:1.35;break-inside:avoid}
+.wg-row.n6,.wg-row.n7{gap:1.6mm}.wg-row.n6 .wg-day,.wg-row.n7 .wg-day{padding:2mm 1.6mm 2.4mm;font-size:8pt}
+.wg-when{margin:0 0 1.2mm;font-weight:800;font-size:8pt;letter-spacing:.08em;text-transform:uppercase;color:var(--pine)}
+table.trouble th{color:var(--brick);border-bottom-color:var(--brick)}
+table.trouble td:first-child{color:var(--brick)}
+
+`;
+
+export function styleCSS({pageW, pageH, sizeRule, title, runningHeads = [], palette: paletteName = 'pine', typed = false}) {
   const P = palette(paletteName).book;
   const heads = runningHeads.map(({page, text}) => `@page ${page}{@top-right{content:"${cssString(text)}"}}`).join('\n');
   return `${fonts()}
@@ -364,7 +402,7 @@ td.src,th.src{width:1%;white-space:nowrap;text-align:right;color:var(--muted)}
 .plan-do{font-size:9.8pt;line-height:1.42}
 .plan-tick{width:6mm;height:6mm;border:1.3pt solid var(--pine);border-radius:1.2mm;justify-self:end}
 
-/* closing page and sources */
+${typed ? typedCSS(P) : ''}/* closing page and sources */
 .closing{page:closing;break-before:page;color:#fff;font-size:12pt;line-height:1.6}
 .closing h2{font-family:var(--display);font-weight:800;font-size:34pt;line-height:1;letter-spacing:-.012em;margin:22mm 0 9mm;color:#fff}
 .closing p{max-width:112mm;margin:0 0 4.2mm}
