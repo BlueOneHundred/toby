@@ -191,7 +191,7 @@ export const ALL_SCOPES = ['voice', 'edition', 'carousels', 'email', 'breakdown'
 export const validHandle = h => /^[a-z0-9_.]{2,30}$/i.test(h), validBase = b => /^[a-z0-9-]{2,60}$/i.test(b || '');
 // Read a creator's package from the team folder and check the chosen parts.
 export async function runPackageCheck(root, {handle, base, scopes = ALL_SCOPES, when}) {
-  handle = String(handle || '').replace(/^@/, '').trim();
+  handle = String(handle || '').replace(/^@/, '').trim(); base = String(base || '').trim().replace(/\\/g, '/').replace(/^(\.\/)?(Income\/)?ebooks\//i, '').replace(/\/+$/, '');
   if (!validHandle(handle) || !validBase(base)) throw new Error('Give the creator handle and the base book folder name, for example handle "jane__doughh", base "sourdough-at-home".');
   scopes = ALL_SCOPES.filter(s => scopes.includes(s));
   const ed = join(root, 'ebooks', base, 'editions', handle), report = {items: []};

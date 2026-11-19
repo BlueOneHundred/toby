@@ -39,6 +39,8 @@ export const DEFAULT_STEPS = {
 const pad = n => String(n).padStart(2, '0');
 export const localDate = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 export const localTime = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+// Build 39: "ebooks/sourdough-at-home" or "ebooks\\sourdough-at-home\\" means the same book as "sourdough-at-home".
+export const baseName = b => String(b || '').trim().replace(/\\/g, '/').replace(/^(\.\/)?(Income\/)?ebooks\//i, '').replace(/\/+$/, '');
 export const fill = (s, v) => String(s).replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m);
 const escapeHtml = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 
@@ -92,7 +94,7 @@ export class Pipelines {
   snapshot() { return structuredClone(this.runs); }
 
   async start({handle, base, contact = 'email', notes = ''}) {
-    handle = String(handle || '').replace(/^@/, '').trim(); base = String(base || '').trim();
+    handle = String(handle || '').replace(/^@/, '').trim(); base = baseName(base);
     if (!validHandle(handle)) throw new Error('Give the creator\'s Instagram handle, for example "wildflourhillbakes".');
     if (!validBase(base)) throw new Error('Give the base book\'s folder name in ebooks/, for example "sourdough-at-home".');
     if (!['email', 'dm'].includes(contact)) throw new Error('contact must be "email" or "dm".');

@@ -107,7 +107,7 @@ app.whenReady().then(async () => {
   protocol.handle('gratis-page',async request=>{try{const url=new URL(request.url),ticket=pageTickets.get(url.searchParams.get('ticket'));if(!ticket||ticket.expires<Date.now()||ticket.id!==url.pathname.slice(1))throw Error('Expired');const page=await pages.read(ticket);return new Response(pageDocument(page),{headers:{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':PAGE_CSP+'; sandbox allow-scripts','Cache-Control':'no-store','Permissions-Policy':'camera=(), microphone=(), geolocation=(), clipboard-read=(), clipboard-write=()'}});}catch{return new Response('Page unavailable',{status:404});}});
   await (await import('./edition-setup.mjs')).applyEdition(service,edition);
   const {Schedules}=await import('./schedules.mjs');
-  schedules=await new Schedules({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:schedules-changed');}}).init();
+  schedules=await new Schedules({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,service,teamFolder,onChange:()=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:schedules-changed');}}).init();
   // Toby build 36: package runs (one request runs a creator's whole package, bot after bot, checked between steps).
   const [{Pipelines},{APP_PHONE_SCRIPT,PHONE}]=await Promise.all([import('./pipeline.mjs'),import('./app-phone-check.mjs')]);
   pipelines=await new Pipelines({directory:dataDir,teamRoot:teamFolder.root(),teamFolder,service,busy:c=>schedules.busy(c),

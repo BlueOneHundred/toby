@@ -42,8 +42,10 @@ export function nextRun(timing,after,servedAt){
  for(let t=Math.floor(after/60000)*60000+60000,end=t+8*86400000;t<end;t+=60000){const p=Object.fromEntries(format.formatToParts(t).map(p=>[p.type,p.value]));if(localDate(t)!==servedDate&&localDate(t)!==skipToday&&timing.days.includes(names.indexOf(p.weekday))&&`${p.hour}:${p.minute}`===timing.time)return t;}
  throw new Error('Could not determine the next scheduled time.');
 }
+export const cutShort=error=>/interrupted when the app closed|^Paused at the|^Paused after|run limit|time limit|tool-call limit/i.test(String(error||''));
+const two=n=>String(n).padStart(2,'0'),day=t=>{const d=new Date(t);return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`;},clock=t=>{const d=new Date(t);return `${two(d.getHours())}:${two(d.getMinutes())}`;};
 export class Schedules {
- constructor({directory,encrypt,decrypt,service,onChange=()=>{},now=Date.now}){Object.assign(this,{directory,encrypt,decrypt,service,onChange,now});this.items=[];this.persist=Promise.resolve();this.ticking=false;this.closed=false;this.dispatching=new Set();}
+ constructor({directory,encrypt,decrypt,service,onChange=()=>{},now=Date.now,teamFolder=null}){Object.assign(this,{directory,encrypt,decrypt,service,onChange,now,teamFolder});this.items=[];this.persist=Promise.resolve();this.ticking=false;this.closed=false;this.dispatching=new Set();}
  async init(){try{const data=JSON.parse(await this.decrypt(await readFile(join(this.directory,'schedules.secure'))));requireVersion(data,'Schedules');if(!Array.isArray(data.items))throw new Error('Invalid saved records.');this.items=data.items;}catch(e){if(e.code!=='ENOENT')throw new Error('Could not unlock saved schedules.');}this.opened=true;return this;}
  snapshot(conversationId){return structuredClone(this.items.filter(i=>!conversationId||i.conversationId===conversationId));}
  async save(){if(!this.opened)throw new Error('Storage did not open safely. Existing files were preserved.');const body=JSON.stringify({version:1,items:this.items});const write=async()=>{await assertStorageCompatible(this.directory);await mkdir(this.directory,{recursive:true,mode:0o700});const tmp=join(this.directory,'.schedules-'+randomUUID());await writeFile(tmp,await this.encrypt(body),{mode:0o600});await rename(tmp,join(this.directory,'schedules.secure'));};this.persist=this.persist.then(write,write);await this.persist;this.onChange();}
@@ -90,7 +92,11 @@ export class Schedules {
     const replies=c.messages.slice(index+1,end<0?undefined:end).filter(m=>m.role==='assistant');
     const failed=replies.find(m=>['error','cancelled'].includes(m.status));
     run.status=failed||!replies.length?'needs_review':'completed';run.finishedAt=this.now();
-    if(run.status==='needs_review'){run.error=failed?.error||'No completed reply was recorded.';item.enabled=false;item.error='Review the last run, then resume this schedule.';}changed=true;
+    // Toby build 39: a run cut short by Toby closing or by a run limit is not a reason to switch the schedule off
+    // (on 18 Nov four schedules paused themselves this way and nobody saw it). It runs again at its next time,
+    // and a run line tells Toby's brief what happened. A run Tavin stopped himself still pauses its schedule.
+    if(run.status==='needs_review'&&cutShort(failed?.error)){run.status='interrupted';run.error=failed.error;void this.runLine(item,failed.error);}
+    else if(run.status==='needs_review'){run.error=failed?.error||'No completed reply was recorded.';item.enabled=false;item.error='Review the last run, then resume this schedule.';}changed=true;
    }
    if(!item.enabled||item.nextRunAt>this.now()||this.busy(c)||item.runs.some(r=>['starting','running'].includes(r.status)))continue;
    // Coalesce missed intervals to one fresh check. Never replay a backlog.
@@ -99,5 +105,7 @@ export class Schedules {
   if(changed)await this.save();
  }finally{this.ticking=false;}}
  start(){this.timer=setInterval(()=>void this.tick().catch(()=>{}),5000);this.timer.unref?.();void this.tick().catch(()=>{});}
+ async runLine(item,error){if(!this.teamFolder)return;const t=this.now(),bot=this.service.state.bots.find(b=>b.id===item.botId)?.name||'A bot';
+  await this.teamFolder.append(`board/runs-${day(t)}.md`,`${clock(t)} | ${bot} | done: scheduled run "${item.title}" was cut short; the schedule stays on and runs again at its next time | cost: $0.00 | problems: ${String(error).replace(/\n/g,' ').slice(0,200)}\n`).catch(()=>{});}
  async close(){this.closed=true;clearInterval(this.timer);await this.persist;}
 }
