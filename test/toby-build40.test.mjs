@@ -86,3 +86,15 @@ test('Toby build 40: on a long title the sources seal moves up onto the photo', 
   assert.match(long, /<div class="seal high">/); assert.match(short, /<div class="seal">/);
   assert.match(long, /\.seal\.high\{top:calc\(57% - 42mm\)\}/);
 });
+
+test('Toby build 41: run lines get the real time; other files and other lines are left alone', async () => {
+  const {stampRunLines, localTimeLine, clockNow} = await import('../src/claude-backend.mjs');
+  assert.equal(stampRunLines('board/runs-2026-11-19.md', '~08:40 | Creator Partnerships | done: x | cost: $0.04 | problems: none\n', '08:08'), '08:08 | Creator Partnerships | done: x | cost: $0.04 | problems: none\n');
+  assert.equal(stampRunLines('board\\runs-2026-11-19.md', '09:40 | Visual Check | done: y', '09:12'), '09:12 | Visual Check | done: y');
+  assert.equal(stampRunLines('board/runs-2026-11-19.md', 'Art Director | done: z | cost: $0', '09:05'), '09:05 | Art Director | done: z | cost: $0');
+  assert.equal(stampRunLines('board/runs-2026-11-19.md', 'A note that mentions 12:00 | nothing else', '09:05'), 'A note that mentions 12:00 | nothing else');
+  assert.equal(stampRunLines('creators/2026-11-19.md', '09:40 | x', '09:12'), '09:40 | x');
+  assert.equal(stampRunLines('board/decisions-2026-11.md', '09:40 | x', '09:12'), '09:40 | x');
+  const t = new Date(2026, 10, 19, 9, 12); assert.equal(clockNow(t).hhmm, '09:12');
+  assert.match(localTimeLine(t), /09:12 .*never a guess/);
+});

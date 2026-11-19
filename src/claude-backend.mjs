@@ -54,7 +54,18 @@ export function userPrompt(template, input) {
 // Toby: bots can't see a clock, so the instructions carry the computer's local date and time.
 export function localTimeLine(now=new Date(),timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone){
   const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone,weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(x=>[x.type,x.value]));
-  return `Current local time when this turn started: ${p.weekday} ${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute} (${timeZone}).`;
+  return `Current local time when this turn started: ${p.weekday} ${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute} (${timeZone}). A long job can run 10 to 40 minutes, so this goes out of date: your team folder tools give the real time in their answers ("time"); use that for any time you write, never a guess, and never change a time to follow other bots' lines.`;
+}
+// Toby build 41: the real local time, for tool answers ("HH:MM" and a longer form).
+export function clockNow(now=new Date(),timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone){
+  const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone,weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(x=>[x.type,x.value]));
+  return {hhmm:`${p.hour}:${p.minute}`,full:`${p.weekday} ${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute} (${timeZone})`};
+}
+// Run lines in board/runs-<date>.md start with the time the bot finished. Bots guessed it (it ran 15 to 40 minutes
+// ahead on 18 and 19 Nov, partly to keep the board "in order"), so the app writes the real time over whatever came first.
+export function stampRunLines(path,content,hhmm){
+  if(!/(^|[\\/])board[\\/]runs-\d{4}-\d{2}-\d{2}\.md$/i.test(String(path||'')))return content;
+  return String(content).split('\n').map(line=>/^\s*[~≈]?\s*\d{1,2}:\d{2}\s*\|/.test(line)?line.replace(/^\s*[~≈]?\s*\d{1,2}:\d{2}\s*\|/,`${hhmm} |`):(/^\s*[A-Z][\w ]{2,30}\s*\|\s*done:/.test(line)?`${hhmm} | ${line.trim()}`:line)).join('\n');
 }
 
 export function claudeSystemPrompt(bot, runtime) {
