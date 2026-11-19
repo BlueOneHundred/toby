@@ -84,9 +84,29 @@ export class CreatorLog {
     r.stage_no = String(n); r.stage = n === 0 ? 'No' : STAGES[n - 1]; r.stage_updated = stamp(this.now());
     for (const [k, v] of Object.entries(fields)) if (v !== undefined) r[k] = clean(v);
   }
+  // Build 40: a creator started from outside a ranked list (a near miss, or someone Tavin named) still gets her
+  // details: the newest creators/<date>.md table row that names her (ranked list or near misses).
+  async details(handle) {
+    let names = []; try { names = (await readdir(join(this.teamRoot, 'creators'))).filter(n => /^\d{4}-\d{2}-\d{2}.*\.md$/.test(n)).sort().reverse(); } catch { return null; }
+    const want = '@' + key(handle);
+    for (const n of names) {
+      let text = ''; try { text = await readFile(join(this.teamRoot, 'creators', n), 'utf8'); } catch { continue; }
+      const ranked = rankedCreators(text, 'creators/' + n).find(f => key(f.handle) === key(handle)); if (ranked) return ranked;
+      for (const line of text.split('\n')) {
+        const cells = line.split('|').slice(1, -1).map(s => s.trim()); if (cells.length < 4) continue;
+        const first = cells[0].toLowerCase(); if (!(first === want || first.startsWith(want + ' '))) continue;
+        const email = line.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0];
+        return {name: cells[0].match(/\(([^)]+)\)/)?.[1] || '', niche: cells[1], followers: cells[2].replace(/[^\d]/g, ''), score: 'near miss: ' + cells[3].slice(0, 80),
+          contact_route: email ? 'email' : 'DM', contact: email || `https://www.instagram.com/${key(handle)}/`, found_date: (n.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || '', found_file: 'creators/' + n};
+      }
+    }
+    return null;
+  }
   // Package runs
-  started(run) {
-    return this.update(rows => { const r = this.row(rows, run.handle); if (!r.base_book || r.base_book === 'none ready') r.base_book = run.base; if (!r.contact_route) r.contact_route = run.contact === 'dm' ? 'DM' : 'email';
+  async started(run) {
+    const found = await this.details(run.handle).catch(() => null);
+    return this.update(rows => { const r = this.row(rows, run.handle);
+      if (found) for (const [k, v] of Object.entries(found)) if (!r[k] && v) r[k] = v; if (!r.base_book || r.base_book === 'none ready') r.base_book = run.base; if (!r.contact_route) r.contact_route = run.contact === 'dm' ? 'DM' : 'email';
       this.setStage(rows, r, 2, {base_book: run.base, waiting_on: 'Package run (automatic)', next_step: 'Creator Partnerships: voice file and photos'}); });
   }
   stepPassed(run, stepId, nextLabel, appLink) {

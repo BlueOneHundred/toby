@@ -86,6 +86,7 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .cover-inside span{flex:1;padding:0 4mm;border-left:.6pt solid ${P.darkRule}}
 .cover-inside span:first-child{padding-left:0;border-left:0}
 .seal{position:absolute;right:13mm;top:calc(57% - 21mm);width:41mm;height:41mm;border-radius:50%;background:var(--marigold);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transform:rotate(-8deg);box-shadow:0 0 0 1.4mm var(--pine)}
+.seal.high{top:calc(57% - 42mm)}
 .seal::before{content:'';position:absolute;inset:1.8mm;border-radius:50%;border:.6pt solid var(--ink)}
 .seal-top{font:700 6.8pt/1.1 var(--display);margin:0 0 .4mm}
 .seal-num{font:800 30pt/.95 var(--display);letter-spacing:-.02em;margin:0 0 .5mm}

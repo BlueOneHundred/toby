@@ -55,6 +55,7 @@ export function nextInstruction(decisions) {
   let max = 0; for (const m of String(decisions).matchAll(/^\d{4}-\d{2}-\d{2} I(\d+) \|/gm)) max = Math.max(max, Number(m[1]));
   return max + 1;
 }
+export const secondTryMessage = date => `Second try for today's creators (from the Toby app): there is no finished creators/${date}.md yet (no "Status: done" line). Do today's creator search again now, using your rules and the decisions file, with the READY-BOOK TOP-UP FIRST (creators who fit a ready base book), then today's niches if your step budget allows, until the day lists 4 creators. Keep anything already in creators/${date}.md and add to it; save after every niche; end the file with "Status: done". Don't ask questions.`;
 export function stepMessage({run, step, steps}) {
   const list = steps.filter(s => !s.review);
   return `Package run for @${run.handle}, step ${list.indexOf(step) + 1} of ${list.length}: ${step.task}. Do this for @${run.handle} only (base book ${run.base}), using your rules and the decisions file (I${run.decision}). Don't ask questions. When you finish, the app checks your files automatically.`;
@@ -195,7 +196,7 @@ export class Pipelines {
 
   async tick() {
     if (this.ticking || this.closed) return; this.ticking = true;
-    try { await this.logged(this.log.tick());
+    try { await this.logged(this.log.tick()); await this.logged(this.watchCreators());
       for (const run of this.runs.filter(r => r.status === 'running')) await this.advance(run).catch(async e => { await this.fail(run, 'The package run hit an error: ' + e.message); }); }
     finally { this.ticking = false; }
   }
@@ -247,6 +248,26 @@ export class Pipelines {
     run.status = 'review'; run.readyAt = this.now(); await this.save();
     await this.writeStatus(run, `Ready for Tavin: open pipeline/${run.handle}/review.html, then tell Toby "approve @${run.handle}" or what to change.`);
     await this.runLine(`@${run.handle} package READY for Tavin's review (pipeline/${run.handle}/review.html)`);
+  }
+  // Build 40: never a day without creators. On a weekday from 08:15, if Creator Partnerships has no finished
+  // creators/<date>.md (last line "Status: done") and is not working, the app asks it once for a second try,
+  // ready-book creators first. 19 Nov: the 07:00 search hit its run limit and saved nothing.
+  async watchCreators() {
+    const t = this.now(); if (this.lastWatch && t - this.lastWatch < 60000) return; this.lastWatch = t;
+    const d = new Date(t), hm = d.getHours() * 60 + d.getMinutes(), day = d.getDay();
+    if (day === 0 || day === 6 || hm < 8 * 60 + 15 || hm > 17 * 60) return;
+    const date = localDate(t), marker = `pipeline/second-try-${date}.md`;
+    try { await stat(join(this.teamRoot, marker)); return; } catch {}
+    let names = []; try { names = (await readdir(join(this.teamRoot, 'creators'))).filter(n => n.startsWith(date) && n.endsWith('.md')); } catch {}
+    for (const n of names) { try { if (/Status:\s*done/i.test(await readFile(join(this.teamRoot, 'creators', n), 'utf8'))) return; } catch {} }
+    const c = this.botConversation('Creator Partnerships'); if (!c || this.busy(c) || c.messages.some(m => m.status === 'streaming')) return;
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    // Wait for the 07:00 run itself (Toby may have been opened late) until 10:00.
+    if (hm < 10 * 60 && !c.messages.some(m => m.role === 'user' && Number(m.createdAt) >= start)) return;
+    const message = secondTryMessage(date);
+    await this.teamFolder.write(null, marker, `# Second try for creators, ${date}\n\n- Asked at ${localTime(t)}: no finished creators/${date}.md (no "Status: done") and Creator Partnerships was not working.\n\n## For Toby\nCreator Partnerships' first search today did not finish; the app asked it for a second try at ${localTime(t)}. Tell Tavin in the brief if creators/${date}.md still has no "Status: done".\n`);
+    await this.service._deliver(c, message, [], {scheduled: {id: 'creator-second-try', runId: randomUUID(), title: 'Second try: today\'s creators', scheduledFor: t}});
+    await this.runLine(`no finished creators/${date}.md by ${localTime(t)}; asked Creator Partnerships for a second try (ready-book creators first)`);
   }
   async runLine(done, problems = 'none') {
     const t = this.now();

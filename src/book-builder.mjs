@@ -476,7 +476,8 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const toc = sections.map(s => tocRow(s.id, s.kind === 'chapter' ? String(s.n).padStart(2, '0') : '', esc(s.kind === 'chapter' ? s.name : s.title), s.kind !== 'chapter')).join('');
   const prints = ctx.prints.length ? `<p class="toc-sub">Pages to print</p><ol class="prints">${ctx.prints.map(p => tocRow(p.id, ICONS.print, esc(p.title))).join('')}</ol>` : '';
   const sealMatch = /^(.*?)(\d[\d,]*)\s*(.*)$/.exec(badge);
-  const seal = !badge ? '' : sealMatch ? `<div class="seal">${sealMatch[1].trim() ? `<div class="seal-top">${esc(sealMatch[1].trim())}</div>` : ''}<div class="seal-num">${esc(sealMatch[2])}</div><div class="seal-text">${esc(sealMatch[3].trim())}</div></div>` : `<div class="seal"><div class="seal-text">${esc(badge)}</div></div>`;
+  const sealClass = title.length > 20 ? 'seal high' : 'seal';
+  const seal = !badge ? '' : sealMatch ? `<div class="${sealClass}">${sealMatch[1].trim() ? `<div class="seal-top">${esc(sealMatch[1].trim())}</div>` : ''}<div class="seal-num">${esc(sealMatch[2])}</div><div class="seal-text">${esc(sealMatch[3].trim())}</div></div>` : `<div class="${sealClass}"><div class="seal-text">${esc(badge)}</div></div>`;
   const inside = (Array.isArray(highlights) && highlights.length ? highlights : [chapters.length >= 2 ? `${chapters.length} short chapters` : '', ctx.prints.length ? `${(body.match(/class="(worksheet|plan-page)"/g) || []).length} pages to print` : '', 'Every fact sourced']).map(x => String(x || '').trim()).filter(Boolean).slice(0, 3);
   const titleSize = title.length <= 20 ? '' : title.length <= 34 ? ' t2' : ' t3';
   const probes = `<div class="probes">${['cal-top', ...ends].map(id => `<a href="#${id}"></a>`).join('')}</div>`;

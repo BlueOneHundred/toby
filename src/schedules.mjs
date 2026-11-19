@@ -42,6 +42,10 @@ export function nextRun(timing,after,servedAt){
  for(let t=Math.floor(after/60000)*60000+60000,end=t+8*86400000;t<end;t+=60000){const p=Object.fromEntries(format.formatToParts(t).map(p=>[p.type,p.value]));if(localDate(t)!==servedDate&&localDate(t)!==skipToday&&timing.days.includes(names.indexOf(p.weekday))&&`${p.hour}:${p.minute}`===timing.time)return t;}
  throw new Error('Could not determine the next scheduled time.');
 }
+// Toby build 40: a run that hit a run limit gets one short, fresh turn to save its work (19 Nov: Creator Partnerships
+// reached 200 tool calls with nothing saved, so Tavin had no creators that morning).
+export const hitLimit=error=>/^Paused at the|^Paused after/i.test(String(error||''));
+export const WRAP_UP='Your scheduled run stopped at its run limit before it finished. Do NOT continue the job or start anything new. Using at most 10 tool calls, save what you already have now: write (or finish) your main file with everything you found so far, mark clearly what is missing, and add your run line saying the run hit its limit. Then stop. Don\'t ask questions.';
 export const cutShort=error=>/interrupted when the app closed|^Paused at the|^Paused after|run limit|time limit|tool-call limit/i.test(String(error||''));
 const two=n=>String(n).padStart(2,'0'),day=t=>{const d=new Date(t);return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`;},clock=t=>{const d=new Date(t);return `${two(d.getHours())}:${two(d.getMinutes())}`;};
 export class Schedules {
@@ -79,7 +83,7 @@ export class Schedules {
   }finally{this.dispatching.delete(run.id);}
  }
  async tick(){if(this.ticking||this.closed)return;this.ticking=true;try{
-  let changed=false;
+  let changed=false;const wrapups=[];
   for(const item of this.items){
    const c=this.service.state.conversations.find(c=>c.id===item.conversationId);
    if(!c){if(item.enabled){item.enabled=false;item.error='The chat was deleted.';changed=true;}continue;}
@@ -95,7 +99,7 @@ export class Schedules {
     // Toby build 39: a run cut short by Toby closing or by a run limit is not a reason to switch the schedule off
     // (on 18 Nov four schedules paused themselves this way and nobody saw it). It runs again at its next time,
     // and a run line tells Toby's brief what happened. A run Tavin stopped himself still pauses its schedule.
-    if(run.status==='needs_review'&&cutShort(failed?.error)){run.status='interrupted';run.error=failed.error;void this.runLine(item,failed.error);}
+    if(run.status==='needs_review'&&cutShort(failed?.error)){run.status='interrupted';run.error=failed.error;void this.runLine(item,failed.error);if(hitLimit(failed.error)&&run.kind!=='wrapup')wrapups.push(item);}
     else if(run.status==='needs_review'){run.error=failed?.error||'No completed reply was recorded.';item.enabled=false;item.error='Review the last run, then resume this schedule.';}changed=true;
    }
    if(!item.enabled||item.nextRunAt>this.now()||this.busy(c)||item.runs.some(r=>['starting','running'].includes(r.status)))continue;
@@ -103,8 +107,14 @@ export class Schedules {
    await this.startRun(item,item.nextRunAt);
   }
   if(changed)await this.save();
+  for(const item of wrapups)await this.wrapUp(item).catch(()=>{});
  }finally{this.ticking=false;}}
  start(){this.timer=setInterval(()=>void this.tick().catch(()=>{}),5000);this.timer.unref?.();void this.tick().catch(()=>{});}
+ async wrapUp(item){const c=this.service._conversation(item.conversationId);if(this.closed||this.busy(c))return;
+  const run={id:randomUUID(),kind:'wrapup',scheduledFor:this.now(),startedAt:this.now(),status:'starting'};this.dispatching.add(run.id);
+  try{item.runs.push(run);item.runs=item.runs.slice(-30);await this.save();
+   try{await this.service._deliver(c,WRAP_UP,[],{scheduled:{id:item.id,runId:run.id,title:item.title+': save your work',scheduledFor:run.scheduledFor}});run.status='running';}
+   catch(e){run.status='interrupted';run.error=e.message;}await this.save();}finally{this.dispatching.delete(run.id);}}
  async runLine(item,error){if(!this.teamFolder)return;const t=this.now(),bot=this.service.state.bots.find(b=>b.id===item.botId)?.name||'A bot';
   await this.teamFolder.append(`board/runs-${day(t)}.md`,`${clock(t)} | ${bot} | done: scheduled run "${item.title}" was cut short; the schedule stays on and runs again at its next time | cost: $0.00 | problems: ${String(error).replace(/\n/g,' ').slice(0,200)}\n`).catch(()=>{});}
  async close(){this.closed=true;clearInterval(this.timer);await this.persist;}
