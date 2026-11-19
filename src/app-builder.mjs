@@ -37,7 +37,7 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
     listStarters: appJson.listStarters || ["Vet's phone number", 'Emergency vet number', 'Poison line number', "Midday helper's phone number"],
     requiredTools: Array.isArray(appJson.requiredTools) ? appJson.requiredTools : TYPE ? [] : ['potty', 'tracker', 'planner', 'list', 'social'],
     // A general book says how long its plan is; the first book (no app.json) has a 30 day plan.
-    planDays: Number.isInteger(appJson.planDays) && appJson.planDays > 0 ? appJson.planDays : 30,
+    planDays: Number.isInteger(appJson.planDays) && (appJson.planDays > 0 || (TYPE && appJson.planDays === 0)) ? appJson.planDays : 30,
     // A sample carries part of the book plus an "In the full book" list of the chapters still to come.
     sample: appJson.sample === true,
     disclaimer: typeof appJson.disclaimer === 'string' && appJson.disclaimer.trim() ? appJson.disclaimer.trim() : '',
@@ -232,7 +232,8 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
   const ids = book.chapters.map((c) => c.id); if (new Set(ids).size !== ids.length) problems.push('Two sections share an id: ' + ids.join(', '));
   const days = book.plan.map((p) => p.day), consecutive = days.every((d, i) => d === i + 1);
   if (CONFIG.sample && !days.length) { /* a sample may stop before the plan chapter */ }
-  else if (TYPE && TYPE !== 'care') { if (days.length && !consecutive) problems.push('The day plan must be numbered 1 to ' + days.length + ' in order'); }
+  else if (TYPE && (TYPE !== 'care' || CONFIG.planDays === 0)) {   // a typed care book with no day plan (a garden calendar) says "planDays": 0
+    if (days.length && !consecutive) problems.push('The day plan must be numbered 1 to ' + days.length + ' in order'); }
   else if (days.length !== CONFIG.planDays || !consecutive) problems.push(`Plan table does not have ${CONFIG.planDays} days` + (days.length && !consecutive ? ' numbered 1 to ' + CONFIG.planDays + ' in order' : ''));
   if (CONFIG.sample && !book.coming.length) problems.push('A sample needs an "## In the full book" section listing the chapters still to come, one per line: "- Chapter 5: Title"');
   if (!CONFIG.sample && book.coming.length) problems.push('The book has an "## In the full book" section but app.json does not say "sample": true');

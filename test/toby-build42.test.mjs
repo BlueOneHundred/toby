@@ -133,6 +133,8 @@ test('the app gets the type\'s own tabs and data, and no puppy trackers are requ
   assert.deepEqual(wb.tools.habit.rows, ['10-minute reset', 'Sink empty at night', 'One load of laundry']);
   const c = app(CARE, 'care', {appJson: JSON.stringify({requiredTools: [], planDays: 1})});
   assert.deepEqual(c.check.tabs, ['Today', 'Plan', 'Log', 'Read', 'Yours']);
+  assert.equal(app(CARE, 'care', {appJson: JSON.stringify({requiredTools: [], planDays: 0})}).check.passed, true, 'a care book with no day plan says planDays 0');
+  assert.ok(app(CARE, 'care').check.problems.some(x => /Plan table does not have 30 days/.test(x)), 'otherwise a care book needs its day plan');
   assert.equal(data(c.html).chapters[0].blocks.filter(b => b.t === 'say').length, 1, 'Do this, not that is a say table in a typed book');
   const wrong = app(RECIPE_WRONG, 'recipe');
   assert.ok(wrong.check.problems.some(x => /no recipe card/.test(x)));
