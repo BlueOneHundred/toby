@@ -28,7 +28,8 @@ test('Toby build 39: a scheduled run cut short by closing Toby or a run limit ke
   assert.equal(row.error, undefined);
   assert.equal(row.runs[0].status, 'interrupted');
   await new Promise(r => setTimeout(r, 50));
-  const runs = await readFile(join(team, 'board/runs-2026-11-19.md'), 'utf8');
+  const day = new Date(now), ymd = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; // the laptop's own date (Hanoi: 19 Nov; a UTC test machine: 18 Nov)
+  const runs = await readFile(join(team, `board/runs-${ymd}.md`), 'utf8');
   assert.match(runs, /scheduled run "Daily Plan" was cut short; the schedule stays on/);
   assert.match(runs, /problems: Response interrupted when the app closed\./);
 });
