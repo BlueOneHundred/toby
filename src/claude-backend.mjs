@@ -65,7 +65,7 @@ export function clockNow(now=new Date(),timeZone=Intl.DateTimeFormat().resolvedO
 // ahead on 18 and 19 Nov, partly to keep the board "in order"), so the app writes the real time over whatever came first.
 export function stampRunLines(path,content,hhmm){
   if(!/(^|[\\/])board[\\/]runs-\d{4}-\d{2}-\d{2}\.md$/i.test(String(path||'')))return content;
-  return String(content).split('\n').map(line=>/^\s*[~≈]?\s*(?:(?:\d{1,2}|HH?|hh?|XX?|xx?|\?\??):(?:\d{2}|MM|mm|XX|xx|\?\?)|NOW|Now|now|TIME|Time|time)\s*\|/.test(line)?line.replace(/^\s*[~≈]?\s*(?:(?:\d{1,2}|HH?|hh?|XX?|xx?|\?\??):(?:\d{2}|MM|mm|XX|xx|\?\?)|NOW|Now|now|TIME|Time|time)\s*\|/,`${hhmm} |`):(/^\s*[A-Z][\w ]{2,30}\s*\|\s*done:/.test(line)?`${hhmm} | ${line.trim()}`:line)).join('\n');
+  return String(content).split('\n').map(line=>/^\s*[~≈]?\s*(?:(?:\d{1,2}|HH?|hh?|XX?|xx?|\?\??):(?:\d{2}|MM|mm|XX|xx|\?\?)|NOW|Now|now|TIME|Time|time)\s*\|/.test(line)?line.replace(/^\s*[~≈]?\s*(?:(?:\d{1,2}|HH?|hh?|XX?|xx?|\?\??):(?:\d{2}|MM|mm|XX|xx|\?\?)|NOW|Now|now|TIME|Time|time)\s*\|/,`${hhmm} |`):(/^\s*\|?\s*[A-Z][\w ]{2,30}\s*\|\s*(done|correction):/.test(line)?`${hhmm} | ${line.trim().replace(/^\|\s*/,'')}`:line)).join('\n');
 }
 
 export function claudeSystemPrompt(bot, runtime) {

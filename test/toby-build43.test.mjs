@@ -9,6 +9,9 @@ test('build 43: a placeholder time like HH:MM on a run line gets the real time',
   assert.equal(stampRunLines(p, 'hh:mm | Some Bot | done: x', '09:02'), '09:02 | Some Bot | done: x');
   assert.equal(stampRunLines(p, '17:00 | Some Bot | done: x', '17:47'), '17:47 | Some Bot | done: x');
   assert.equal(stampRunLines(p, 'NOW | Lead Researcher | done: no search', '07:30'), '07:30 | Lead Researcher | done: no search');
+  assert.equal(stampRunLines(p, '| Marketing Kit | done: no kit work', '15:40'), '15:40 | Marketing Kit | done: no kit work');
+  assert.equal(stampRunLines(p, 'Marketing Kit | done: x', '15:40'), '15:40 | Marketing Kit | done: x');
+  assert.equal(stampRunLines(p, '| file | PASS | ok |', '15:40'), '| file | PASS | ok |');
   assert.equal(stampRunLines(p, 'Notes about HH:MM | not a run line', '10:00'), 'Notes about HH:MM | not a run line');
   assert.equal(stampRunLines('notes/other.md', 'HH:MM | Bot | done: x', '10:00'), 'HH:MM | Bot | done: x');
 });
