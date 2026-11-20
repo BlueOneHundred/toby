@@ -8,7 +8,7 @@ export class T3LocalHost {
  constructor({home,installer,execute=exec,onProgress=()=>{}}){Object.assign(this,{home,installer,execute,onProgress});this.pending=null;}
  async running(){for(const home of [this.home,join(homedir(),'.t3')]){try{const state=JSON.parse(await readFile(join(home,'userdata/server-runtime.json'),'utf8'));if(!Number.isInteger(state.pid)||state.pid<1)continue;process.kill(state.pid,0);const url=new URL(state.origin);if(!['127.0.0.1','localhost','[::1]'].includes(url.hostname))continue;return{endpoint:url.origin+'/mcp',home,owned:home===this.home,version:state.serverVersion};}catch{}}return null;}
  async setup(){if(this.pending)return this.pending;this.pending=this.install().finally(()=>{this.pending=null;});return this.pending;}
- async binary(host){for(const candidate of [join(host.home,'bin/t3'),join(homedir(),'.local/bin/t3'),'/opt/homebrew/bin/t3','/usr/local/bin/t3']){try{await access(candidate);return candidate;}catch{}}throw new Error('The T3 command could not be found on this Mac.');}
+ async binary(host){for(const candidate of [join(host.home,'bin/t3'),join(homedir(),'.local/bin/t3'),'/opt/homebrew/bin/t3','/usr/local/bin/t3']){try{await access(candidate);return candidate;}catch{}}throw new Error('The T3 command could not be found on this computer.');}
  async registerProject(host,folder){await this.execute(await this.binary(host),['project','add','--base-dir',host.home,folder],{env:{...process.env,T3CODE_HOME:host.home},timeout:30000,maxBuffer:100000});}
  async browserLink(host,threadId){
   const {stdout}=await this.execute(await this.binary(host),['auth','pairing','create','--base-dir',host.home,'--scope','orchestration:read','--scope','orchestration:operate','--scope','filesystem:read','--scope','preview:operate','--ttl','5m','--label','Toby browser handoff','--json'],{env:{...process.env,T3CODE_HOME:host.home},timeout:20000,maxBuffer:100000});
@@ -23,7 +23,7 @@ export class T3LocalHost {
  }
  async install(){
   const running=await this.running();if(running)return running;
-  if(process.platform==='win32')throw new Error('Automatic T3 installation is available on macOS and Linux. Connect an existing T3 MCP server in Advanced settings on Windows.');
+  if(process.platform==='win32')throw new Error('Automatic T3 installation does not work on Windows. Connect an existing T3 MCP server in Advanced settings instead.');
   const binary=join(this.home,'bin/t3'),env={...process.env,T3CODE_HOME:this.home,T3CODE_VERSION:'0.1.7',T3CODE_INSTALL_BIN_DIR:join(this.home,'bin')};
   try{await access(binary);}catch{
    this.onProgress('Downloading and verifying T3…');await mkdir(this.home,{recursive:true,mode:0o700});const script=join(this.home,'install-t3.sh');await writeFile(script,await readFile(this.installer),{mode:0o700});

@@ -30,7 +30,7 @@ export class ComposioSignIn {
   }
   async start(){
     if(this.job)return this.state();
-    if(!this.binary)throw new Error('Browser sign-in is currently available on macOS. Use your Composio project API key in Advanced settings on this platform.');
+    if(!this.binary)throw new Error('Browser sign-in is not available on this computer yet. Use your Composio project API key in Advanced settings instead.');
     await access(this.binary);const cache=join(this.directory,'composio-signin',randomUUID());await mkdir(cache,{recursive:true,mode:0o700});
     const job={cache,controller:new AbortController(),url:null,promise:null};this.job=job;this.update('opening');
     try{

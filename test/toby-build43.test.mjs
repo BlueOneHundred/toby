@@ -64,14 +64,14 @@ test('build 43: a book run makes the whole base book bot by bot, sends the pictu
     await assert.rejects(p.startBook({base: SLUG, niche: NICHE, topic: 't', type: 'project'}), /already has a book run going/);
 
     await p.tick(); assert.equal(service.delivered.at(-1).bot, 'Ebook Builder');
-    assert.match(service.delivered.at(-1).input, /^Book run for ebooks\/test-shed \(new base book, niche garden shed building, Type: project\), step 1 of 6: write the new base book ebooks\/test-shed: plan\.md first with the line "Type: project".*this message is Tavin's go/);
+    assert.match(service.delivered.at(-1).input, /^Book run for ebooks\/test-shed \(new base book, niche garden shed building, Type: project\), step 1 of 7: write the new base book ebooks\/test-shed: plan\.md first with the line "Type: project".*this message is Tavin's go/);
     // 1. A plan that still waits for Tavin's type does not pass; the fix run says why.
     await step('Ebook Builder', {[B('plan.md')]: 'Type: project (please confirm)\n'});
     assert.equal(p.findBook(SLUG).attempt, 1);
     assert.match(service.delivered.at(-1).input, /^Book run for ebooks\/test-shed: your book step did not pass.*\n- ebooks\/test-shed\/plan\.md still says "\(please confirm\)"/s);
     await step('Ebook Builder', {[B('plan.md')]: 'Type: project\n', [B('part-a.md')]: '## Chapter 1: Plan\n', [B('part-b.md')]: '', [B('part-c.md')]: '', [B('book-check.md')]: '# Book check: Shed\n- Result: PASSED\n- Book type: project (Project and skill)\n- Pictures placed: 0, missing: 0\n', [B('book.pdf')]: '%PDF'});
     assert.equal(p.findBook(SLUG).step, 1); assert.equal(service.delivered.at(-1).bot, 'Art Director');
-    assert.match(service.delivered.at(-1).input, /step 2 of 6: plan the pictures/);
+    assert.match(service.delivered.at(-1).input, /step 2 of 7: plan the pictures/);
     // 2. Art Director: pictures.md and the picture lines.
     await step('Art Director', {[B('pictures.md')]: PICS, [B('part-a.md')]: '## Chapter 1: Plan\n\n![A saw](images/ch1-saw.jpg)\n'});
     assert.equal(service.delivered.at(-1).bot, 'Creative Studio'); assert.match(service.delivered.at(-1).input, /Tavin's go \(cap \$3\.50/);
@@ -90,7 +90,7 @@ test('build 43: a book run makes the whole base book bot by bot, sends the pictu
     assert.equal(p.findBook(SLUG).attempt, 2, 'a second fix round for the pictures'); assert.equal(service.delivered.at(-1).bot, 'Creative Studio');
     await step('Creative Studio', {[B('images/ch1-saw.jpg')]: 'jpg3'});
     await step('Visual Check', {[B('images/check.md')]: 'All pictures PASSED (3), 2026-11-20 09:10\n'});
-    assert.equal(service.delivered.at(-1).bot, 'Ebook Builder'); assert.match(service.delivered.at(-1).input, /step 5 of 6: rebuild/);
+    assert.equal(service.delivered.at(-1).bot, 'Ebook Builder'); assert.match(service.delivered.at(-1).input, /step 6 of 7: rebuild/);
     // 5. Rebuild with every picture in place.
     await step('Ebook Builder', {[B('book-check.md')]: '# Book check: Shed\n- Result: PASSED\n- Book type: project\n- Pictures placed: 2, missing: 0\n', [B('book.pdf')]: '%PDF2'});
     assert.equal(service.delivered.at(-1).bot, 'App Builder');
@@ -145,8 +145,8 @@ test('build 43: a book run stops for Tavin after its fix runs, and checks what i
   } finally { await rm(root, {recursive: true, force: true}); await rm(data, {recursive: true, force: true}); }
 });
 
-test('build 43: the book steps run in the agreed order and the decided line has no dashes', () => {
-  assert.deepEqual(BOOK_STEPS.steps.map(s => s.bot || 'ready'), ['Ebook Builder', 'Art Director', 'Creative Studio', 'Visual Check', 'Ebook Builder', 'App Builder', 'ready']);
+test('build 43: the book steps run in the agreed order (build 44 adds the Art Director caption step) and the decided line has no dashes', () => {
+  assert.deepEqual(BOOK_STEPS.steps.map(s => s.bot || 'ready'), ['Ebook Builder', 'Art Director', 'Creative Studio', 'Visual Check', 'Art Director', 'Ebook Builder', 'App Builder', 'ready']);
   assert.ok(BOOK_STEPS.steps.find(s => s.id === 'showcase').gates.some(g => g.phone), 'the showcase app is checked at phone size');
   const line = bookDecisionLine({n: 70, base: SLUG, niche: NICHE, topic: 'a shed', type: 'project', when: new Date(2026, 10, 20, 8, 5).getTime()});
   assert.match(line, /^2026-11-20 I70 \| .* no package run starts by itself\. .*\| status: decided \| 08:05\n$/); assert.doesNotMatch(line, /—|–/);

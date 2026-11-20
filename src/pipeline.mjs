@@ -9,6 +9,10 @@ import {randomUUID} from 'node:crypto';
 import {runPackageCheck,validHandle,validBase,CAROUSEL_LINE} from './package-check.mjs';
 import {CreatorLog} from './creator-log.mjs';
 import {TYPE_NAMES} from './book-types.mjs';
+import {ExtraWorkdays, isWorkday} from './workdays.mjs';
+import {splitDecisions, parseStanding, DEFAULT_STANDING, STANDING_FILE} from './decisions-archive.mjs';
+import {atomicWrite} from './storage-safety.mjs';
+import {AUTO_PICK, chooseCreators, askedHandles, bookRequest, pickReport, minutes} from './auto-pick.mjs';
 
 export const PIPELINE_BOTS = ['Creator Partnerships', 'Creative Studio', 'Edition Writer', 'App Builder', 'Art Director', 'Marketing Kit', 'Visual Check', 'Outreach Writer'];
 // The steps. Saved to pipeline/steps.json in the team folder the first time, so they can change without a build.
@@ -44,7 +48,7 @@ export const DEFAULT_STEPS = {
 // itself. Before build 43 Tavin messaged each bot in turn and Claude checked every file in between (19 and 20 Nov).
 export const BOOK_BOTS = ['Ebook Builder', 'Art Director', 'Creative Studio', 'Visual Check', 'App Builder'];
 export const BOOK_STEPS = {
-  version: 1,
+  version: 2,
   steps: [
     {id: 'book', bot: 'Ebook Builder', fixes: 2, task: 'write the new base book ebooks/{base}: plan.md first with the line "Type: {type}", then research, sources.md, part-a.md, part-b.md and part-c.md, then make_book with a PDF (book check must PASS). No pictures yet: Art Director plans them next',
       gates: [{file: 'ebooks/{base}/plan.md', contains: ['Type: {type}'], lacks: ['(please confirm)']}, {file: 'ebooks/{base}/part-c.md'}, {file: 'ebooks/{base}/book-check.md', contains: ['Result: PASSED', 'Book type: {type}']}, {file: 'ebooks/{base}/book.pdf'}]},
@@ -56,6 +60,9 @@ export const BOOK_STEPS = {
       retry: ['Creative Studio', 'Visual Check'],
       fixNote: {'Creative Studio': 'Make every open line under "## Redo requests (Visual Check)" in ebooks/{base}/plan.md, at the paths given. This message is Tavin\'s go for the redos.', 'Visual Check': 'Check again every picture Creative Studio has just remade, and update ebooks/{base}/images/check.md (the "All pictures PASSED" line only when every picture passes).'},
       gates: [{file: 'ebooks/{base}/images/check.md', contains: ['All pictures PASSED'], fresh: 'run'}]},
+    // Build 44: only when Visual Check left open "Caption changes (Visual Check)" lines in pictures.md.
+    {id: 'captions', bot: 'Art Director', when: {openCaptionChanges: true}, task: 'make every open line under "## Caption changes (Visual Check)" in ebooks/{base}/pictures.md: change the caption or alt text in the picture line of the part file it names (the picture line only, Visual Check\'s true wording word for word) and the same entry in the shot list, then mark each of those lines "- DONE (Art Director, <date>)". This message is Tavin\'s go. Ebook Builder rebuilds the book straight after you',
+      gates: [{captionsDone: true}]},
     {id: 'rebuild', bot: 'Ebook Builder', task: 'rebuild ebooks/{base} with the cover and the checked pictures (make_book with a PDF, same settings; book check must PASS with 0 pictures missing)',
       gates: [{file: 'ebooks/{base}/book-check.md', contains: ['Result: PASSED', 'missing: 0'], lacks: ['Pictures placed: 0,']}, {file: 'ebooks/{base}/book.pdf'}]},
     {id: 'showcase', bot: 'App Builder', task: 'build and publish the showcase app for the base book ebooks/{base} (folder ebooks/{base}/app, no creator in it)',
@@ -64,6 +71,15 @@ export const BOOK_STEPS = {
   ]
 };
 
+// Build 44: open lines under "## Caption changes (Visual Check)" in a base book's pictures.md (not marked "- DONE").
+export function openCaptionChanges(text) {
+  const out = []; let inside = false;
+  for (const line of String(text || '').split('\n')) {
+    if (/^##\s/.test(line)) { inside = /^##\s+Caption changes \(Visual Check\)\s*$/i.test(line); continue; }
+    if (inside && /^\s*-\s+\S/.test(line) && !/^\s*-\s*DONE\b/i.test(line)) out.push(line.trim());
+  }
+  return out;
+}
 const pad = n => String(n).padStart(2, '0');
 export const localDate = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 export const localTime = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -77,11 +93,11 @@ const oneLine = s => String(s || '').replace(/\s+/g, ' ').replace(/\|/g, '/').tr
 const escapeHtml = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 
 // The decided line that tells every bot what the run is. Appended once when the run starts.
-export function decisionLine({n, handle, base, contact, notes, when}) {
+export function decisionLine({n, handle, base, contact, notes, when, by = ''}) {
   const how = contact === 'dm'
     ? "an Instagram DM draft (under 140 words) with Tavin's carousel line word for word; the breakdown on request"
     : `an EMAIL draft only, with the breakdown PDF and both carousels attached and Tavin's carousel line word for word ("${CAROUSEL_LINE}")`;
-  return `${localDate(when)} I${n} | for: ${PIPELINE_BOTS.join(', ')} | instruction: PACKAGE RUN for @${handle} on base book ${base} (Tavin, through Toby, ${localTime(when)}). Toby's app runs the steps in order and messages each of you when it is your turn ("Package run for @${handle} ..."); do only that creator's step when that message comes, and nothing for @${handle} without it. Package runs may overlap with other creators: I41 does not apply to them. Steps: (1) Creator Partnerships: creators/voice/${handle}.md with 20 or more of her OWN captions copied exactly (full text, post link, date), her bio line word for word, display name, country and contact, her themes and real follower questions; clean photos only in creators/photos/${handle}/ (no face, no children, no text, no address, no logos). (2) Creative Studio: creators/look/${handle}.md, the base book's palette (I18); her photo as the sample cover only if it passes at book size. (3) Edition Writer: her edition (spelling for her country; From boxes only from her real captions, quotes copied exactly; sign with her handle), then make_book; edition and book checks PASS. (4) App Builder: her app. (5) Art Director: 2 carousel topics on HER themes, not ones used for an earlier creator on this base book; keep panel cover titles to 2 lines. (6) Marketing Kit: both carousels, and captions.md with "## Captions for <her name>", one "### " heading per caption, "Paid partnership" first, no "comment X for the recipe". (7) Visual Check: both carousels, every slide's words against its photo. (8) Outreach Writer: ${how}; quotes of hers 8 words or fewer, copied exactly from her voice file; name only chapters that hold her From boxes; never "grew from"; never suggest the book holds her recipes; when fixing, write the whole Email 1 again. Keep her family (children, partner) and the brands she tags out of every file. Every step is checked automatically (pipeline/${handle}/package-check.md); a failed step gets one fix run, then the run stops for Tavin. Drafts only (I11), no reel (I36), no send day (D7), no postal address (D3).${notes ? ' Tavin\'s notes: ' + notes.replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 1000) : ''} | status: decided | ${localTime(when)}\n`;
+  return `${localDate(when)} I${n} | for: ${PIPELINE_BOTS.join(', ')} | instruction: PACKAGE RUN for @${handle} on base book ${base} (${by === 'auto' ? `picked by the Toby app's daily auto-pick under Tavin's standing rule, ${localTime(when)}` : `Tavin, through Toby, ${localTime(when)}`}). Toby's app runs the steps in order and messages each of you when it is your turn ("Package run for @${handle} ..."); do only that creator's step when that message comes, and nothing for @${handle} without it. Package runs may overlap with other creators: I41 does not apply to them. Steps: (1) Creator Partnerships: creators/voice/${handle}.md with 20 or more of her OWN captions copied exactly (full text, post link, date), her bio line word for word, display name, country and contact, her themes and real follower questions; clean photos only in creators/photos/${handle}/ (no face, no children, no text, no address, no logos). (2) Creative Studio: creators/look/${handle}.md, the base book's palette (I18); her photo as the sample cover only if it passes at book size. (3) Edition Writer: her edition (spelling for her country; From boxes only from her real captions, quotes copied exactly; sign with her handle), then make_book; edition and book checks PASS. (4) App Builder: her app. (5) Art Director: 2 carousel topics on HER themes, not ones used for an earlier creator on this base book; keep panel cover titles to 2 lines. (6) Marketing Kit: both carousels, and captions.md with "## Captions for <her name>", one "### " heading per caption, "Paid partnership" first, no "comment X for the recipe". (7) Visual Check: both carousels, every slide's words against its photo. (8) Outreach Writer: ${how}; quotes of hers 8 words or fewer, copied exactly from her voice file; name only chapters that hold her From boxes; never "grew from"; never suggest the book holds her recipes; when fixing, write the whole Email 1 again. Keep her family (children, partner) and the brands she tags out of every file. Every step is checked automatically (pipeline/${handle}/package-check.md); a failed step gets one fix run, then the run stops for Tavin. Drafts only (I11), no reel (I36), no send day (D7), no postal address (D3).${notes ? ' Tavin\'s notes: ' + notes.replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 1000) : ''} | status: decided | ${localTime(when)}\n`;
 }
 export function bookDecisionLine({n, base, niche, topic, type, title, handle, contact, notes, when}) {
   const after = handle
@@ -111,24 +127,28 @@ export const runVars = run => ({handle: run.handle || '', base: run.base, type: 
 export class Pipelines {
   constructor({directory, teamRoot, teamFolder, service, busy, checkApp, now = Date.now, onChange = () => {}}) {
     Object.assign(this, {directory, teamRoot, teamFolder, service, busy, checkApp, now, onChange});
-    this.runs = []; this.ticking = false; this.closed = false; this.persist = Promise.resolve();
+    this.runs = []; this.auto = {}; this.archive = {}; this.ticking = false; this.closed = false; this.persist = Promise.resolve();
     // Build 38: the creator progress log (creators/creators-log.csv and .html). Never allowed to break a run.
     this.log = new CreatorLog({teamRoot, teamFolder, now});
+    this.workdays = new ExtraWorkdays(teamRoot, now);
   }
   logged(promise) { return Promise.resolve(promise).catch(() => {}); }
   file() { return join(this.directory, 'pipelines.json'); }
   async init() {
-    try { const data = JSON.parse(await readFile(this.file(), 'utf8')); if (Array.isArray(data.runs)) this.runs = data.runs; } catch (e) { if (e.code !== 'ENOENT') throw new Error('Could not read saved package runs.'); }
+    try { const data = JSON.parse(await readFile(this.file(), 'utf8')); if (Array.isArray(data.runs)) this.runs = data.runs; if (data.auto && typeof data.auto === 'object') this.auto = data.auto; if (data.archive && typeof data.archive === 'object') this.archive = data.archive; } catch (e) { if (e.code !== 'ENOENT') throw new Error('Could not read saved package runs.'); }
     return this;
   }
   async save() {
-    const body = JSON.stringify({version: 1, runs: this.runs.slice(-50)}, null, 1);
+    const body = JSON.stringify({version: 1, runs: this.runs.slice(-50), auto: this.auto, archive: this.archive}, null, 1);
     const write = async () => { await mkdir(this.directory, {recursive: true}); const tmp = this.file() + '.' + randomUUID(); await writeFile(tmp, body); await rename(tmp, this.file()); };
     this.persist = this.persist.then(write, write); await this.persist; this.onChange();
   }
   async steps(kind = 'package') {
     const name = kind === 'book' ? 'book-steps.json' : 'steps.json', standard = kind === 'book' ? BOOK_STEPS : DEFAULT_STEPS, path = join(this.teamRoot, 'pipeline', name);
-    try { const data = JSON.parse(await readFile(path, 'utf8')); if (Array.isArray(data.steps) && data.steps.length) return data.steps; } catch (e) { if (e.code !== 'ENOENT') throw new Error(`pipeline/${name} does not read as JSON. Fix it or delete it to get the standard steps back.`); }
+    try { const data = JSON.parse(await readFile(path, 'utf8'));
+      // Build 44: an older saved copy of the standard book steps is replaced by the new standard (kept as a backup).
+      if (kind === 'book' && Number(data.version || 1) < standard.version) { await this.teamFolder.write(null, `pipeline/book-steps.v${Number(data.version || 1)}.json`, JSON.stringify(data, null, 1)); }
+      else if (Array.isArray(data.steps) && data.steps.length) return data.steps; } catch (e) { if (e.code !== 'ENOENT') throw new Error(`pipeline/${name} does not read as JSON. Fix it or delete it to get the standard steps back.`); }
     await this.teamFolder.write(null, `pipeline/${name}`, JSON.stringify(standard, null, 1));
     return standard.steps;
   }
@@ -139,7 +159,7 @@ export class Pipelines {
   findBook(base) { base = baseName(base).toLowerCase(); return [...this.runs].reverse().find(r => isBook(r) && r.base.toLowerCase() === base); }
   snapshot() { return structuredClone(this.runs); }
 
-  async start({handle, base, contact = 'email', notes = ''}) {
+  async start({handle, base, contact = 'email', notes = '', by = ''}) {
     handle = String(handle || '').replace(/^@/, '').trim(); base = baseName(base);
     if (!validHandle(handle)) throw new Error('Give the creator\'s Instagram handle, for example "wildflourhillbakes".');
     if (!validBase(base)) throw new Error('Give the base book\'s folder name in ebooks/, for example "sourdough-at-home".');
@@ -150,10 +170,10 @@ export class Pipelines {
     for (const s of steps) if (s.bot && !this.botConversation(s.bot)) throw new Error(`No chat found for the bot "${s.bot}". Open that bot once in Toby, then try again.`);
     const when = this.now(), month = localDate(when).slice(0, 7), decisions = `board/decisions-${month}.md`;
     let text = ''; try { text = await readFile(join(this.teamRoot, decisions), 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
-    const n = nextInstruction(text);
-    await this.teamFolder.append(decisions, (text && !text.endsWith('\n') ? '\n' : '') + decisionLine({n, handle, base, contact, notes, when}));
-    const run = {id: randomUUID(), handle, base, contact, notes, decision: n, status: 'running', startedAt: when, step: 0, attempt: 0, queue: [], history: []};
-    this.runs.push(run); await this.save(); await this.writeStatus(run, `Started by Tavin through Toby (decided line I${n}).`);
+    const n = nextInstruction(text + '\n' + await this.archived(decisions));
+    await this.teamFolder.append(decisions, (text && !text.endsWith('\n') ? '\n' : '') + decisionLine({n, handle, base, contact, notes, when, by}));
+    const run = {id: randomUUID(), handle, base, contact, notes, decision: n, status: 'running', startedAt: when, step: 0, attempt: 0, queue: [], history: [], ...(by ? {by} : {})};
+    this.runs.push(run); await this.save(); await this.writeStatus(run, by === 'auto' ? `Picked by the daily auto-pick (decided line I${n}).` : `Started by Tavin through Toby (decided line I${n}).`);
     await this.logged(this.log.started(run));
     return structuredClone(run);
   }
@@ -177,7 +197,7 @@ export class Pipelines {
     await this.steps('book');
     await this.addNiche(oneLine(niche), type);
     const when = this.now(), decisions = `board/decisions-${localDate(when).slice(0, 7)}.md`;
-    const text = await read(decisions), n = nextInstruction(text);
+    const text = await read(decisions), n = nextInstruction(text + '\n' + await this.archived(decisions));
     await this.teamFolder.append(decisions, (text && !text.endsWith('\n') ? '\n' : '') + bookDecisionLine({n, base, niche, topic, type, title, handle, contact, notes, when}));
     const run = {id: randomUUID(), kind: 'book', base, niche: oneLine(niche), topic: oneLine(topic), type, title: oneLine(title), handle, contact, notes, decision: n, status: 'running', startedAt: when, step: 0, attempt: 0, queue: [], history: []};
     this.runs.push(run); await this.save(); await this.writeStatus(run, `Started by Tavin through Toby (decided line I${n}).`);
@@ -207,7 +227,7 @@ export class Pipelines {
     const run = this.find(handle); if (!run || run.status !== 'review') throw new Error(`@${String(handle).replace(/^@/, '')} has no package waiting for review.`);
     const when = this.now(), decisions = `board/decisions-${localDate(when).slice(0, 7)}.md`;
     let text = ''; try { text = await readFile(join(this.teamRoot, decisions), 'utf8'); } catch {}
-    const n = nextInstruction(text);
+    const n = nextInstruction(text + '\n' + await this.archived(decisions));
     await this.teamFolder.append(decisions, `${localDate(when)} I${n} | for: Outreach Writer, Toby | instruction: Tavin APPROVED @${run.handle}'s package at ${localTime(when)} (package run I${run.decision}): both carousels and the ${run.contact === 'dm' ? 'DM' : 'email'} draft as they are. Drafts only (I11): Tavin sends.${note ? ' Note: ' + note.replace(/\|/g, '/').slice(0, 500) : ''} | status: decided | ${localTime(when)}\n`);
     run.status = 'approved'; run.finishedAt = when; await this.save(); await this.writeStatus(run, `Approved by Tavin (I${n}).`); await this.runLine(`@${run.handle} package approved by Tavin`);
     await this.logged(this.log.approved(run));
@@ -258,6 +278,10 @@ export class Pipelines {
         for (const c0 of g.contains || []) { const c = fill(c0, v); if (text.includes(c)) continue; const fix = text.match(/## To fix\n([\s\S]*?)(\n## |$)/)?.[1].trim(); const fails = fix ? [] : text.split('\n').filter(l => /\|\s*FAIL\s*\|/.test(l)).slice(0, 6).map(l => l.replace(/\s+/g, ' ').trim().slice(0, 160));
           reasons.push(`${p} does not say "${c}".${fix ? ' Its own list: ' + fix.replace(/\s+/g, ' ').slice(0, 400) : ''}${fails.length ? ' Its FAIL rows: ' + fails.join(' ; ') : ''}`); }
       }
+      if (g.captionsDone) {
+        const open = openCaptionChanges(await read(`ebooks/${v.base}/pictures.md`));
+        if (open.length) reasons.push(`${open.length} line${open.length > 1 ? 's' : ''} under "## Caption changes (Visual Check)" in ebooks/${v.base}/pictures.md ${open.length > 1 ? 'are' : 'is'} not marked "- DONE": ${open.slice(0, 4).map(l => l.slice(0, 120)).join(' / ')}`);
+      }
       if (g.pictureLines) {
         const parts = await Promise.all(['a', 'b', 'c'].map(x => read(`ebooks/${v.base}/part-${x}.md`)));
         if (!parts.some(t => /!\[[^\]]*\]\(images\//.test(t))) reasons.push(`No picture lines ("![...](images/...)") in ebooks/${v.base}/part-a.md, part-b.md or part-c.md.`);
@@ -299,7 +323,7 @@ export class Pipelines {
 
   async tick() {
     if (this.ticking || this.closed) return; this.ticking = true;
-    try { await this.logged(this.log.tick()); await this.logged(this.watchCreators());
+    try { await this.logged(this.log.tick()); await this.logged(this.watchCreators()); await this.logged(this.autoPick()); await this.logged(this.archiveDecisions());
       for (const run of this.runs.filter(r => r.status === 'running')) await this.advance(run).catch(async e => { await this.fail(run, (isBook(run) ? 'The book run' : 'The package run') + ' hit an error: ' + e.message); }); }
     finally { this.ticking = false; }
   }
@@ -307,6 +331,10 @@ export class Pipelines {
     const all = await this.runSteps(run), step = all[run.step];
     if (!step) return this.fail(run, 'The steps list ended without a review step.');
     if (step.review) return isBook(run) ? this.bookReady(run) : this.toReview(run, all);
+    if (!run.current && !run.queue.length && step.when?.openCaptionChanges) {
+      const open = openCaptionChanges(await readFile(join(this.teamRoot, fill('ebooks/{base}/pictures.md', this.vars(run))), 'utf8').catch(() => ''));
+      if (!open.length) { run.history.push({step: step.id, skipped: true, at: this.now()}); run.step++; run.attempt = 0; await this.save(); await this.writeStatus(run, `Step "${step.id}" not needed (no open caption changes).`); return this.advance(run); }
+    }
     if (!run.current) {
       if (!run.queue.length) { run.queue = [step.bot]; run.messages = [stepMessage({run, step, steps: all})]; run.stepStartedAt = this.now(); }
       const bot = run.queue[0], message = run.messages[0];
@@ -371,13 +399,13 @@ export class Pipelines {
       await this.runLine(`@${run.handle} package run did not start after book run ebooks/${run.base}`, e.message);
     }
   }
-  // Build 40: never a day without creators. On a weekday from 08:15, if Creator Partnerships has no finished
+  // Build 40: never a day without creators. On a workday (build 44: or an extra workday) from 08:15, if Creator Partnerships has no finished
   // creators/<date>.md (last line "Status: done") and is not working, the app asks it once for a second try,
   // ready-book creators first. 19 Nov: the 07:00 search hit its run limit and saved nothing.
   async watchCreators() {
     const t = this.now(); if (this.lastWatch && t - this.lastWatch < 60000) return; this.lastWatch = t;
-    const d = new Date(t), hm = d.getHours() * 60 + d.getMinutes(), day = d.getDay();
-    if (day === 0 || day === 6 || hm < 8 * 60 + 15 || hm > 17 * 60) return;
+    const d = new Date(t), hm = d.getHours() * 60 + d.getMinutes();
+    if (!isWorkday(t, await this.workdays.get()) || hm < 8 * 60 + 15 || hm > 17 * 60) return;
     const date = localDate(t), marker = `pipeline/second-try-${date}.md`;
     try { await stat(join(this.teamRoot, marker)); return; } catch {}
     let names = []; try { names = (await readdir(join(this.teamRoot, 'creators'))).filter(n => n.startsWith(date) && n.endsWith('.md')); } catch {}
@@ -390,6 +418,90 @@ export class Pipelines {
     await this.teamFolder.write(null, marker, `# Second try for creators, ${date}\n\n- Asked at ${localTime(t)}: no finished creators/${date}.md (no "Status: done") and Creator Partnerships was not working.\n\n## For Toby\nCreator Partnerships' first search today did not finish; the app asked it for a second try at ${localTime(t)}. Tell Tavin in the brief if creators/${date}.md still has no "Status: done".\n`);
     await this.service._deliver(c, message, [], {scheduled: {id: 'creator-second-try', runId: randomUUID(), title: 'Second try: today\'s creators', scheduledFor: t}});
     await this.runLine(`no finished creators/${date}.md by ${localTime(t)}; asked Creator Partnerships for a second try (ready-book creators first)`);
+  }
+  // Build 44: the archived part of a decisions file (board/archive/decisions-<month>.md), for numbering.
+  async archived(decisions) { try { return await readFile(join(this.teamRoot, decisions.replace(/^board\//, 'board/archive/')), 'utf8'); } catch { return ''; } }
+  // Build 44: nightly decisions archiving (src/decisions-archive.mjs). From 21:00, once a day, when the file is over 50 KB.
+  async archiveDecisions({force = false} = {}) {
+    const t = this.now(), date = localDate(t), month = date.slice(0, 7), path = `board/decisions-${month}.md`;
+    if (!force) { if (new Date(t).getHours() < 21 || this.archive.date === date) return null; }
+    let size = 0; try { size = (await stat(join(this.teamRoot, path))).size; } catch { return null; }
+    if (!force && size < 50000) { this.archive = {date, skipped: `${Math.round(size / 1024)} KB`}; await this.save(); return null; }
+    let standingText = ''; try { standingText = await readFile(join(this.teamRoot, STANDING_FILE), 'utf8'); } catch { standingText = `# Standing rules\n\nThese decided lines never move to the archive. Add a number here (or "[standing]" on the line itself) to keep a rule in the live file.\n\nStanding: ${DEFAULT_STANDING.join(', ')}\n`; await this.teamFolder.write(null, STANDING_FILE, standingText); }
+    const result = await this.teamFolder.serialize(null, async () => {
+      const live = await this.teamFolder.target(null, path, true), arch = await this.teamFolder.target(null, `board/archive/decisions-${month}.md`, true);
+      const text = await readFile(live, 'utf8'), archiveText = await readFile(arch, 'utf8').catch(() => '');
+      const out = splitDecisions({text, archiveText, today: date, month, standing: parseStanding(standingText)});
+      if (!out.moved && text.startsWith('> Archive note')) return out;
+      await mkdir(join(this.teamRoot, 'board', 'archive'), {recursive: true});
+      if (out.moved) await atomicWrite(arch, out.archive);
+      await atomicWrite(live, out.live); return out;
+    });
+    this.archive = {date, moved: result.moved, before: size}; await this.save();
+    const after = (await stat(join(this.teamRoot, path))).size;
+    await this.runLine(`decisions archive: ${result.moved} finished lines older than 7 days moved to board/archive/decisions-${month}.md; ${path} ${Math.round(size / 1024)} KB to ${Math.round(after / 1024)} KB (next numbers D${result.max.D + 1}, I${result.max.I + 1})`);
+    return {...result, before: size, after};
+  }
+  // Build 44: the daily auto-pick (src/auto-pick.mjs).
+  async autoSettings() {
+    const path = 'pipeline/auto-pick.json';
+    try { const data = JSON.parse(await readFile(join(this.teamRoot, path), 'utf8')); return {...AUTO_PICK, ...data}; }
+    catch (e) { if (e.code !== 'ENOENT') return {...AUTO_PICK, enabled: false, broken: true}; }
+    await this.teamFolder.write(null, path, JSON.stringify(AUTO_PICK, null, 1)); return {...AUTO_PICK};
+  }
+  async readyBases() {
+    const read = async p => { try { return await readFile(join(this.teamRoot, p), 'utf8'); } catch { return ''; } };
+    let names = []; try { names = (await readdir(join(this.teamRoot, 'ebooks'), {withFileTypes: true})).filter(e => e.isDirectory() && !/^[_.]/.test(e.name)).map(e => e.name); } catch {}
+    const out = [];
+    for (const n of names) if (/All pictures PASSED/.test(await read(`ebooks/${n}/images/check.md`)) && /Live when checked: yes/.test(await read(`ebooks/${n}/app/app-link.md`))) out.push(n);
+    return out.sort((a, b) => b.length - a.length); // longest first, so "sourdough-at-home-2" wins over "sourdough-at-home"
+  }
+  async autoPick() {
+    const t = this.now(), date = localDate(t), d = new Date(t), hm = d.getHours() * 60 + d.getMinutes();
+    if (this.lastAuto && t - this.lastAuto < 60000) return; this.lastAuto = t;
+    if (this.auto.date === date && this.auto.book && !this.auto.book.sent) return this.sendBook();
+    if (this.auto.date === date) return;
+    const s = await this.autoSettings();
+    if (!s.enabled || !isWorkday(t, await this.workdays.get()) || hm < minutes(s.after) || hm > minutes(s.latest)) return;
+    // Wait for Creator Partnerships' finished file for today, until waitUntil.
+    let done = false, names = []; try { names = (await readdir(join(this.teamRoot, 'creators'))).filter(n => n.startsWith(date) && n.endsWith('.md')); } catch {}
+    for (const n of names) { try { if (/Status:\s*done/i.test(await readFile(join(this.teamRoot, 'creators', n), 'utf8'))) done = true; } catch {} }
+    const cp = this.botConversation('Creator Partnerships');
+    if (!done && hm < minutes(s.waitUntil)) return;
+    if (!done && cp && (this.busy(cp) || cp.messages.some(m => m.status === 'streaming')) && hm < minutes(s.latest)) return;
+    await this.log.scanFound().catch(() => {});
+    const rows = await this.log.read().catch(() => []);
+    const month = date.slice(0, 7), read = async p => { try { return await readFile(join(this.teamRoot, p), 'utf8'); } catch { return ''; } };
+    const decisions = (await read(`board/decisions-${month}.md`)) + '\n' + (await read(`board/archive/decisions-${month}.md`));
+    const busy = new Set(this.runs.filter(r => ['running', 'review', 'approved'].includes(r.status) && r.handle).map(r => r.handle.toLowerCase()));
+    const bookToday = this.runs.some(r => isBook(r) && (r.status === 'running' || localDate(r.startedAt) === date));
+    const pick = chooseCreators({rows, today: date, readyBases: await this.readyBases(), asked: askedHandles(decisions), busy, settings: s, newBookAllowed: !bookToday});
+    this.auto = {date, at: t, picks: pick.packages.map(c => c.handle), book: pick.book ? {handle: pick.book.handle, contact: pick.book.contact, message: bookRequest({c: pick.book, date, time: localTime(t)}), sent: false} : null};
+    await this.save();
+    const started = [];
+    for (const c of pick.packages) {
+      try { const run = await this.start({handle: c.handle, base: c.base, contact: c.contact, by: 'auto', notes: `Auto-pick ${date}: fits the ready base book ${c.base}; score ${c.score}.`}); started.push({handle: c.handle, base: c.base, contact: c.contact, decision: run.decision}); }
+      catch (e) { started.push({handle: c.handle, base: c.base, contact: c.contact, error: e.message}); }
+    }
+    this.auto.note = {started, skipped: pick.skipped, candidates: pick.candidates}; await this.save();
+    if (this.auto.book) await this.sendBook(); else await this.writePick();
+    const n = started.filter(x => !x.error).length + (pick.book ? 1 : 0);
+    await this.runLine(n ? `auto-pick: ${started.filter(x => !x.error).map(x => `@${x.handle} (package run on ${x.base})`).concat(pick.book ? [`@${pick.book.handle} (new base book first, asked Toby to start it)`] : []).join(', ')}; details in pipeline/auto-pick-${date}.md` : `auto-pick: no creator could be picked today (pipeline/auto-pick-${date}.md)`,
+      started.some(x => x.error) ? started.filter(x => x.error).map(x => `@${x.handle}: ${x.error}`).join(' / ') : 'none');
+  }
+  async sendBook() {
+    const b = this.auto.book, toby = this.botConversation('Toby');
+    if (!b || b.sent) return;
+    if (!toby) { b.sent = true; b.state = 'NOT started: no chat found for Toby'; await this.save(); return this.writePick(); }
+    if (this.busy(toby) || toby.messages.some(m => m.status === 'streaming')) { if (!b.waiting) { b.waiting = true; await this.save(); await this.writePick(); } return; }
+    await this.service._deliver(toby, b.message, [], {scheduled: {id: 'auto-pick-book', runId: randomUUID(), title: `Auto-pick: new base book for @${b.handle}`, scheduledFor: this.now()}});
+    b.sent = true; b.state = `asked Toby at ${localTime(this.now())} to start the book run (see his reply and pipeline/status.md)`; await this.save(); await this.writePick();
+  }
+  async writePick() {
+    const t = this.auto.at || this.now(), n = this.auto.note || {started: [], skipped: [], candidates: 0};
+    const book = this.auto.book ? {handle: this.auto.book.handle, state: this.auto.book.state || (this.auto.book.waiting ? 'waiting: Toby is busy; the app asks him as soon as he is free' : 'waiting')} : null;
+    const picks = [...n.started.filter(x => !x.error).map(x => '@' + x.handle), ...(book ? ['@' + book.handle + ' (new base book)'] : [])].join(', ') || 'nobody';
+    await this.teamFolder.write(null, `pipeline/auto-pick-${localDate(t)}.md`, pickReport({date: localDate(t), time: localTime(t), picks, skipped: n.skipped, candidates: n.candidates, started: n.started, book}));
   }
   async runLine(done, problems = 'none') {
     const t = this.now();

@@ -3,6 +3,7 @@ import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
 import {join} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {Cron} from 'croner';
+import {ExtraWorkdays} from './workdays.mjs';
 const required=(v,label,max)=>{if(typeof v!=='string'||!v.trim()||v.length>max)throw new Error(`Enter ${label} under ${max} characters.`);return v.trim();};
 function cronDate(timing,after){
  const cron=new Cron(timing.expression,{timezone:timing.timezone,paused:true});
@@ -28,7 +29,10 @@ export function validateTiming(value){
  if(!days.length||days.some(d=>!Number.isInteger(d)||d<0||d>6))throw new Error('Choose at least one day.');
  return{kind:'weekly',time:value.time,days,timezone};
 }
-export function nextRun(timing,after,servedAt){
+// Toby build 44: extra is a Set of extra workdays (YYYY-MM-DD). A weekday schedule (every day Monday to Friday)
+// fires on those dates too, at its usual time (board/extra-workdays.md, src/workdays.mjs).
+export const weekdaySchedule=timing=>timing?.kind==='weekly'&&[1,2,3,4,5].every(d=>timing.days.includes(d))&&timing.days.length<7;
+export function nextRun(timing,after,servedAt,extra){
  if(timing.kind==='cron')return cronDate(timing,Math.max(after,servedAt??after));
  if(timing.kind==='interval')return after+timing.minutes*60000;
  // Iterate actual instants, so daylight-saving gaps are skipped and repeated
@@ -38,8 +42,8 @@ export function nextRun(timing,after,servedAt){
  const servedDate=servedAt===undefined?null:localDate(servedAt);
  const initial=Object.fromEntries(format.formatToParts(after).map(p=>[p.type,p.value]));
  const skipToday=`${initial.hour}:${initial.minute}`>=timing.time?localDate(after):null;
- const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
- for(let t=Math.floor(after/60000)*60000+60000,end=t+8*86400000;t<end;t+=60000){const p=Object.fromEntries(format.formatToParts(t).map(p=>[p.type,p.value]));if(localDate(t)!==servedDate&&localDate(t)!==skipToday&&timing.days.includes(names.indexOf(p.weekday))&&`${p.hour}:${p.minute}`===timing.time)return t;}
+ const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],extraOn=!!extra?.size&&weekdaySchedule(timing);
+ for(let t=Math.floor(after/60000)*60000+60000,end=t+8*86400000;t<end;t+=60000){const p=Object.fromEntries(format.formatToParts(t).map(p=>[p.type,p.value]));if(localDate(t)!==servedDate&&localDate(t)!==skipToday&&(timing.days.includes(names.indexOf(p.weekday))||(extraOn&&extra.has(localDate(t))))&&`${p.hour}:${p.minute}`===timing.time)return t;}
  throw new Error('Could not determine the next scheduled time.');
 }
 // Toby build 40: a run that hit a run limit gets one short, fresh turn to save its work (19 Nov: Creator Partnerships
@@ -49,7 +53,7 @@ export const WRAP_UP='Your scheduled run stopped at its run limit before it fini
 export const cutShort=error=>/interrupted when the app closed|^Paused at the|^Paused after|run limit|time limit|tool-call limit/i.test(String(error||''));
 const two=n=>String(n).padStart(2,'0'),day=t=>{const d=new Date(t);return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`;},clock=t=>{const d=new Date(t);return `${two(d.getHours())}:${two(d.getMinutes())}`;};
 export class Schedules {
- constructor({directory,encrypt,decrypt,service,onChange=()=>{},now=Date.now,teamFolder=null}){Object.assign(this,{directory,encrypt,decrypt,service,onChange,now,teamFolder});this.items=[];this.persist=Promise.resolve();this.ticking=false;this.closed=false;this.dispatching=new Set();}
+ constructor({directory,encrypt,decrypt,service,onChange=()=>{},now=Date.now,teamFolder=null}){Object.assign(this,{directory,encrypt,decrypt,service,onChange,now,teamFolder});this.items=[];this.persist=Promise.resolve();this.ticking=false;this.closed=false;this.dispatching=new Set();this.workdays=new ExtraWorkdays(teamFolder?.root?.(),now);this.extra=new Set();this.extraKey='';}
  async init(){try{const data=JSON.parse(await this.decrypt(await readFile(join(this.directory,'schedules.secure'))));requireVersion(data,'Schedules');if(!Array.isArray(data.items))throw new Error('Invalid saved records.');this.items=data.items;}catch(e){if(e.code!=='ENOENT')throw new Error('Could not unlock saved schedules.');}this.opened=true;return this;}
  snapshot(conversationId){return structuredClone(this.items.filter(i=>!conversationId||i.conversationId===conversationId));}
  async save(){if(!this.opened)throw new Error('Storage did not open safely. Existing files were preserved.');const body=JSON.stringify({version:1,items:this.items});const write=async()=>{await assertStorageCompatible(this.directory);await mkdir(this.directory,{recursive:true,mode:0o700});const tmp=join(this.directory,'.schedules-'+randomUUID());await writeFile(tmp,await this.encrypt(body),{mode:0o600});await rename(tmp,join(this.directory,'schedules.secure'));};this.persist=this.persist.then(write,write);await this.persist;this.onChange();}
@@ -59,14 +63,14 @@ export class Schedules {
   title=required(title,'a schedule name',120);prompt=required(prompt,'a task',16000);timing=validateTiming(timing);
   if(this.items.filter(i=>i.conversationId===conversationId).length>=30)throw new Error('This chat already has 30 schedules.');
   const prior=sourceMessageId&&this.items.find(i=>i.conversationId===conversationId&&i.sourceMessageId===sourceMessageId&&i.prompt===prompt&&JSON.stringify(i.timing)===JSON.stringify(timing));if(prior)return structuredClone(prior);
-  const item={id:randomUUID(),conversationId,botId:c.botId,title,prompt,timing,sourceMessageId,enabled:true,nextRunAt:nextRun(timing,this.now()),createdAt:this.now(),runs:[]};this.items.push(item);await this.save();return structuredClone(item);
+  const item={id:randomUUID(),conversationId,botId:c.botId,title,prompt,timing,sourceMessageId,enabled:true,nextRunAt:nextRun(timing,this.now(),undefined,this.extra),createdAt:this.now(),runs:[]};this.items.push(item);await this.save();return structuredClone(item);
  }
  async update({id,conversationId,enabled,title,prompt,timing}){
   const item=this.get(id,conversationId),editing=title!==undefined||prompt!==undefined||timing!==undefined;
   if(editing&&item.runs.some(r=>['starting','running'].includes(r.status)))throw new Error('Wait for the current run to finish before editing this schedule.');
   const next={};if(title!==undefined)next.title=required(title,'a schedule name',120);if(prompt!==undefined)next.prompt=required(prompt,'a task',16000);if(timing!==undefined)next.timing=validateTiming(timing);
   if(enabled!==undefined){if(typeof enabled!=='boolean')throw new Error('Invalid schedule state.');next.enabled=enabled;}
-  if(timing!==undefined||enabled===true)next.nextRunAt=nextRun(next.timing||item.timing,this.now());
+  if(timing!==undefined||enabled===true)next.nextRunAt=nextRun(next.timing||item.timing,this.now(),undefined,this.extra);
   Object.assign(item,next);if(enabled===true)delete item.error;await this.save();return structuredClone(item);
  }
  async remove({id,conversationId}){const item=this.get(id,conversationId);if(item.runs.some(r=>['starting','running'].includes(r.status)))throw new Error('Stop the running chat before deleting its schedule.');this.items=this.items.filter(i=>i!==item);await this.save();}
@@ -76,7 +80,7 @@ export class Schedules {
   const c=this.service._conversation(item.conversationId),run={id:randomUUID(),scheduledFor,startedAt:this.now(),status:'starting'};
   this.dispatching.add(run.id);
   try{
-  item.runs.push(run);item.runs=item.runs.slice(-30);item.nextRunAt=nextRun(item.timing,this.now(),scheduledFor);await this.save();
+  item.runs.push(run);item.runs=item.runs.slice(-30);item.nextRunAt=nextRun(item.timing,this.now(),scheduledFor,this.extra);await this.save();
   if(this.closed||this.busy(c)){run.status='deferred';item.nextRunAt=scheduledFor;await this.save();return;}
   try{await this.service._deliver(c,item.prompt,[],{scheduled:{id:item.id,runId:run.id,title:item.title,scheduledFor}});run.status='running';await this.save();}
   catch(error){run.status='needs_review';run.error=error.message;item.enabled=false;item.error='A scheduled run could not start. Review it before resuming.';await this.save();}
@@ -84,6 +88,7 @@ export class Schedules {
  }
  async tick(){if(this.ticking||this.closed)return;this.ticking=true;try{
   let changed=false;const wrapups=[];
+  changed=await this.refreshWorkdays().catch(()=>false);
   for(const item of this.items){
    const c=this.service.state.conversations.find(c=>c.id===item.conversationId);
    if(!c){if(item.enabled){item.enabled=false;item.error='The chat was deleted.';changed=true;}continue;}
@@ -109,6 +114,10 @@ export class Schedules {
   if(changed)await this.save();
   for(const item of wrapups)await this.wrapUp(item).catch(()=>{});
  }finally{this.ticking=false;}}
+ // Build 44: when board/extra-workdays.md changes, weekday schedules work out their next time again.
+ async refreshWorkdays(){const days=await this.workdays.get(),key=[...days].sort().join(',');if(key===this.extraKey)return false;this.extra=days;this.extraKey=key;let changed=false;
+  for(const item of this.items){if(!item.enabled||!weekdaySchedule(item.timing)||item.nextRunAt<=this.now()||item.runs.some(r=>['starting','running'].includes(r.status)))continue;const last=item.runs.filter(r=>r.kind!=='wrapup').at(-1)?.scheduledFor;const next=nextRun(item.timing,this.now(),last,days);if(next!==item.nextRunAt){item.nextRunAt=next;changed=true;}}
+  return changed;}
  start(){this.timer=setInterval(()=>void this.tick().catch(()=>{}),5000);this.timer.unref?.();void this.tick().catch(()=>{});}
  async wrapUp(item){const c=this.service._conversation(item.conversationId);if(this.closed||this.busy(c))return;
   const run={id:randomUUID(),kind:'wrapup',scheduledFor:this.now(),startedAt:this.now(),status:'starting'};this.dispatching.add(run.id);

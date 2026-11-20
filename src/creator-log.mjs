@@ -129,7 +129,16 @@ export class CreatorLog {
       const next = {Sent: ['Creator', 'Wait for her reply; follow-up after 3 days'], Replied: ['Tavin', 'Read her reply; tell Toby "yes @handle" or "no @handle"'], Yes: ['Store Manager and Marketing Kit', 'Whop product and launch kit'], No: ['nobody', 'none'], 'Store + launch kit': ['Tavin', 'Whop clicks, then go live'], 'Live on Whop': ['nobody', 'Selling']}[want];
       this.setStage(rows, r, n, {waiting_on: next[0], next_step: next[1].replace('@handle', '@' + r.handle)});
       if (note) r.notes = clean((r.notes ? r.notes + '; ' : '') + `${stamp(this.now()).slice(0, 10)}: ${note}`).slice(0, 600); });
+    // Build 44: every send is also one line in outreach/sent-<month>.md, so "Sent today: X of 2" is counted, not guessed.
+    if (want === 'Sent') { const t = stamp(this.now()); await this.teamFolder.append(`outreach/sent-${t.slice(0, 7)}.md`, `${t} | @${key(handle)} | ${clean(note).replace(/\|/g, '/').slice(0, 200) || 'sent by Tavin'}\n`).catch(() => {}); }
     return rows.find(x => key(x.handle) === key(handle));
+  }
+  // Build 44: how many creators Tavin has sent to today (outreach/sent-<month>.md), and who.
+  async sentToday() {
+    const t = stamp(this.now()), today = t.slice(0, 10); let text = '';
+    try { text = await readFile(join(this.teamRoot, `outreach/sent-${t.slice(0, 7)}.md`), 'utf8'); } catch {}
+    const who = [...new Set(text.split('\n').filter(l => l.startsWith(today)).map(l => l.split('|')[1]?.trim()).filter(Boolean))];
+    return {date: today, count: who.length, target: 2, who};
   }
   // New ranked creators from Creator Partnerships' daily files. Cheap: only reads files that changed.
   async scanFound() {
