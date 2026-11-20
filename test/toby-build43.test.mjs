@@ -148,3 +148,15 @@ test('build 43: the book steps run in the agreed order and the decided line has 
   const line = bookDecisionLine({n: 70, base: SLUG, niche: NICHE, topic: 'a shed', type: 'project', when: new Date(2026, 10, 20, 8, 5).getTime()});
   assert.match(line, /^2026-11-20 I70 \| .* no package run starts by itself\. .*\| status: decided \| 08:05\n$/); assert.doesNotMatch(line, /—|–/);
 });
+
+test('build 43: a run line always starts on its own line', async () => {
+  const {startsOwnLine} = await import('../src/team-folder.mjs');
+  const root = await team({'board/runs-2026-11-20.md': '07:30 | Product Scout | done: x | problems: none', 'notes/a.md': 'abc'});
+  try {
+    const f = new TeamFolder(root);
+    await f.append('board/runs-2026-11-20.md', '08:16 | Ebook Builder | done: y\n');
+    assert.equal(await readText(join(root, 'board/runs-2026-11-20.md'), 'utf8'), '07:30 | Product Scout | done: x | problems: none\n08:16 | Ebook Builder | done: y\n');
+    await f.append('notes/a.md', 'def'); assert.equal(await readText(join(root, 'notes/a.md'), 'utf8'), 'abcdef', 'other files are left as they are');
+    assert.equal(startsOwnLine('board/decisions-2026-11.md', Buffer.from('x\n'), 'y'), false);
+  } finally { await rm(root, {recursive: true, force: true}); }
+});
