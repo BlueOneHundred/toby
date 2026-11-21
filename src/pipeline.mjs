@@ -71,6 +71,15 @@ export const BOOK_STEPS = {
   ]
 };
 
+// Build 45: a checker's verdict counts only when it starts its own line ("Both carousels PASSED, <date>",
+// "**All pictures PASSED (37)**" or "- All pictures PASSED ..."). The words inside a sentence such as
+// 'Not "Both carousels PASSED" yet.' are not a pass (21 Nov 2026: a slide that had failed was passed this way).
+// Keyed on the phrase, so it also holds for the steps.json already saved in the team folder.
+export const VERDICTS = ['Both carousels PASSED', 'All pictures PASSED'];
+export function hasVerdict(text, phrase) {
+  return String(text || '').split('\n').some(line => line.replace(/^[\s>*_#-]+/, '').startsWith(phrase));
+}
+
 // Build 44: open lines under "## Caption changes (Visual Check)" in a base book's pictures.md (not marked "- DONE").
 export function openCaptionChanges(text) {
   const out = []; let inside = false;
@@ -115,11 +124,17 @@ export function stepMessage({run, step, steps}) {
   if (isBook(run)) return `Book run for ebooks/${run.base} (new base book, niche ${run.niche}, Type: ${run.type}), step ${list.indexOf(step) + 1} of ${list.length}: ${fill(step.task, runVars(run))}. Use your rules and the decisions file (I${run.decision}). In a book run this message is Tavin's go for your step: do not wait for a go line. Don't ask questions. When you finish, the app checks your files automatically.`;
   return `Package run for @${run.handle}, step ${list.indexOf(step) + 1} of ${list.length}: ${step.task}. Do this for @${run.handle} only (base book ${run.base}), using your rules and the decisions file (I${run.decision}). Don't ask questions. When you finish, the app checks your files automatically.`;
 }
+// Build 45: what each bot does in a package fix run after Visual Check fails a carousel (the steps.json saved in the
+// team folder has no fixNote, so these are the defaults).
+export const PACKAGE_FIX_NOTES = {visual: {
+  'Marketing Kit': 'Visual Check failed a slide. Make every open line under "## Word changes (Visual Check)" in {edition}/carousel/captions.md (and any slide change in {edition}/carousel/check.md), then remake only the carousel it names with make_carousel.',
+  'Visual Check': 'Check again the carousel Marketing Kit has just remade, and update {edition}/carousel/check.md: write the line "Both carousels PASSED, <date> <time>" on its own line only when every slide of both carousels passes.'}};
 export function fixMessage({run, step, bot, reasons}) {
   const intro = bot === step.bot ? `your ${step.id} step did not pass the automatic check` : `${step.bot}'s ${step.id} step did not pass the automatic check, and it needs your part fixed first`;
   if (isBook(run)) { const note = step.fixNote?.[bot] ? ' ' + fill(step.fixNote[bot], runVars(run)) : '';
     return `Book run for ebooks/${run.base}: ${intro}.${note} Fix exactly these, change nothing else, and run your checks again.${note ? '' : ' This message is Tavin\'s go.'} Don't ask questions.\n${reasons.slice(0, 12).map(r => '- ' + r).join('\n')}\nThe run's status is in pipeline/book-${run.base}/status.md.`; }
-  return `Package run for @${run.handle}: ${intro}. Fix exactly these, change nothing else, and run your checks again. Don't ask questions.\n${reasons.slice(0, 12).map(r => '- ' + r).join('\n')}\nThe full check is in pipeline/${run.handle}/package-check.md.`;
+  const pnote = step.fixNote?.[bot] || PACKAGE_FIX_NOTES[step.id]?.[bot]; const pn = pnote ? ' ' + fill(pnote, runVars(run)) : '';
+  return `Package run for @${run.handle}: ${intro}.${pn} Fix exactly these, change nothing else, and run your checks again. Don't ask questions.\n${reasons.slice(0, 12).map(r => '- ' + r).join('\n')}\nThe full check is in pipeline/${run.handle}/package-check.md.`;
 }
 
 export const runVars = run => ({handle: run.handle || '', base: run.base, type: run.type || '', edition: `ebooks/${run.base}/editions/${run.handle || ''}`});
@@ -275,7 +290,7 @@ export class Pipelines {
         if (t < fresh && g.fresh !== false) { reasons.push(`${p} was not updated in this run.`); continue; }
         const text = await read(p);
         for (const c0 of g.lacks || []) { const c = fill(c0, v); if (text.includes(c)) reasons.push(`${p} still says "${c}".`); }
-        for (const c0 of g.contains || []) { const c = fill(c0, v); if (text.includes(c)) continue; const fix = text.match(/## To fix\n([\s\S]*?)(\n## |$)/)?.[1].trim(); const fails = fix ? [] : text.split('\n').filter(l => /\|\s*FAIL\s*\|/.test(l)).slice(0, 6).map(l => l.replace(/\s+/g, ' ').trim().slice(0, 160));
+        for (const c0 of g.contains || []) { const c = fill(c0, v); if (VERDICTS.includes(c) ? hasVerdict(text, c) : text.includes(c)) continue; const fix = text.match(/## To fix\n([\s\S]*?)(\n## |$)/)?.[1].trim(); const fails = fix ? [] : text.split('\n').filter(l => /\|\s*FAIL\s*\|/.test(l)).slice(0, 6).map(l => l.replace(/\s+/g, ' ').trim().slice(0, 160));
           reasons.push(`${p} does not say "${c}".${fix ? ' Its own list: ' + fix.replace(/\s+/g, ' ').slice(0, 400) : ''}${fails.length ? ' Its FAIL rows: ' + fails.join(' ; ') : ''}`); }
       }
       if (g.captionsDone) {
