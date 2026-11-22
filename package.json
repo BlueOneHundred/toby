@@ -1,7 +1,7 @@
 {
   "name": "gratis-community",
   "productName": "Toby",
-  "version": "0.23.2",
+  "version": "0.23.3",
   "private": true,
   "description": "Toby: Tavin's personal team of bots (a fork of the Gratis community edition)",
   "type": "module",

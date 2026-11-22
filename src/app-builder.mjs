@@ -73,7 +73,7 @@ export function buildApp({files, bookDir, coverDataUrl, template, creator = '', 
   };
   const TOOLS = [
     [/potty log/i, 'potty'], [/try tracker/i, 'tracker'], [/weekly planner/i, 'planner'],
-    [/list page/i, 'list'], [/socialising checklist/i, 'social'],
+    [/list page/i, 'list'], [/sociali[sz]ing checklist/i, 'social'],
     ...(TYPE ? [[/habit tracker/i, 'habit'], [/project tracker/i, 'progress']] : []),
   ];
 

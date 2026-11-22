@@ -106,7 +106,7 @@ export function decisionLine({n, handle, base, contact, notes, when, by = ''}) {
   const how = contact === 'dm'
     ? "an Instagram DM draft (under 140 words) with Tavin's carousel line word for word; the breakdown on request"
     : `an EMAIL draft only, with the breakdown PDF and both carousels attached and Tavin's carousel line word for word ("${CAROUSEL_LINE}")`;
-  return `${localDate(when)} I${n} | for: ${PIPELINE_BOTS.join(', ')} | instruction: PACKAGE RUN for @${handle} on base book ${base} (${by === 'auto' ? `picked by the Toby app's daily auto-pick under Tavin's standing rule, ${localTime(when)}` : `Tavin, through Toby, ${localTime(when)}`}). Toby's app runs the steps in order and messages each of you when it is your turn ("Package run for @${handle} ..."); do only that creator's step when that message comes, and nothing for @${handle} without it. Package runs may overlap with other creators: I41 does not apply to them. Steps: (1) Creator Partnerships: creators/voice/${handle}.md with 20 or more of her OWN captions copied exactly (full text, post link, date), her bio line word for word, display name, country and contact, her themes and real follower questions; clean photos only in creators/photos/${handle}/ (no face, no children, no text, no address, no logos). (2) Creative Studio: creators/look/${handle}.md, the base book's palette (I18); her photo as the sample cover only if it passes at book size. (3) Edition Writer: her edition (spelling for her country; From boxes only from her real captions, quotes copied exactly; sign with her handle), then make_book; edition and book checks PASS. (4) App Builder: her app. (5) Art Director: 2 carousel topics on HER themes, not ones used for an earlier creator on this base book; keep panel cover titles to 2 lines. (6) Marketing Kit: both carousels, and captions.md with "## Captions for <her name>", one "### " heading per caption, "Paid partnership" first, no "comment X for the recipe". (7) Visual Check: both carousels, every slide's words against its photo. (8) Outreach Writer: ${how}; quotes of hers 8 words or fewer, copied exactly from her voice file; name only chapters that hold her From boxes; never "grew from"; never suggest the book holds her recipes; when fixing, write the whole Email 1 again. Keep her family (children, partner) and the brands she tags out of every file. Every step is checked automatically (pipeline/${handle}/package-check.md); a failed step gets one fix run, then the run stops for Tavin. Drafts only (I11), no reel (I36), no send day (D7), no postal address (D3).${notes ? ' Tavin\'s notes: ' + notes.replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 1000) : ''} | status: decided | ${localTime(when)}\n`;
+  return `${localDate(when)} I${n} | for: ${PIPELINE_BOTS.join(', ')} | instruction: PACKAGE RUN for @${handle} on base book ${base} (${by === 'auto' ? `picked by the Toby app's daily auto-pick under Tavin's standing rule, ${localTime(when)}` : `Tavin, through Toby, ${localTime(when)}`}). Toby's app runs the steps in order and messages each of you when it is your turn ("Package run for @${handle} ..."); do only that creator's step when that message comes, and nothing for @${handle} without it. Package runs may overlap with other creators: I41 does not apply to them. Steps ("her" means the creator: use the pronoun from the voice file): (1) Creator Partnerships: creators/voice/${handle}.md with 20 or more of her OWN captions copied exactly (full text, post link, date), her bio line word for word, display name, country and contact, her themes and real follower questions; clean photos only in creators/photos/${handle}/ (no face, no children, no text, no address, no logos). (2) Creative Studio: creators/look/${handle}.md, the base book's palette (I18); her photo as the sample cover only if it passes at book size. (3) Edition Writer: her edition (spelling for her country; From boxes only from her real captions, quotes copied exactly; sign with her handle), then make_book; edition and book checks PASS. (4) App Builder: her app. (5) Art Director: 2 carousel topics on HER themes, not ones used for an earlier creator on this base book; keep panel cover titles to 2 lines. (6) Marketing Kit: both carousels, and captions.md with "## Captions for <her name>", one "### " heading per caption, "Paid partnership" first, no "comment X for the recipe". (7) Visual Check: both carousels, every slide's words against its photo. (8) Outreach Writer: ${how}; quotes of hers 8 words or fewer, copied exactly from her voice file; name only chapters that hold her From boxes; never "grew from"; never suggest the book holds her recipes; when fixing, write the whole Email 1 again. Keep her family (children, partner) and the brands she tags out of every file. Every step is checked automatically (pipeline/${handle}/package-check.md); a failed step gets one fix run, then the run stops for Tavin. Drafts only (I11), no reel (I36), no send day (D7), no postal address (D3).${notes ? ' Tavin\'s notes: ' + notes.replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 1000) : ''} | status: decided | ${localTime(when)}\n`;
 }
 export function bookDecisionLine({n, base, niche, topic, type, title, handle, contact, notes, when}) {
   const after = handle
@@ -129,6 +129,17 @@ export function stepMessage({run, step, steps}) {
 export const PACKAGE_FIX_NOTES = {visual: {
   'Marketing Kit': 'Visual Check failed a slide. Make every open line under "## Word changes (Visual Check)" in {edition}/carousel/captions.md (and any slide change in {edition}/carousel/check.md), then remake only the carousel it names with make_carousel.',
   'Visual Check': 'Check again the carousel Marketing Kit has just remade, and update {edition}/carousel/check.md: write the line "Both carousels PASSED, <date> <time>" on its own line only when every slide of both carousels passes.'}};
+// Build 46: when the app check finds a fill-in table it cannot read, the cause is a heading in the edition, so the
+// fix run goes to Edition Writer first, then App Builder rebuilds (on 22 Nov the fix went to App Builder alone, which
+// could only rebuild the same thing).
+export function packageRetry(step, reasons) {
+  if (step.retry) return step.retry;
+  if (step.id === 'app' && reasons.some(r => /Fill-in table/i.test(r))) return ['Edition Writer', 'App Builder'];
+  return [step.bot];
+}
+PACKAGE_FIX_NOTES.app = {
+  'Edition Writer': "App Builder's app check could not read a fill-in table in her edition (named below). Compare that table's ### heading in your part file with the same heading in the base book (ebooks/{base}/part-*.md) and change only that heading so the words match (her spelling is fine), then run make_book again; edition-check.md and book-check.md must both say \"Result: PASSED\".",
+  'App Builder': 'Edition Writer has just fixed the heading the app check named. Rebuild and publish her app; app-check.md must say "Result: PASSED" and app-link.md must be written.'};
 export function fixMessage({run, step, bot, reasons}) {
   const intro = bot === step.bot ? `your ${step.id} step did not pass the automatic check` : `${step.bot}'s ${step.id} step did not pass the automatic check, and it needs your part fixed first`;
   if (isBook(run)) { const note = step.fixNote?.[bot] ? ' ' + fill(step.fixNote[bot], runVars(run)) : '';
@@ -238,8 +249,38 @@ export class Pipelines {
     run.status = 'stopped'; run.reason = reason; run.finishedAt = this.now(); run.queue = []; delete run.current;
     await this.save(); await this.writeStatus(run, reason); await this.logged(this.log.stopped(run, reason)); return structuredClone(run);
   }
+  // Build 46: carry on a stopped package run after its cause was fixed. Steps whose files already pass the automatic
+  // check (fixed or done by hand) are marked passed without a message; the first step that does not pass is run
+  // again as normal. A run Tavin already approved by a decided line is marked approved.
+  async resume(handle) {
+    const run = this.find(handle); if (!run || run.status !== 'stopped') throw new Error(`@${String(handle).replace(/^@/, '')} has no stopped package run to resume.`);
+    const all = await this.runSteps(run), since = run.stepStartedAt || run.startedAt, done = [];
+    Object.assign(run, {status: 'running', reason: '', attempt: 0, queue: [], messages: []}); delete run.current; delete run.finishedAt;
+    while (all[run.step] && !all[run.step].review) {
+      const step = all[run.step];
+      if ((await this.gates(run, step, since)).length) break;
+      run.history.push({step: step.id, passed: true, resumed: true, at: this.now()}); done.push(step.id); run.step++;
+    }
+    run.stepStartedAt = this.now(); await this.save();
+    const next = all[run.step];
+    await this.runLine(`@${run.handle} package run resumed by Tavin${done.length ? `; already passing: ${done.join(', ')}` : ''}; next: ${next?.review ? 'review' : `step "${next.id}" (${next.bot})`}`);
+    if (next?.review && await this.approvedBefore(run)) {
+      await this.writeReview(run); run.status = 'approved'; run.finishedAt = this.now(); await this.save();
+      await this.writeStatus(run, 'Resumed: every step passes, and Tavin had already approved it.'); await this.logged(this.log.approved(run));
+      return structuredClone(run);
+    }
+    await this.writeStatus(run, `Resumed by Tavin${done.length ? ' (already passing: ' + done.join(', ') + ')' : ''}.`);
+    if (next?.review) await this.toReview(run, all);
+    return structuredClone(run);
+  }
+  async approvedBefore(run) {
+    const month = localDate(this.now()).slice(0, 7), start = localDate(run.startedAt || 0).slice(0, 7);
+    let text = ''; for (const m of new Set([start, month])) { try { text += await readFile(join(this.teamRoot, `board/decisions-${m}.md`), 'utf8'); } catch {} }
+    return new RegExp(`APPROVED @${run.handle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'s package[^\n]*package run I${run.decision}\\b`, 'i').test(text);
+  }
   async approve(handle, note = '') {
-    const run = this.find(handle); if (!run || run.status !== 'review') throw new Error(`@${String(handle).replace(/^@/, '')} has no package waiting for review.`);
+    const found = this.find(handle); if (found?.status === 'stopped') throw new Error(`@${found.handle}'s package run is stopped. Use resume_package first: it checks the finished steps and opens the review page.`);
+    const run = found; if (!run || run.status !== 'review') throw new Error(`@${String(handle).replace(/^@/, '')} has no package waiting for review.`);
     const when = this.now(), decisions = `board/decisions-${localDate(when).slice(0, 7)}.md`;
     let text = ''; try { text = await readFile(join(this.teamRoot, decisions), 'utf8'); } catch {}
     const n = nextInstruction(text + '\n' + await this.archived(decisions));
@@ -319,7 +360,9 @@ export class Pipelines {
       }
       if (g.sheet) {
         const want = fill(g.sheet, v).toLowerCase(), name = `outreach/send-sheet-${localDate(this.now())}.md`;
-        if ((await mtime(name)) < fresh || !(await read(name)).toLowerCase().includes(want)) reasons.push(`Today's send sheet (${name}) has no new draft for ${want}.`);
+        const names = [...new Set([localDate(Math.max(0, fresh)), localDate(this.now())])].map(d => `outreach/send-sheet-${d}.md`);
+        let found = false; for (const n of names) if ((await mtime(n)) >= fresh && (await read(n)).toLowerCase().includes(want)) found = true;
+        if (!found) reasons.push(`Today's send sheet (${name}) has no new draft for ${want}.`);
       }
       if (g.check) {
         const result = await runPackageCheck(root, {handle: run.handle, base: run.base, scopes: g.check});
@@ -381,7 +424,7 @@ export class Pipelines {
     const fixes = Math.max(0, Math.min(3, Number(step.fixes ?? 1) || 0));
     if (run.attempt >= fixes) return this.fail(run, `Step "${step.id}" (${step.bot}) still did not pass after ${fixes === 1 ? 'one fix run' : fixes + ' fix runs'}:\n${reasons.slice(0, 12).map(r => '- ' + r).join('\n')}`);
     run.attempt++;
-    const bots = step.retry || [step.bot];
+    const bots = packageRetry(step, reasons);
     run.queue = [...bots]; run.messages = bots.map(bot => fixMessage({run, step, bot, reasons})); run.stepStartedAt = this.now();
     await this.save(); await this.writeStatus(run, `Step "${step.id}" did not pass; ${fixes === 1 ? 'one fix run' : `fix run ${run.attempt} of ${fixes}`} started (${bots.join(', then ')}).`);
     await this.runLine(`${runLabel(run)} step "${step.id}" did not pass; fix run started`, reasons.slice(0, 3).join(' / '));
