@@ -118,6 +118,15 @@ function weekGrid(body, restOnly) {
   return `<div class="wgrid">${restOnly ? `<p class="wg-title">${restOnly}</p>` : ''}<div class="wg-row n${Math.min(items.length, 7)}">${items.map(x => `<div class="wg-day">${x.when ? `<p class="wg-when">${x.when}</p>` : ''}<div class="wg-what">${x.what}</div></div>`).join('')}</div></div>`;
 }
 
+// A big figure (a Stat or a spare fact): units small beside the number. Build 47: a conversion in brackets
+// ("25 m (about 80 ft)") goes on its own smaller line under it. Set on one line at 33pt it was wider than the
+// page, and Chromium's printer then shrank the WHOLE book to fit (23 Nov: 77 pages of small type, not about 100).
+export function bigNumber(number) {
+  const units = text => esc(text).replace(/[A-Za-z]+/g, word => `<span class="unit">${word}</span>`);
+  const m = /^(.*?\S)\s*(\([^()]*\))\s*$/.exec(String(number).trim());
+  return m ? `${units(m[1])}<span class="alt">${esc(m[2])}</span>` : units(number);
+}
+
 function renderBox(token, label) {
   if (label.kind === 'recipe') return recipeCard(token, label, tall(token) > 195);
   if (label.kind === 'project') return projectCard(token, label, tall(token) > 195);
@@ -128,8 +137,7 @@ function renderBox(token, label) {
       const cut = inner.indexOf('|');
       const number = cut >= 0 ? strip(inner.slice(0, cut)).trim() : strip(inner).trim().split(/\s+/)[0];
       const caption = cut >= 0 ? inner.slice(cut + 1).trim() : inner.slice(inner.indexOf(number) + number.length).trim();
-      const shown = esc(number).replace(/[A-Za-z]+/g, word => `<span class="unit">${word}</span>`);
-      return `<div class="stat"><div class="stat-number">${shown}</div><div class="stat-caption">${caption}</div></div>`;
+      return `<div class="stat"><div class="stat-number">${bigNumber(number)}</div><div class="stat-caption">${caption}</div></div>`;
     }
     case 'steps': {
       const intro = withoutList(body);
@@ -378,24 +386,26 @@ function takeFacts(tokens) {
 }
 // The largest setting of a fact card whose text is sure to fit in the room (millimetres).
 function factCard(fact, room) {
-  const number = fact.num ? `<div class="filler-num">${esc(fact.num).replace(/[A-Za-z]+/g, word => `<span class="unit">${word}</span>`)}</div>` : '';
+  const number = fact.num ? `<div class="filler-num">${bigNumber(fact.num)}</div>` : '';
   const card = (cls, style = '') => `<aside class="filler ${cls}${fact.num ? ' has-num' : ''}" style="height:${room.toFixed(1)}mm${style}"><span class="ico">${ICONS.spark}</span><div class="filler-in"><p class="filler-label">Did you know?</p>${number}<p class="filler-text">${fact.text}</p></div></aside>`;
   // A full card: the type grows with the room. Heights are estimated from the wording, with a margin.
   const mmPerPt = 0.3528;
+  // a conversion in brackets sits on its own small line under the number (bigNumber)
+  const main = fact.num.trim().replace(/\s*\([^()]*\)$/, ''), alt = Boolean(fact.num) && main !== fact.num.trim();
   const height = f => {
     const lines = Math.ceil(fact.length / Math.floor(124 / (0.178 * f)));
-    return 2 * (5 + f * 0.32) + 12 + 8.5 + lines * f * mmPerPt * 1.26 + (fact.num ? Math.min(84, f * 3.2) * mmPerPt * 1.02 + 3 : 0) + 3;
+    return 2 * (5 + f * 0.32) + 12 + 8.5 + lines * f * mmPerPt * 1.26 + (fact.num ? Math.min(84, f * 3.2) * mmPerPt * (alt ? 1.02 + 0.42 * 1.2 : 1.02) + 3 + (alt ? 0.9 : 0) : 0) + 3;
   };
   for (let f = 27; f >= (fact.num ? 12.5 : 15); f -= 0.5) if (height(f) <= room) return card('f-big', `;--f:${f}pt`);
   // Less room: a short card with the icon at the side (the number, if any, beside the words), or a single line.
   const side = f => {
     // beside a number the words get what is left of the width
-    const digits = fact.num.replace(/[A-Za-z\s]/g, '').length, letters = fact.num.replace(/[^A-Za-z]/g, '').length;
+    const digits = main.replace(/[A-Za-z\s]/g, '').length, letters = main.replace(/[^A-Za-z]/g, '').length;
     const numberWidth = fact.num ? (digits * 0.6 + letters * 0.28 + 0.5) * f * 2.3 * mmPerPt + 6 : 0;
     const width = 124 - numberWidth;
     if (width < 40) return Infinity;
     const lines = Math.ceil(fact.length / Math.floor(width / (0.19 * f)));
-    return 8 + 6.5 + Math.max(lines * f * mmPerPt * 1.32, fact.num ? f * 2.3 * mmPerPt : 0) + 2.5;
+    return 8 + 6.5 + Math.max(lines * f * mmPerPt * 1.32, fact.num ? f * 2.3 * mmPerPt * (alt ? 1.55 : 1) : 0) + 2.5;
   };
   for (let f = 18; f >= 10.5; f -= 0.5) if (side(f) <= room) return card('f-s', `;--f:${f}pt`);
   if (room >= 6.5 + Math.ceil((fact.length + 16 + fact.num.length) / 80) * 4.9) return card('f-xs');
@@ -554,7 +564,8 @@ export function buildBook({title, subtitle = '', author = '', tagline = '', badg
   const seal = !badge ? '' : sealMatch ? `<div class="${sealClass}">${sealMatch[1].trim() ? `<div class="seal-top">${esc(sealMatch[1].trim())}</div>` : ''}<div class="seal-num">${esc(sealMatch[2])}</div><div class="seal-text">${esc(sealMatch[3].trim())}</div></div>` : `<div class="${sealClass}"><div class="seal-text">${esc(badge)}</div></div>`;
   const inside = (Array.isArray(highlights) && highlights.length ? highlights : [chapters.length >= 2 ? `${chapters.length} short chapters` : '', ctx.prints.length ? `${(body.match(/class="(worksheet|plan-page)"/g) || []).length} pages to print` : '', 'Every fact sourced']).map(x => String(x || '').trim()).filter(Boolean).slice(0, 3);
   const titleSize = title.length <= 20 ? '' : title.length <= 34 ? ' t2' : ' t3';
-  const probes = `<div class="probes">${['cal-top', ...ends].map(id => `<a href="#${id}"></a>`).join('')}</div>`;
+  // cal-width: a link exactly 100 mm wide, so make_book can tell from the PDF whether the printer shrank the book.
+  const probes = `<div class="probes">${['cal-top', ...ends].map(id => `<a href="#${id}"></a>`).join('')}</div><div class="probe-width"><a href="#cal-top" id="cal-width-link"></a></div>`;
   const cover = `<section class="cover"><div class="cover-photo"${coverDataUrl ? ` style="background-image:url('${coverDataUrl}')"` : ''}></div><div class="cover-band"></div>${seal}<div class="cover-text"><div class="cover-title${titleSize}">${esc(title)}</div>${subtitle ? `<p class="cover-sub">${esc(subtitle)}</p>` : ''}${tagline ? `<p class="cover-tag">${esc(tagline)}</p>` : ''}${author ? `<p class="cover-by">${esc(author)}</p>` : ''}</div>${inside.length ? `<div class="cover-inside">${inside.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}${probes}</section>`;
   const titlePage = `<section class="title-page"><div><span id="cal-top"></span><p class="tp-title">${esc(title)}</p>${subtitle ? `<p class="tp-sub">${esc(subtitle)}</p>` : ''}<div class="tp-rule"></div></div><div class="tp-foot">${author ? `<p>${esc(author)}</p>` : ''}${badge ? `<p>${esc(badge)}. Every fact in this book carries a small number that links to its source at the back.</p>` : ''}${sections.some(x => x.kind === 'coming') ? `<p class="tp-sample">Sample edition: ${chapters.length} of ${chapters.length + comingList(sections.find(x => x.kind === 'coming').tokens).length} chapters. The rest are listed on the last pages.</p>` : ''}</div></section>`;
   const content = smartQuotes(`${cover}\n${titlePage}\n<nav class="toc"><h2>Contents</h2><ol>${toc}</ol>${prints}</nav>\n<main>${cite(clean(body))}</main>`);
@@ -597,6 +608,7 @@ export function bookToFix(report, printed = true) {
   for (const x of pics.small || []) out.push(`${x.where}: the picture ${x.href} is ${x.px} pixels wide and will print blurry at this size. Ask Creative Studio for one at least ${x.need} pixels wide.`);
   for (const x of pics.noAlt || []) out.push(`${x.where}: the picture ${x.href} has no description. Put a few words on what it shows between the square brackets: ![A bubbly starter in a jar](...).`);
   const check = report.check;
+  if (check?.printScale && check.printScale < 0.98) out.push(`The whole book printed at ${Math.round(check.printScale * 100)}% of its size, because something is wider than the page (usually a long Stat number, a spare fact's number or a wide table row), so every page has small type and the book has too few pages. Shorten that figure (put a long conversion in the caption) and run make_book again; if this comes back, tell Toby.`);
   if (check?.listsSplit) out.push(`A list, box or table is split across two pages in ${check.listsSplitIn.join(', ')}. Make it shorter, or split it into two under their own headings.`);
   if (printed && report.measured === false) out.push('Toby could not measure this PDF, so page numbers, spare facts and stretched chapter endings are missing. Run make_book once more; if this message comes back, tell Toby.');
   if (printed && report.layoutHeld === false) out.push('The layout would not settle, so this PDF has no spare facts or stretched chapter endings. Run make_book once more; if this message comes back, tell Toby.');
@@ -649,6 +661,14 @@ export function layoutFromDests(dests, pageSize = 'Book', links = {}) {
   return {pageNumbers, fill, gaps, split};
 }
 
+// Build 47: the printed width of the 100 mm probe link on the cover, as a share of 100 mm (1 = full size).
+// null when the PDF has no such link (a book made before build 47's builder).
+export function printScaleFromLinks(links = {}) {
+  const widest = Math.max(0, ...(links['cal-top'] || []).map(link => link.width));
+  if (widest < 20) return null;
+  return Math.round(widest / (100 * 72 / 25.4) * 1000) / 1000;
+}
+
 // Prints the book until the layout holds still. print(html) must return the PDF bytes.
 // First print: plain. Second: with page numbers, chapter-end panels stretched and spare facts in the gaps.
 // If anything moved to another page, the changes in the first section that moved are dropped and it prints again.
@@ -660,13 +680,16 @@ export async function layoutBook(options, print, readDests, readLinks = () => ({
   const where = section => (/^ch-(\d+)$/.test(section) ? `Chapter ${section.slice(3)}` : 'the opening pages');
   // The last word goes to the finished PDF itself: is any whole block split, is any room left empty?
   const inspect = (pdf, built) => {
-    const final = layoutFromDests(readDests(pdf), options.pageSize, readLinks(pdf));
+    const links = readLinks(pdf);
+    const final = layoutFromDests(readDests(pdf), options.pageSize, links);
+    const printScale = printScaleFromLinks(links);
     const filled = new Set(built.report.gaps.filter(g => g.filled).map(g => g.id));
     const empty = Object.entries(final.gaps).filter(([id]) => !filled.has(id) && /^g-ch-/.test(id));
     return {
       blocksMeasured: watched.filter(name => MARK_ID.test(name)).length,
       listsSplit: final.split.length, listsSplitIn: [...new Set(final.split.map(x => `${where(x.section)} (page ${x.page})`))],
       emptySpaces: empty.length, emptySpacesMm: empty.map(([, room]) => Math.round(room)),
+      printScale,
     };
   };
   let prints = 1;

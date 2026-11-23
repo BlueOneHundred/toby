@@ -10,6 +10,7 @@ export function sameness(a, b) {
   for (let i = 1; i <= x.length; i++) { for (let j = 1; j <= y.length; j++) cur[j] = x[i - 1] === y[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]); [prev, cur] = [cur, prev]; }
   return 2 * prev[y.length] / (x.length + y.length);
 }
+import {conversionPairs} from './units.mjs';
 const tagsIn = (s) => [...s.matchAll(/\[S[\d,\sS]+\]/g)].flatMap((m) => [...m[0].matchAll(/\d+/g)].map((n) => 'S' + n[0]));
 const numbersIn = (s) => [...s.replace(/\[S[\d,\sS]+\]/g, ' ').replace(/^\s*(>\s*)?\d+\.\s/, ' ').matchAll(/\d+(?:[.,]\d+)*%?/g)].map((m) => m[0].replace(/,/g, ''));
 const count = (list) => { const m = new Map(); for (const v of list) m.set(v, (m.get(v) || 0) + 1); return m; };
@@ -66,8 +67,16 @@ export function checkEdition({ base, edition, sources = '', rules = EDITION_RULE
     const bn = count(b.all.flatMap(numbersIn)), en = count(e.all.flatMap(numbersIn));
     const lostNumbers = [...bn].filter(([v, n]) => (en.get(v) || 0) < n).map(([v]) => v);
     if (lostNumbers.length) toFix.push(`${b.key}: numbers from the base book are missing or changed: ${lostNumbers.slice(0, 12).join(', ')}. Keep every number exactly, written the same way.`);
-    const newNumbers = [...en.keys()].filter((v) => !bn.has(v) && !baseNumbers.has(v));
-    if (newNumbers.length) toFix.push(`${b.key}: numbers that are not in the base book or sources.md: ${newNumbers.slice(0, 12).join(', ')}. Never add a new figure.`);
+    // Build 47 ("both units for every buyer"): a figure that only converts a sourced one, in brackets beside it, is
+    // not a new fact: "635 kg (1,400 lbs)" may add 635 when 1,400 is in the base book. A wrong conversion is named.
+    const known = (v) => bn.has(v) || baseNumbers.has(v), converted = new Set(), wrong = [];
+    for (const line of e.all) for (const pair of conversionPairs(line.replace(/\[S[\d,\sS]+\]/g, ' '))) {
+      if (!pair.numbers.some(known) || pair.numbers.every(known)) continue;
+      if (pair.right) pair.numbers.forEach((v) => converted.add(v)); else wrong.push(pair.text);
+    }
+    if (wrong.length) toFix.push(`${b.key}: these conversions do not match the figure they convert: ${wrong.slice(0, 6).map((w) => `"${w}"`).join(', ')}. Work each one out again from the sourced figure (round sensibly) and keep the sourced figure exactly as it is.`);
+    const newNumbers = [...en.keys()].filter((v) => !bn.has(v) && !baseNumbers.has(v) && !converted.has(v));
+    if (newNumbers.length) toFix.push(`${b.key}: numbers that are not in the base book or sources.md: ${newNumbers.slice(0, 12).join(', ')}. Never add a new figure. (A unit conversion in brackets right after a sourced figure is fine, like "60 cm (24 in)".)`);
     if (e.tables.length !== b.tables.length) toFix.push(`${b.key}: has ${e.tables.length} table(s), the base book has ${b.tables.length}. Keep every table.`);
     else b.tables.forEach((t, i) => { if (e.tables[i].rows.length !== t.rows.length) toFix.push(`${b.key}: table ${i + 1} has ${e.tables[i].rows.length} rows, the base book has ${t.rows.length}.`); if ((type ? /^\|\s*(say this|do this|day|time|what went wrong|looks like|habit)\b/ : /^\|\s*(say this|day|time)\b/).test(t.head) && e.tables[i].head !== t.head) toFix.push(`${b.key}: the heading row of table ${i + 1} must stay exactly "${t.head}".`); });
     const bl = count(b.labels), el = count(e.labels);

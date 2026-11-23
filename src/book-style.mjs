@@ -131,6 +131,8 @@ ol>li::marker{color:var(--pine);font-family:var(--display);font-weight:700;font-
 .seal-text{font:700 7.4pt/1.15 var(--display);max-width:26mm}
 .probes{position:absolute;left:0;top:0;width:2mm;height:2mm;overflow:hidden}
 .probes a{position:absolute;left:0;top:0;width:1.5mm;height:1.5mm}
+.probe-width{position:absolute;left:0;top:0;width:100mm;height:1mm;overflow:hidden}
+.probe-width a{position:absolute;left:0;top:0;width:100mm;height:1mm}
 #cal-top{display:block;height:0}
 
 /* ---------- title page and contents ---------- */
@@ -252,8 +254,10 @@ h2.plain-head{font-family:var(--display);font-weight:800;font-size:28pt;line-hei
 .filler>.ico svg{width:4.3mm;height:4.3mm;fill:currentColor;stroke:none}
 .filler-label{font-family:var(--display);font-weight:700;font-size:9.6pt;line-height:1.2;color:var(--pine);margin:0 0 1.4mm}
 .filler-text{font-family:var(--display);font-weight:500;font-size:10.6pt;line-height:1.36;margin:0;text-wrap:pretty}
-.filler-num{font-family:var(--display);font-weight:800;font-size:25pt;line-height:1;letter-spacing:-.02em;color:var(--pine);margin:0;white-space:nowrap}
+.filler-num{font-family:var(--display);font-weight:800;font-size:25pt;line-height:1;letter-spacing:-.02em;color:var(--pine);margin:0;white-space:normal;overflow-wrap:anywhere}
 .filler-num .unit{font-size:.46em;font-weight:700;letter-spacing:0;margin:0 .14em}
+.filler-num .alt{display:block;font-size:.42em;font-weight:700;letter-spacing:0;line-height:1.2;margin-top:.9mm;white-space:normal}
+.filler.f-xs .filler-num .alt{display:inline;font-size:1em;margin:0 0 0 .3em}
 .filler .cite{color:var(--pine)}
 /* one line */
 .filler.f-xs .filler-label,.filler.f-xs .filler-text,.filler.f-xs .filler-num{display:inline;font-size:10pt;line-height:1.36}
@@ -279,9 +283,10 @@ h2.plain-head{font-family:var(--display);font-weight:800;font-size:28pt;line-hei
 .stat{padding:4.2mm 5mm 4.4mm 0}
 .stats.n2 .stat+.stat,.stats.n3 .stat+.stat{padding-left:5mm;border-left:.6pt solid var(--line)}
 .stats.n1 .stat{display:grid;grid-template-columns:auto 1fr;column-gap:7mm;align-items:center}
-.stat-number{font-family:var(--display);font-weight:800;font-size:33pt;line-height:1;letter-spacing:-.02em;color:var(--pine);white-space:nowrap;margin:0 0 1.8mm}
+.stat-number{font-family:var(--display);font-weight:800;font-size:33pt;line-height:1;letter-spacing:-.02em;color:var(--pine);white-space:normal;overflow-wrap:anywhere;margin:0 0 1.8mm}
 .stats.n1 .stat-number{font-size:40pt;margin:0}
 .stat-number .unit{font-size:.42em;font-weight:700;letter-spacing:0;margin:0 .12em}
+.stat-number .alt{display:block;font-size:.36em;font-weight:700;letter-spacing:0;line-height:1.2;margin-top:1mm;white-space:normal}
 .stat-caption{font-size:9.4pt;line-height:1.42;color:var(--ink)}
 .stats.n1 .stat-caption{font-size:10.4pt;max-width:86mm}
 .stat-caption p{margin:0}
