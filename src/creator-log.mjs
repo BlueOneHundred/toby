@@ -118,7 +118,7 @@ export class CreatorLog {
     return this.update(rows => { const r = this.row(rows, run.handle); r.waiting_on = 'Tavin: package run stopped'; r.next_step = `See pipeline/${run.handle}/status.md: ${clean(reason).slice(0, 160)}`; r.stage_updated = stamp(this.now()); });
   }
   approved(run) {
-    return this.update(rows => { const r = this.row(rows, run.handle); this.setStage(rows, r, 10, {waiting_on: 'Tavin: send', next_step: 'Tavin sends the draft himself, then tells Toby "sent @' + run.handle + '"'}); });
+    return this.update(rows => { const r = this.row(rows, run.handle); this.setStage(rows, r, 10, {waiting_on: 'Tavin: send', next_step: run.contact === 'dm' ? 'Tavin sends the DM himself, then tells Toby "sent @' + run.handle + '"' : 'Tavin presses Send on the Gmail draft from Dan (the app makes it and sees the send); without Gmail: send, then tell Toby "sent @' + run.handle + '"'}); });
   }
   // Toby, when Tavin tells him
   async setByTavin(handle, stage, note = '') {
@@ -131,6 +131,11 @@ export class CreatorLog {
       if (note) r.notes = clean((r.notes ? r.notes + '; ' : '') + `${stamp(this.now()).slice(0, 10)}: ${note}`).slice(0, 600); });
     // Build 44: every send is also one line in outreach/sent-<month>.md, so "Sent today: X of 2" is counted, not guessed.
     if (want === 'Sent') { const t = stamp(this.now()); await this.teamFolder.append(`outreach/sent-${t.slice(0, 7)}.md`, `${t} | @${key(handle)} | ${clean(note).replace(/\|/g, '/').slice(0, 200) || 'sent by Tavin'}\n`).catch(() => {}); }
+    return rows.find(x => key(x.handle) === key(handle));
+  }
+  // Build 48: Tavin corrects a creator's country (set_creator_country).
+  async setCountry(handle, country) {
+    const rows = await this.update(rows => { const r = rows.find(x => key(x.handle) === key(handle)); if (!r) throw new Error(`@${key(handle)} is not in the creator log.`); r.country = clean(country).slice(0, 60); });
     return rows.find(x => key(x.handle) === key(handle));
   }
   // Build 44: how many creators Tavin has sent to today (outreach/sent-<month>.md), and who.

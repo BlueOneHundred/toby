@@ -131,6 +131,11 @@ export function checkEmailText(report, {sheet, handle, voice, appLink, title, bo
   const {email} = found, v = voiceText(voice);
   if (appLink && !email.includes(appLink)) add(report, 'email', 'fail', 'Outreach Writer', `Email 1 does not carry her app link ${appLink}.`);
   if (!norm(email).includes(norm(CAROUSEL_LINE))) add(report, 'email', 'fail', 'Outreach Writer', "Email 1 does not carry Tavin's carousel line word for word.");
+  // Build 48: every creator email comes from Dan <dan@blueonehundred.com> (Tavin, 23 Nov).
+  const spoken = email.split('\n').filter(l => !/^\s*\(.*template footer.*\)\s*$/i.test(l) && !/^\s*\*Note:.*\*\s*$/i.test(l)).join('\n');
+  if (/\bTavin\b/.test(spoken)) add(report, 'email', 'fail', 'Outreach Writer', 'Email 1 says "Tavin": every creator email is from Dan ("I\'m Dan", signed "Dan").');
+  else if (!/\bDan\b/.test(spoken)) add(report, 'email', 'fail', 'Outreach Writer', 'Email 1 is not signed "Dan".');
+  if (/hello@blueonehundred\.com/i.test(email)) add(report, 'email', 'fail', 'Outreach Writer', 'Email 1 names hello@blueonehundred.com: creator emails come from dan@blueonehundred.com.');
   if (/POSTAL ADDRESS/i.test(email)) add(report, 'email', 'fail', 'Outreach Writer', "Email 1 still has a postal address placeholder: Tavin's template footer carries the contact details (D3 closed).");
   if (/\bgrew from\b/i.test(email)) add(report, 'email', 'fail', 'Outreach Writer', 'Email 1 says a chapter "grew from" her posts: say only which chapter holds her own box.');
   scanFamily(report, 'email', 'Outreach Writer', 'Email 1', email);

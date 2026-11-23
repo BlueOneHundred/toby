@@ -19,7 +19,7 @@ const slides = name => JSON.stringify({title: name, handle: H, layout: 'panel', 
 const captions = `# Captions\n\n## Captions for Test\n\n### Carousel A\n\nPaid partnership. Quick note: I earn from each sale of this.\n\nSave your starter!\n\n### Carousel B\n\nPaid partnership. Quick note: I earn from each sale of this.\n\nKeep your loaf good.\n\n## Notes (internal)\n\nComment "bread" and I'll send it.\n`;
 const link = 'https://app.blueonehundred.com/bread-book-testbaker-abc12345/';
 const email = (body) => `# Send sheet\n\n## First emails\n\n### @${H} (Test) · real pitch · NOT sent\n\n**Subject options**\n1. A book for you\n\n**Email 1 (about 150 words)**\n\n${body}\n\n**Follow-up (3 days later)**\n\nHi again.\n\n**Why this is safe to send**\n- ok\n`;
-const goodEmail = `Hi Test,\n\nYour swirl loaf stayed with me: "peep that swirl 3".\n\nWe made you "Bread Book":\n${link}\n\nYour flop story sits in Chapter 5.\n\n${CAROUSEL_LINE}\n\nKeep 60%, no cost. No is fine.\n\nTavin`;
+const goodEmail = `Hi Test,\n\nYour swirl loaf stayed with me: "peep that swirl 3".\n\nWe made you "Bread Book":\n${link}\n\nYour flop story sits in Chapter 5.\n\n${CAROUSEL_LINE}\n\nKeep 60%, no cost. No is fine.\n\nDan`;
 const breakdown = (share = '$342') => `<table><tr><td>Buyers (13,700 followers x 0.1%, 0.25%, 0.5%, rounded down)</td><td>13</td><td>34</td><td>68</td></tr><tr><td>Sales (buyers x $47)</td><td>$611</td><td>$1,598</td><td>$3,196</td></tr><tr><td>Less estimated fees (6% plus $0.30 a sale)</td><td>$41</td><td>$106</td><td>$212</td></tr><tr><td>Left after fees</td><td>$570</td><td>$1,492</td><td>$2,984</td></tr><tr><td>Your 60%</td><td>${share}</td><td>$895</td><td>$1,790</td></tr></table><p>Estimate, not a forecast.</p>`;
 
 async function team(files) {
@@ -78,7 +78,7 @@ test('Toby build 36: the check catches what Claude caught by hand on 18 Nov', as
 });
 
 test('Toby build 36: the email check reads the newest full Email 1, not a sign-off update', () => {
-  const sheet = email(goodEmail) + `\n## Update 17:52\n\n### @${H} · final sign-offs · NOT sent\n\n**Email 1 sign-off (final)**\n\nTavin\n`;
+  const sheet = email(goodEmail) + `\n## Update 17:52\n\n### @${H} · final sign-offs · NOT sent\n\n**Email 1 sign-off (final)**\n\nDan\n`;
   const found = emailSection(sheet, H);
   assert.ok(found.email.includes(link)); assert.ok(!found.email.includes('Why this is safe'));
   assert.equal(emailSection('### @someoneelse\n\n**Email 1**\n\nHi', H), null);
