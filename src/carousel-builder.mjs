@@ -1,7 +1,9 @@
 // Toby: Instagram carousels made from a book's checked photos and real type (make_carousel).
 // No AI-drawn text: every word is set here in the book's fonts and palette. Two layouts, both
 // approved by Tavin on 16 Nov 2026 (Jane's samples):
-//   panel: the photo fills the top of the slide and fades into a solid colour panel with the words.
+//   panel: the photo fills the top of the slide with a hard edge onto a solid colour panel with the words.
+// Toby build 50 (Tavin, 23 Nov 2026): both layouts and the flag slide use the palette's MAIN colour (one brown per
+// carousel, not main on one and deep on the other), and the panel has a hard edge, no fade.
 //   card:  the photo sits on top at full width (its own shape), words on a cream card with a label pill.
 // Slides are 1080 x 1350 (Instagram portrait). The first slide is a cover, the last one shows the book.
 import {fonts} from './book-style.mjs';
@@ -43,19 +45,19 @@ body{font-family:'Source Serif 4',serif;color:${C.ink};-webkit-font-smoothing:an
 
 function panelCss(C) {
   return `
-.slide.dark{background:${C.deep}}
+.slide.dark{background:${C.main}}
 .shade{position:absolute;left:0;right:0;bottom:0}
 .txt{position:absolute;left:72px;right:72px;bottom:96px;color:#fff}
 /* Toby build 36: the words always sit on the deep colour. A long cover title made the text block taller than the
    fixed shade, so the kicker landed on the photo (Hillary's carousel A cover, 18 Nov 2026: 2:1 contrast). */
 .slide.dark .txt{z-index:2}
-.slide.dark .txt::before{content:'';position:absolute;left:-72px;right:-72px;top:-150px;bottom:-240px;background:linear-gradient(to bottom,${hexA(C.deep, 0)} 0px,${C.deep} 140px);z-index:-1;pointer-events:none}
+.slide.dark .txt::before{content:'';position:absolute;left:-72px;right:-72px;top:-64px;bottom:-240px;background:${C.main};z-index:-1;pointer-events:none}
 .txt .h{font-size:88px;text-transform:uppercase}
 .txt .b{font-size:40px;line-height:1.35;margin-top:22px;color:${C.card}}
-.txt .kick{color:${C.accent};margin-bottom:22px}
-.txt .src{margin-top:30px;color:${C.accent}}
+.txt .kick{color:${C.card};margin-bottom:22px}
+.txt .src{margin-top:30px;color:${C.card}}
 .badge{display:inline-block;font-family:'Outfit';font-weight:800;font-size:40px;color:${C.deep};background:${C.accent};border-radius:999px;min-width:72px;height:72px;line-height:72px;padding:0 20px;text-align:center;margin-bottom:20px}
-.swipe{font-family:'Outfit';font-weight:700;font-size:34px;color:${C.accent};margin-top:34px}
+.swipe{font-family:'Outfit';font-weight:700;font-size:34px;color:${C.card};margin-top:34px}
 `;
 }
 
@@ -113,10 +115,11 @@ export function slideHtml({slide, index, total, layout = 'panel', paletteName = 
   if (slide.type === 'flag') {
     // Toby build 35: the flag slide always sits on the deep colour. On the card layout's main colour the accent kicker
     // and source line fell below 4.5:1 (terracotta 4.4:1), so Bagel's and Erica's Safety note slides could never pass.
-    const bg = C.deep;
+    // Build 50: on the main colour too (one brown); the kicker and source use the cream, which passes on main.
+    const bg = C.main;
     return page(css + `.slide.flagged{background:${bg}}`, `<div class="slide flagged">${top}
-<div class="txt fit" style="position:absolute;left:72px;right:72px;top:300px;color:#fff"><div class="kick" style="color:${C.accent};margin-bottom:22px">${esc(slide.kicker || 'Red flag')}</div><div class="h" style="font-size:100px;text-transform:uppercase">${rich(slide.title)}</div>
-<div class="b" style="font-size:46px;line-height:1.35;margin-top:22px;color:${C.card}">${rich(slide.body || '')}</div>${slide.source ? `<div class="src" style="margin-top:30px;color:${C.accent}">${esc(slide.source)}</div>` : ''}</div></div>`);
+<div class="txt fit" style="position:absolute;left:72px;right:72px;top:300px;color:#fff"><div class="kick" style="color:${C.card};margin-bottom:22px">${esc(slide.kicker || 'Red flag')}</div><div class="h" style="font-size:100px;text-transform:uppercase">${rich(slide.title)}</div>
+<div class="b" style="font-size:46px;line-height:1.35;margin-top:22px;color:${C.card}">${rich(slide.body || '')}</div>${slide.source ? `<div class="src" style="margin-top:30px;color:${C.card}">${esc(slide.source)}</div>` : ''}</div></div>`);
   }
   if (layout === 'card') {
     if (slide.type === 'cover') {
@@ -128,18 +131,16 @@ export function slideHtml({slide, index, total, layout = 'panel', paletteName = 
   }
   // panel layout
   if (slide.type === 'cover') {
-    return page(css, `<div class="slide dark">${img ? `<img class="photo" src="${img}" style="height:820px;object-position:${focusCss(slide.focus)}" alt="">` : ''}
-<div class="shade" style="top:660px;background:linear-gradient(to bottom,${hexA(C.deep, 0)} 0px,${C.deep} 160px)"></div>${top}
+    return page(css, `<div class="slide dark">${img ? `<img class="photo" src="${img}" style="height:760px;object-position:${focusCss(slide.focus)}" alt="">` : ''}
+<div class="shade" style="top:760px;background:${C.main}"></div>${top}
 <div class="txt fit" style="bottom:84px">${slide.kicker ? `<div class="kick">${esc(slide.kicker)}</div>` : ''}<div class="h" style="font-size:112px">${rich(slide.title)}</div>${body}<div class="swipe" style="margin-top:26px">Swipe &rarr;</div></div></div>`);
   }
   const badge = label ? `<div class="badge">${esc(label)}</div>` : '';
-  return page(css, `<div class="slide dark">${img ? `<img class="photo" src="${img}" style="height:880px;object-position:${focusCss(slide.focus)}" alt="">` : ''}
-<div class="shade" style="top:700px;background:linear-gradient(to bottom,${hexA(C.deep, 0)} 0px,${C.deep} 180px)"></div>${top}
+  return page(css, `<div class="slide dark">${img ? `<img class="photo" src="${img}" style="height:720px;object-position:${focusCss(slide.focus)}" alt="">` : ''}
+<div class="shade" style="top:720px;background:${C.main}"></div>${top}
 <div class="txt fit">${badge}<div class="h">${rich(slide.title)}</div>${body}${src}</div></div>`);
 }
 
-// rgba() from a hex colour; used only inside gradients that fade a photo into a solid colour.
-function hexA(hex, alpha) { const h = hex.replace('#', ''); return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${alpha})`; }
 
 // Runs inside each slide (in the hidden window) before it is captured. It shrinks a heading that
 // is too big for its space (down to 70%), then reports anything outside the safe area, cut off,

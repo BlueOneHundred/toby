@@ -1,11 +1,13 @@
 // Toby build 48: creator emails through Gmail, from Dan <dan@blueonehundred.com>. The app (not a bot):
-// 1. turns an approved creator's pitch (Email 1 in the newest send sheet) into a Gmail draft, with the breakdown PDF
-//    and the 16 carousel slides attached, and Dan's Gmail signature;
+// 1. turns an approved creator's pitch (Email 1 in the newest send sheet) into a Gmail draft with Dan's Gmail
+//    signature (build 50: no attachments; her private sample page link is in the text);
 // 2. watches Sent: an email from dan@ to a creator's address marks her "Sent" in the creator log (no more
 //    "sent @handle" for email), starts the follow-up clock and writes outreach/sent-<month>.md;
 // 3. after 3 days with no reply, drafts the follow-up in the same thread; after 10 days, the last email;
 // 4. watches the inbox: a reply from a creator marks her "Replied" and lists it in outreach/replies-<month>.md.
 // Nothing is ever sent by Toby. A draft is refused if it still says "Tavin" or names hello@ (all outreach is Dan's).
+// Build 50 (Tavin, 23 Nov 2026): no attachments. Email 1 carries ONE link, her private sample page (<app link>kit/,
+// made by sample-page.mjs), and the draft is refused until that page is published and live.
 import {readFile, readdir, writeFile, mkdir, rename} from 'node:fs/promises';
 import {join, basename} from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -56,7 +58,6 @@ export function notDanReason(text) {
   if (!/\bDan\b/.test(text)) return 'it is not signed "Dan"';
   return '';
 }
-const TYPES = {pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png'};
 
 export class OutreachMail {
   constructor({gmail, teamRoot, teamFolder, log, directory, now = Date.now}) {
@@ -85,19 +86,18 @@ export class OutreachMail {
     if (!e.email1) return {ok: false, why: `${e.sheet} has no Email 1 for her`};
     const bad = notDanReason(e.email1); if (bad) return {ok: false, why: `Email 1 in ${e.sheet} is not ready: ${bad}. Outreach Writer rewrites it as Dan.`};
     const from = this.from(); if (!from.found) return {ok: false, why: 'Gmail has no "send mail as" entry for dan@blueonehundred.com'};
+    const page = await readFile(join(this.teamRoot, 'pipeline', handle, 'sample-page.md'), 'utf8').catch(() => '');
+    const pageUrl = (page.match(/^- Link:\s*(https:\/\/\S+)/m) || [])[1] || '';
+    if (!pageUrl) return {ok: false, why: `her private sample page is not made yet (pipeline/${handle}/sample-page.md): the app makes it after approval; Toby can run sample_page`};
+    if (!/^- Live when checked: yes/m.test(page)) return {ok: false, why: `her sample page ${pageUrl} is not live yet; Toby can run sample_page again`};
+    if (!e.email1.includes(pageUrl)) return {ok: false, why: `Email 1 in ${e.sheet} does not carry her sample page link ${pageUrl}. Outreach Writer rewrites it (one link: the page).`};
     const attachments = [];
-    for (const item of e.attach) for (const p of expandAttach(item)) {
-      if (/sheet\.jpg$/i.test(p)) continue;
-      try { attachments.push({name: attachmentName(p), type: TYPES[p.split('.').pop().toLowerCase()] || 'application/octet-stream', bytes: await readFile(join(this.teamRoot, p))}); }
-      catch { return {ok: false, why: `the attachment ${p} is missing`}; }
-    }
-    attachments.sort((a, b) => (a.type === 'application/pdf' ? 0 : 1) - (b.type === 'application/pdf' ? 0 : 1));
     if (!from.signature.trim()) return {ok: false, why: 'dan@blueonehundred.com has no Gmail signature yet (it carries the business contact details under every email). Add it in Gmail: Settings > General > Signature, for dan@'};
     const subject = e.subjects[0] || 'A book we made for you';
-    const d = await this.gmail.createDraft({from: from.header, to: e.to, subject, text: e.email1, signature: from.signature, attachments});
+    const d = await this.gmail.createDraft({from: from.header, to: e.to, subject, text: e.email1, signature: from.signature, attachments});   // build 50: always none
     this.state.creators[handle] = {...c, blockedWhy: undefined, blockedAt: undefined, to: e.to, subject, sheet: e.sheet, draftId: d.draftId, draftMessageId: d.messageId, threadId: d.threadId, draftedAt: this.now()};
-    await this.save(); await this.runLine(`Gmail draft for @${handle} from ${OUTREACH_FROM.email} ("${subject}", ${attachments.length} attachments, ${e.sheet}); nothing sent`);
-    return {ok: true, draftId: d.draftId, attachments: attachments.length, subject};
+    await this.save(); await this.runLine(`Gmail draft for @${handle} from ${OUTREACH_FROM.email} ("${subject}", no attachments, her page ${pageUrl}, ${e.sheet}); nothing sent`);
+    return {ok: true, draftId: d.draftId, attachments: 0, page: pageUrl, subject};
   }
 
   /** Every approved email creator without a draft gets one (the first run after approval, or after connecting). */

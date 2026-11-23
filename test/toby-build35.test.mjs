@@ -55,14 +55,13 @@ test('Toby build 35: books carry no paw icon (quote for From boxes, spark for Di
   assert.ok(ICONS.quote.startsWith('<svg')&&ICONS.spark.startsWith('<svg'));
 });
 
-test('Toby build 35: the flag slide sits on the deep colour in both layouts, and its words pass contrast in every palette', () => {
+test('Toby build 35 (build 50): the flag slide sits on the main colour in both layouts, and its words pass contrast in every palette', () => {
   for(const name of PALETTE_NAMES){const C=carouselColours(name);
     for(const layout of ['panel','card']){
       const html=slideHtml({slide:{type:'flag',kicker:'Safety note',title:'Hot pot',body:'Use dry mitts.',source:'Source: King Arthur Baking'},index:7,total:8,layout,paletteName:name,handle:'@x'});
-      assert.match(html,new RegExp('\\.slide\\.flagged\\{background:'+C.deep+'\\}'),name+' '+layout);}
-    assert.ok(contrast(C.accent,C.deep)>=4.5,name+' kicker and source on deep: '+contrast(C.accent,C.deep).toFixed(2));
-    assert.ok(contrast(C.card,C.deep)>=4.5,name+' body on deep');
-    assert.ok(contrast('#FFFFFF',C.deep)>=3,name+' title on deep');}
+      assert.match(html,new RegExp('\\.slide\\.flagged\\{background:'+C.main+'\\}'),name+' '+layout);}
+    assert.ok(contrast(C.card,C.main)>=4.5,name+' kicker, source and body on main: '+contrast(C.card,C.main).toFixed(2));
+    assert.ok(contrast('#FFFFFF',C.main)>=3,name+' title on main');}
 });
 
 test('Toby build 35: a shorter remake moves the old extra slides out of the carousel', () => {

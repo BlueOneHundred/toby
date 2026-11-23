@@ -7,7 +7,10 @@
 import {readFile,readdir,stat} from 'node:fs/promises';
 import {join} from 'node:path';
 
-export const CAROUSEL_LINE = "Here are 2 examples of what the launch carousels could look like, and if you like them, we'd make a launch reel together from your own clips.";
+// Build 50 (Tavin approved 23 Nov 2026, 15:41): the carousels are on her private sample page, not attached.
+export const CAROUSEL_LINE = "On your page there are 2 examples of what the launch carousels could look like, and if you like them, we'd make a launch reel together from your own clips.";
+// Build 50: her private sample page sits in her app's folder: <app link>kit/.
+export const pageLinkFor = appLink => appLink ? String(appLink).replace(/\/*$/, '/') + 'kit/' : '';
 // Family words. Alone they are often about the reader ("Kids shouldn't eat raw dough"), so they only ask for a look.
 export const FAMILY = /\b(kids?|kiddos?|child|children|toddlers?|daughters?|sons?|husband|hubby|wife|babies|baby|grandkids?|little helpers?|little ones)\b/i;
 // Her own family, in her voice or ours ("my kids", "our toddler", "her husband"): always a fix.
@@ -129,7 +132,19 @@ export function checkEmailText(report, {sheet, handle, voice, appLink, title, bo
   const found = sheet && emailSection(sheet, handle);
   if (!found) { add(report, 'email', 'fail', 'Outreach Writer', `No email draft for @${handle} with a full "Email 1" in the send sheets.`); return; }
   const {email} = found, v = voiceText(voice);
-  if (appLink && !email.includes(appLink)) add(report, 'email', 'fail', 'Outreach Writer', `Email 1 does not carry her app link ${appLink}.`);
+  // Build 50: ONE link in the body, her private sample page; the website only in the sign-off; no attachments.
+  const page = pageLinkFor(appLink);
+  if (page && !email.includes(page)) add(report, 'email', 'fail', 'Outreach Writer', `Email 1 does not carry her private sample page link ${page} (it replaces the app link).`);
+  const links = [...new Set([...email.matchAll(/https?:\/\/[^\s)<>"]+/g)].map(m => m[0].replace(/[.,;:!?]+$/, '')))].filter(u => !/^https?:\/\/(www\.)?blueonehundred\.com\/?$/i.test(u));
+  if (page) for (const u of links) if (u !== page) add(report, 'email', 'fail', 'Outreach Writer', `Email 1 has another link, ${u}: the only link in the body is her page ${page} (the website goes in the sign-off).`);
+  const attach = (found.section.match(/^\s*-\s*\*\*Attach:\*\*\s*(.*)$/m) || [])[1];
+  if (attach === undefined || !/^none\b/i.test(attach.trim()) || /^\s*-\s*\*\*Attach:\*\*\s*\n\s{2,}-\s/m.test(found.section)) add(report, 'email', 'fail', 'Outreach Writer', 'The entry must say "**Attach:** none": everything is on her private page now (build 50).');
+  if (/\battach(ed|ment|ments)?\b/i.test(email)) add(report, 'email', 'fail', 'Outreach Writer', 'Email 1 talks about an attachment: nothing is attached now; say it is on her page.');
+  if (/\bPDF\b/.test(email)) add(report, 'email', 'fail', 'Outreach Writer', 'Email 1 says "PDF": the book is a high-quality ebook with its own companion app, never "a PDF".');
+  const subj = found.section.match(/\*\*Subject options\*\*\s*\n+\s*1\.\s+(.+)/i);
+  const sw = subj ? words(subj[1].replace(/\(\d+ words?\)\s*$/, '')) : 0;
+  if (!subj) add(report, 'email', 'fail', 'Outreach Writer', 'No "**Subject options**" list with a first subject.');
+  else if (sw < 2 || sw > 5) add(report, 'email', 'fail', 'Outreach Writer', `Subject option 1 has ${sw} words: keep it 2 to 5 words (it is the one the app uses).`);
   if (!norm(email).includes(norm(CAROUSEL_LINE))) add(report, 'email', 'fail', 'Outreach Writer', "Email 1 does not carry Tavin's carousel line word for word.");
   // Build 48: every creator email comes from Dan <dan@blueonehundred.com> (Tavin, 23 Nov).
   const spoken = email.split('\n').filter(l => !/^\s*\(.*template footer.*\)\s*$/i.test(l) && !/^\s*\*Note:.*\*\s*$/i.test(l)).join('\n');

@@ -54,7 +54,9 @@ const SHEET = (who) => `# Send sheet, 2026-01-12
 
 Hi Pip,
 
-I'm ${who}. ${CAROUSEL_LINE}
+I'm ${who}. Your page: https://app.blueonehundred.com/b-pip-abcd1234/kit/
+
+${CAROUSEL_LINE}
 
 ${who}
 Blueprints by Blue One Hundred
@@ -130,9 +132,13 @@ test('build 48: approved creators get a Gmail draft from Dan; Sent, replies and 
 
     await writeFile(join(root, 'outreach/send-sheet-2026-01-13.md'), SHEET('Dan'));
     clock.now += 2 * 3600000; res = await mail.draftApproved();
-    assert.equal(g.drafts.length, 1, res[0].why); const d = g.drafts[0];
+    assert.equal(g.drafts.length, 0); assert.match(res[0].why, /sample page is not made yet/, 'build 50: no draft before her page exists');
+    await mkdir(join(root, 'pipeline/pipbakes'), {recursive: true});
+    await writeFile(join(root, 'pipeline/pipbakes/sample-page.md'), '# Sample page: @pipbakes\n\n- Link: https://app.blueonehundred.com/b-pip-abcd1234/kit/\n- Live when checked: yes\n');
+    clock.now += 2 * 3600000; res = await mail.draftApproved();
+    assert.equal(g.drafts.length, 1, res[0]?.why); const d = g.drafts[0];
     assert.equal(d.from, 'Dan <dan@blueonehundred.com>'); assert.equal(d.to, 'pip@example.com'); assert.equal(d.subject, 'your crusty loaf');
-    assert.equal(d.signature, '<b>Blueprints</b>'); assert.deepEqual(d.attachments.map(a => a.name), ['breakdown-pipbakes.pdf', 'A-x-01.jpg', 'A-x-02.jpg']);
+    assert.equal(d.signature, '<b>Blueprints</b>'); assert.deepEqual(d.attachments, [], 'build 50: no attachments'); assert.match(d.text, /\/kit\//);
     assert.equal((await mail.draftApproved()).length, 0, 'never a second draft');
 
     g.sent.push({id: 's1', threadId: 't1', at: clock.now, from: 'Dan <dan@blueonehundred.com>', to: 'Pip <pip@example.com>', subject: 'your crusty loaf', messageId: '<m1@x>'});

@@ -381,7 +381,7 @@ export class Pipelines {
 
   async tick() {
     if (this.ticking || this.closed) return; this.ticking = true;
-    try { await this.logged(this.log.tick()); await this.logged(this.mail?.tick()); await this.logged(this.watchCreators()); await this.logged(this.autoPick()); await this.logged(this.archiveDecisions());
+    try { await this.logged(this.log.tick()); if (this.pages) void this.pages.tick(this.runs).catch(() => {}); await this.logged(this.mail?.tick()); await this.logged(this.watchCreators()); await this.logged(this.autoPick()); await this.logged(this.archiveDecisions());
       for (const run of this.runs.filter(r => r.status === 'running')) await this.advance(run).catch(async e => { await this.fail(run, (isBook(run) ? 'The book run' : 'The package run') + ' hit an error: ' + e.message); }); }
     finally { this.ticking = false; }
   }

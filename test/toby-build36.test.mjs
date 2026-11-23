@@ -18,8 +18,8 @@ const goodParts = Array.from({length: 12}, (_, i) => chapter(i + 1, i === 4 ? 'O
 const slides = name => JSON.stringify({title: name, handle: H, layout: 'panel', slides: [{type: 'cover', title: 'Save your **starter**!', kicker: 'Got a jar?'}, {type: 'point', title: 'Keep it cold', body: 'In the fridge it keeps for weeks.'}, {type: 'end', title: 'Bread Book'}]});
 const captions = `# Captions\n\n## Captions for Test\n\n### Carousel A\n\nPaid partnership. Quick note: I earn from each sale of this.\n\nSave your starter!\n\n### Carousel B\n\nPaid partnership. Quick note: I earn from each sale of this.\n\nKeep your loaf good.\n\n## Notes (internal)\n\nComment "bread" and I'll send it.\n`;
 const link = 'https://app.blueonehundred.com/bread-book-testbaker-abc12345/';
-const email = (body) => `# Send sheet\n\n## First emails\n\n### @${H} (Test) · real pitch · NOT sent\n\n**Subject options**\n1. A book for you\n\n**Email 1 (about 150 words)**\n\n${body}\n\n**Follow-up (3 days later)**\n\nHi again.\n\n**Why this is safe to send**\n- ok\n`;
-const goodEmail = `Hi Test,\n\nYour swirl loaf stayed with me: "peep that swirl 3".\n\nWe made you "Bread Book":\n${link}\n\nYour flop story sits in Chapter 5.\n\n${CAROUSEL_LINE}\n\nKeep 60%, no cost. No is fine.\n\nDan`;
+const email = (body) => `# Send sheet\n\n## First emails\n\n### @${H} (Test) · real pitch · NOT sent\n- **Attach:** none\n\n**Subject options**\n1. A book for you\n\n**Email 1 (about 150 words)**\n\n${body}\n\n**Follow-up (3 days later)**\n\nHi again.\n\n**Why this is safe to send**\n- ok\n`;
+const goodEmail = `Hi Test,\n\nYour swirl loaf stayed with me: "peep that swirl 3".\n\nWe made you "Bread Book":\n${link}kit/\n\nYour flop story sits in Chapter 5.\n\n${CAROUSEL_LINE}\n\nKeep 60%, no cost. No is fine.\n\nDan`;
 const breakdown = (share = '$342') => `<table><tr><td>Buyers (13,700 followers x 0.1%, 0.25%, 0.5%, rounded down)</td><td>13</td><td>34</td><td>68</td></tr><tr><td>Sales (buyers x $47)</td><td>$611</td><td>$1,598</td><td>$3,196</td></tr><tr><td>Less estimated fees (6% plus $0.30 a sale)</td><td>$41</td><td>$106</td><td>$212</td></tr><tr><td>Left after fees</td><td>$570</td><td>$1,492</td><td>$2,984</td></tr><tr><td>Your 60%</td><td>${share}</td><td>$895</td><td>$1,790</td></tr></table><p>Estimate, not a forecast.</p>`;
 
 async function team(files) {
@@ -184,7 +184,7 @@ test('Toby build 36: the standard steps cover the whole package in order', () =>
   assert.match(line, /^2026-11-19 I60 \| for: .* \| status: decided \| 08:05\n$/); assert.match(line, /Instagram DM draft/); assert.doesNotMatch(line, /—|–/, 'no dashes');
 });
 
-test('Toby build 36: carousel words always sit on the deep colour, however long the title', () => {
+test('Toby build 36 (build 50): carousel words always sit on the main colour, however long the title', () => {
   const html = slideHtml({slide: {type: 'cover', title: "Don't pour out your **discard**!", kicker: 'Discard'}, index: 1, total: 8, layout: 'panel', paletteName: 'terracotta', handle: H});
   assert.match(html, /\.slide\.dark \.txt\{z-index:2\}/); assert.match(html, /\.slide\.dark \.txt::before\{content:'';position:absolute/);
 });

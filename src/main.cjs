@@ -116,6 +116,9 @@ app.whenReady().then(async () => {
   const [{Gmail},{OutreachMail}]=await Promise.all([import('./gmail.mjs'),import('./outreach-mail.mjs')]);
   gmail=await new Gmail({directory:dataDir,encrypt:connections.encrypt,decrypt:connections.decrypt,openExternal:url=>shell.openExternal(url)}).init();
   outreachMail=await new OutreachMail({gmail,teamRoot:teamFolder.root(),teamFolder,log:pipelines.log,directory:dataDir}).init();pipelines.mail=outreachMail;
+  // Toby build 50: a private sample page per approved creator (published next to her app), instead of email attachments.
+  const {SamplePages}=await import('./sample-page.mjs');
+  pipelines.pages=new SamplePages({teamRoot:teamFolder.root(),teamFolder,publisher:()=>connections.appPublisher(),makePdf:input=>require('./pdf-maker.cjs').makePdf({...input,root:teamFolder.root()}),renderPage:input=>require('./pdf-maker.cjs').renderPage({root:teamFolder.root(),...input})});
   const {ComputerControl}=await import('./computer-control.mjs');
   computerControl=new ComputerControl({service,cloud,humanComputers,epochs:computerControlEpochs,revisions:computerControlRevisions,setHuman:setHumanControl,snapshot:computerSnapshot,onState:state=>{if(window&&!window.isDestroyed())window.webContents.send('orbit:computer-state',state);mobile?.requestSync();}});
   const {validatePhonePages}=await import('./phone-pages.mjs');
