@@ -107,7 +107,9 @@ export class OutreachMail {
     for (const r of rows) {
       if (r.stage !== 'Approved' || !/email/i.test(r.contact_route || '')) continue;
       const c = this.state.creators[key(r.handle)] || {};
-      if (c.draftId || c.sentAt) continue;
+      if (c.sentAt) continue;
+      // Build 50: a draft Tavin deleted in Gmail no longer counts (23 Nov: all drafts deleted, so none came back).
+      if (c.draftId) { if (await this.gmail.draftExists(c.draftId).catch(() => true)) continue; this.state.creators[key(r.handle)] = {...c, draftId: undefined, draftMessageId: undefined}; await this.save(); }
       if (c.blockedWhy && this.now() - (c.blockedAt || 0) < 3600000) continue;   // a blocked draft is tried again hourly
       const res = await this.draftPitch(r.handle).catch(e => ({ok: false, why: e.message}));
       if (!res.ok) { this.state.creators[key(r.handle)] = {...(this.state.creators[key(r.handle)] || {}), blockedWhy: res.why, blockedAt: this.now()}; await this.save(); }

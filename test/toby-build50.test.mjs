@@ -196,3 +196,17 @@ test('build 50: the package check wants the page link as the one link, no attach
   assert.match(run(sheet(good, undefined, 'Your overproofed bagels, and a book we made for you')), /2 to 5 words/);
   assert.match(run(sheet(good.replace(CAROUSEL_LINE, "Here are 2 examples of what the launch carousels could look like."))), /carousel line/);
 });
+
+test('build 50: a Gmail draft Tavin deleted is made again (it no longer blocks the creator)', async () => {
+  const {OutreachMail} = await import('../src/outreach-mail.mjs');
+  const dir = await mkdtemp(join(tmpdir(), 'toby50m-'));
+  try {
+    let exists = false; const tried = [];
+    const gmail = {status: () => ({connected: true}), draftExists: async () => exists, sendAsFor: () => null};
+    const log = {read: async () => [{handle: 'pipbakes', stage: 'Approved', contact_route: 'email'}]};
+    const m = await new OutreachMail({gmail, teamRoot: dir, teamFolder: null, log, directory: dir}).init();
+    m.state.creators.pipbakes = {draftId: 'old'}; m.draftPitch = async h => { tried.push(h); return {ok: false, why: 'test'}; };
+    exists = true; await m.draftApproved(); assert.deepEqual(tried, [], 'a draft that still exists is left alone');
+    exists = false; await m.draftApproved(); assert.deepEqual(tried, ['pipbakes']); assert.equal(m.state.creators.pipbakes.draftId, undefined);
+  } finally { await rm(dir, {recursive: true, force: true}); }
+});
