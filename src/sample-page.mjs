@@ -66,6 +66,12 @@ export function parseBreakdown(html) {
   // Rounded only at the end, as the checked breakdown does (Brynn's Middle: $13,296, not $13,295).
   const exactFees = sales.map((s, i) => s * 0.06 + 0.3 * buyers[i]), fees = exactFees.map(Math.round);
   const left = sales.map((s, i) => Math.round(s - exactFees[i])), share = sales.map((s, i) => Math.round((s - exactFees[i]) * 0.6));
+  // Build 51 (23 Nov): use the approved breakdown's own numbers. The breakdowns do not all round the same way
+  // (Brynn's rounds to the nearest dollar, Claire's and Julian's round down), so working them out again put $1 more
+  // on two pages. The working above is only a fallback for a row that cannot be read.
+  const row = label => { const m = t.match(new RegExp(label + '[^$\\d]*?(?:\\([^)]*\\))?\\s*\\$?([\\d,]+)\\s+\\$?([\\d,]+)\\s+\\$?([\\d,]+)', 'i')); return m ? m.slice(1, 4).map(num) : null; };
+  const shown = {buyers: row('Buyers'), sales: row('Sales'), fees: row('Less estimated fees'), left: row('Left after fees'), share: row('Your 60\\%')};
+  for (const [k, v] of Object.entries(shown)) if (v && v.every(Number.isFinite)) ({buyers, sales, fees, left, share})[k].splice(0, 3, ...v);
   const gbpPrice = t.match(/in pounds \(£(\d+) a sale\)/i);
   let gbp = null;
   if (gbpPrice) {
@@ -391,7 +397,7 @@ export async function gatherKit(root, {handle, base}) {
   const h = createHash('sha256'); h.update(JSON.stringify({...input, carousels: carousels.map(c => [c.name, c.slides])}));
   for (const c of carousels) for (const n of c.slides) h.update(String((await stat(join(c.dir, n))).mtimeMs));
   h.update(String((await stat(join(ed, 'book.html')).catch(() => ({mtimeMs: 0}))).mtimeMs));
-  h.update('page-v1');
+  h.update('page-v2');   // build 51: numbers copied from the breakdown
   return {data: res.data, edition: ed, hash: h.digest('hex').slice(0, 16)};
 }
 

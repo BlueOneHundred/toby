@@ -66,9 +66,6 @@ test('build 50 page: the breakdown numbers match the checked breakdown, with pou
   assert.deepEqual([us.followers, us.price, us.buyers, us.share, us.gbp], [10000, 47, [10, 25, 50], [263, 658, 1316], null]);
   assert.deepEqual(us.ideas, ['Idea One: first idea.', 'Idea Two: second idea.']); assert.equal(us.checked, '2026-01-10');
   const uk = parseBreakdown(BREAKDOWN(true)); assert.equal(uk.gbp.price, 36); assert.deepEqual(uk.gbp.share, [201, 501, 1003]);
-  // Rounded only at the end (a real case: $13,296, not $13,295).
-  const real = parseBreakdown(BREAKDOWN(false).replace('10,000 followers', '202,263 followers').replace('$47)', '$47)'));
-  assert.deepEqual(real.share, [5318, 13296, 26618]);
 });
 
 test('build 50 page: zip is a valid stored zip', () => {
@@ -209,4 +206,15 @@ test('build 50: a Gmail draft Tavin deleted is made again (it no longer blocks t
     exists = true; await m.draftApproved(); assert.deepEqual(tried, [], 'a draft that still exists is left alone');
     exists = false; await m.draftApproved(); assert.deepEqual(tried, ['pipbakes']); assert.equal(m.state.creators.pipbakes.draftId, undefined);
   } finally { await rm(dir, {recursive: true, force: true}); }
+});
+
+test('build 51: the page copies the approved breakdown numbers, even when that breakdown rounded down', () => {
+  // A breakdown that rounds down (as two real ones do): working it out again would give $1 more on every column.
+  const html = BREAKDOWN(false).replace('10,000 followers', '212,117 followers')
+    .replace('<td>10</td><td>25</td><td>50</td>', '<td>212</td><td>530</td><td>1,060</td>')
+    .replace('<td>$470</td><td>$1,175</td><td>$2,350</td>', '<td>$9,964</td><td>$24,910</td><td>$49,820</td>')
+    .replace('<td>$31</td><td>$78</td><td>$156</td>', '<td>$661</td><td>$1,654</td><td>$3,307</td>')
+    .replace('<td>$439</td><td>$1,097</td><td>$2,194</td>', '<td>$9,303</td><td>$23,256</td><td>$46,513</td>')
+    .replace('<td>$263</td><td>$658</td><td>$1,316</td>', '<td>$5,581</td><td>$13,953</td><td>$27,907</td>');
+  assert.deepEqual(parseBreakdown(html).share, [5581, 13953, 27907]);
 });
