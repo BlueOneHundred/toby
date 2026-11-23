@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Gmail, parseClientFile, buildMime, GMAIL_SCOPES} from '../src/gmail.mjs';
-import {OutreachMail, parseSendSheetEntry, expandAttach, notDanReason} from '../src/outreach-mail.mjs';
+import {OutreachMail, parseSendSheetEntry, expandAttach, notDanReason, attachmentName} from '../src/outreach-mail.mjs';
 import {CreatorLog, toCsv, COLUMNS} from '../src/creator-log.mjs';
 import {TeamFolder} from '../src/team-folder.mjs';
 import {checkEmailText, CAROUSEL_LINE} from '../src/package-check.mjs';
@@ -132,7 +132,7 @@ test('build 48: approved creators get a Gmail draft from Dan; Sent, replies and 
     clock.now += 2 * 3600000; res = await mail.draftApproved();
     assert.equal(g.drafts.length, 1, res[0].why); const d = g.drafts[0];
     assert.equal(d.from, 'Dan <dan@blueonehundred.com>'); assert.equal(d.to, 'pip@example.com'); assert.equal(d.subject, 'your crusty loaf');
-    assert.equal(d.signature, '<b>Blueprints</b>'); assert.equal(d.attachments.length, 3);
+    assert.equal(d.signature, '<b>Blueprints</b>'); assert.deepEqual(d.attachments.map(a => a.name), ['breakdown-pipbakes.pdf', 'A-x-01.jpg', 'A-x-02.jpg']);
     assert.equal((await mail.draftApproved()).length, 0, 'never a second draft');
 
     g.sent.push({id: 's1', threadId: 't1', at: clock.now, from: 'Dan <dan@blueonehundred.com>', to: 'Pip <pip@example.com>', subject: 'your crusty loaf', messageId: '<m1@x>'});
@@ -174,4 +174,9 @@ test('build 48: the one-off Google sign-in keeps a lasting sign-in, encrypted, a
     assert.equal(again.status().connected, true);
     await g.disconnect(); assert.equal(g.status().connected, false);
   } finally { await rm(data, {recursive: true, force: true}); }
+});
+
+test('build 49: slides get their carousel in the file name, and no signature means no draft', async () => {
+  assert.equal(attachmentName('ebooks/b/editions/x/carousel/B-like-a-baker/03.jpg'), 'B-like-a-baker-03.jpg');
+  assert.equal(attachmentName('outreach/breakdown-x.pdf'), 'breakdown-x.pdf');
 });

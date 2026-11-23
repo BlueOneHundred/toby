@@ -43,6 +43,12 @@ export function expandAttach(item) {
   const out = []; for (let n = +m[2]; n <= +m[4]; n++) out.push(`${m[1] || ''}${String(n).padStart(m[2].length, '0')}${m[3]}`);
   return out;
 }
+/** A clear attachment name: carousel slides keep their carousel's folder ("A-what-went-wrong-01.jpg"), so the
+ * creator does not get two files called 01.jpg. */
+export function attachmentName(path) {
+  const m = String(path).match(/carousel\/([^/]+)\/([^/]+)$/);
+  return m ? `${m[1]}-${m[2]}` : basename(path);
+}
 /** Why a text must not go out as Dan's draft, or '' if it is fine. */
 export function notDanReason(text) {
   if (/\bTavin\b/.test(text)) return 'it still says "Tavin" (all creator emails come from Dan)';
@@ -82,9 +88,11 @@ export class OutreachMail {
     const attachments = [];
     for (const item of e.attach) for (const p of expandAttach(item)) {
       if (/sheet\.jpg$/i.test(p)) continue;
-      try { attachments.push({name: basename(p), type: TYPES[p.split('.').pop().toLowerCase()] || 'application/octet-stream', bytes: await readFile(join(this.teamRoot, p))}); }
+      try { attachments.push({name: attachmentName(p), type: TYPES[p.split('.').pop().toLowerCase()] || 'application/octet-stream', bytes: await readFile(join(this.teamRoot, p))}); }
       catch { return {ok: false, why: `the attachment ${p} is missing`}; }
     }
+    attachments.sort((a, b) => (a.type === 'application/pdf' ? 0 : 1) - (b.type === 'application/pdf' ? 0 : 1));
+    if (!from.signature.trim()) return {ok: false, why: 'dan@blueonehundred.com has no Gmail signature yet (it carries the business contact details under every email). Add it in Gmail: Settings > General > Signature, for dan@'};
     const subject = e.subjects[0] || 'A book we made for you';
     const d = await this.gmail.createDraft({from: from.header, to: e.to, subject, text: e.email1, signature: from.signature, attachments});
     this.state.creators[handle] = {...c, blockedWhy: undefined, blockedAt: undefined, to: e.to, subject, sheet: e.sheet, draftId: d.draftId, draftMessageId: d.messageId, threadId: d.threadId, draftedAt: this.now()};
@@ -95,6 +103,7 @@ export class OutreachMail {
   /** Every approved email creator without a draft gets one (the first run after approval, or after connecting). */
   async draftApproved() {
     const rows = await this.log.read(), out = [];
+    if (this.gmail.refreshSendAs && this.now() - (this.lastSendAs || 0) > 300000) { this.lastSendAs = this.now(); await this.gmail.refreshSendAs().catch(() => {}); }
     for (const r of rows) {
       if (r.stage !== 'Approved' || !/email/i.test(r.contact_route || '')) continue;
       const c = this.state.creators[key(r.handle)] || {};
