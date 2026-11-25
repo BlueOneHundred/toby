@@ -123,7 +123,14 @@ export class Gmail {
     else draft = await this.api('POST', '/drafts', {message: {raw: b64url(Buffer.from(mime, 'utf8')), ...(threadId ? {threadId} : {})}});
     return {draftId: draft.id, messageId: draft.message?.id || '', threadId: draft.message?.threadId || threadId};
   }
-  async draftExists(draftId) { try { await this.api('GET', `/drafts/${encodeURIComponent(draftId)}?format=minimal`); return true; } catch { return false; } }
+  // Build 52: only Gmail's 404 means the draft is gone. Any other error (network, 5xx, token) throws, so a blip never looks like a deletion.
+  async draftExists(draftId) { try { await this.api('GET', `/drafts/${encodeURIComponent(draftId)}?format=minimal`); return true; } catch (e) { if (/Gmail said 404/.test(e.message)) return false; throw e; } }
+  /** Build 52: is an email to this address waiting in Gmail's Scheduled folder? A scheduled draft leaves Drafts but is not deleted. */
+  async scheduledTo(address) {
+    if (!address) return false;
+    const list = await this.api('GET', `/messages?${new URLSearchParams({q: `in:scheduled to:${address}`, maxResults: '5'})}`);
+    return (list.messages || []).length > 0;
+  }
   /** Messages matching a Gmail search, newest first, with the headers Toby needs. */
   async search(q, max = 50) {
     const list = await this.api('GET', `/messages?${new URLSearchParams({q, maxResults: String(max)})}`);

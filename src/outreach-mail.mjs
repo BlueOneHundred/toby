@@ -109,7 +109,24 @@ export class OutreachMail {
       const c = this.state.creators[key(r.handle)] || {};
       if (c.sentAt) continue;
       // Build 50: a draft Tavin deleted in Gmail no longer counts (23 Nov: all drafts deleted, so none came back).
-      if (c.draftId) { if (await this.gmail.draftExists(c.draftId).catch(() => true)) continue; this.state.creators[key(r.handle)] = {...c, draftId: undefined, draftMessageId: undefined}; await this.save(); }
+      // Build 52: a draft Tavin SCHEDULED also leaves Drafts (24-25 Nov: 6 scheduled emails, then Sam's, were made again).
+      // So before making it again: still in Drafts, or waiting in Scheduled, means leave it. Any Gmail error means leave it too.
+      if (c.draftId) {
+        const h = key(r.handle);
+        const exists = await this.gmail.draftExists(c.draftId).catch(() => true);
+        if (exists) continue;
+        const scheduled = this.gmail.scheduledTo ? await this.gmail.scheduledTo(c.to).catch(() => true) : false;
+        if (scheduled) {
+          if (!c.scheduledSeenAt) { this.state.creators[h] = {...c, scheduledSeenAt: this.now()}; await this.save(); await this.runLine(`@${h}: Email 1 is in Gmail's Scheduled folder; not drafted again (it counts as sent once Gmail sends it)`); }
+          continue;
+        }
+        // Safety net: a draft made again within the last 2 hours that is missing again is not made a third time. Toby is told.
+        if (c.remadeAt && this.now() - c.remadeAt < 2 * 3600000) {
+          if (!c.remakeHeldAt) { this.state.creators[h] = {...c, remakeHeldAt: this.now()}; await this.save(); await this.runLine(`@${h}: Gmail draft missing again soon after it was made again; not made a third time`, 'held: Tavin, check Drafts and Scheduled for her, then tell Toby'); }
+          continue;
+        }
+        this.state.creators[h] = {...c, draftId: undefined, draftMessageId: undefined, scheduledSeenAt: undefined, remakeHeldAt: undefined, remadeAt: this.now()}; await this.save();
+      }
       if (c.blockedWhy && this.now() - (c.blockedAt || 0) < 3600000) continue;   // a blocked draft is tried again hourly
       const res = await this.draftPitch(r.handle).catch(e => ({ok: false, why: e.message}));
       if (!res.ok) { this.state.creators[key(r.handle)] = {...(this.state.creators[key(r.handle)] || {}), blockedWhy: res.why, blockedAt: this.now()}; await this.save(); }
