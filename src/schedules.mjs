@@ -3,7 +3,7 @@ import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
 import {join} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {Cron} from 'croner';
-import {ExtraWorkdays} from './workdays.mjs';
+import {ExtraWorkdays, isWorkday} from './workdays.mjs';
 const required=(v,label,max)=>{if(typeof v!=='string'||!v.trim()||v.length>max)throw new Error(`Enter ${label} under ${max} characters.`);return v.trim();};
 function cronDate(timing,after){
  const cron=new Cron(timing.expression,{timezone:timing.timezone,paused:true});
@@ -45,6 +45,17 @@ export function nextRun(timing,after,servedAt,extra){
  const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],extraOn=!!extra?.size&&weekdaySchedule(timing);
  for(let t=Math.floor(after/60000)*60000+60000,end=t+8*86400000;t<end;t+=60000){const p=Object.fromEntries(format.formatToParts(t).map(p=>[p.type,p.value]));if(localDate(t)!==servedDate&&localDate(t)!==skipToday&&(timing.days.includes(names.indexOf(p.weekday))||(extraOn&&extra.has(localDate(t))))&&`${p.hour}:${p.minute}`===timing.time)return t;}
  throw new Error('Could not determine the next scheduled time.');
+}
+// Toby build 53: a missed run from an earlier day is skipped, not run late (Sat 28 Nov 2026: the laptop was closed on
+// Friday, and on opening Toby on Saturday every weekday schedule would have started Friday's run at once). A run missed
+// earlier the same day still runs late, as before (the laptop asleep at 14:00 and opened at 16:30). A weekday schedule
+// never runs late on a day that is not a workday. Only day-and-time (weekly) schedules: interval and custom cron
+// schedules still coalesce missed runs into one fresh run, as in Gratis.
+const localDay=(t,timezone)=>{const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(t).map(p=>[p.type,p.value]));return `${p.year}-${p.month}-${p.day}`;};
+export function staleRun(timing,dueAt,now,extra=new Set()){
+ if(timing?.kind!=='weekly'||!Number.isFinite(dueAt)||dueAt>now)return false;
+ if(localDay(dueAt,timing.timezone)!==localDay(now,timing.timezone))return true;
+ return weekdaySchedule(timing)&&!isWorkday(now,extra);
 }
 // Toby build 40: a run that hit a run limit gets one short, fresh turn to save its work (19 Nov: Creator Partnerships
 // reached 200 tool calls with nothing saved, so Tavin had no creators that morning).
@@ -108,6 +119,8 @@ export class Schedules {
     else if(run.status==='needs_review'){run.error=failed?.error||'No completed reply was recorded.';item.enabled=false;item.error='Review the last run, then resume this schedule.';}changed=true;
    }
    if(!item.enabled||item.nextRunAt>this.now()||this.busy(c)||item.runs.some(r=>['starting','running'].includes(r.status)))continue;
+   // Build 53: a run missed on an earlier day (or a weekday run on a day off) is skipped: the schedule moves on to its next time.
+   if(staleRun(item.timing,item.nextRunAt,this.now(),this.extra)){const missed=item.nextRunAt;item.nextRunAt=nextRun(item.timing,this.now(),undefined,this.extra);item.skipped=[...(item.skipped||[]),{scheduledFor:missed,skippedAt:this.now()}].slice(-30);changed=true;void this.skipLine(item,missed);continue;}
    // Coalesce missed intervals to one fresh check. Never replay a backlog.
    await this.startRun(item,item.nextRunAt);
   }
@@ -126,5 +139,7 @@ export class Schedules {
    catch(e){run.status='interrupted';run.error=e.message;}await this.save();}finally{this.dispatching.delete(run.id);}}
  async runLine(item,error){if(!this.teamFolder)return;const t=this.now(),bot=this.service.state.bots.find(b=>b.id===item.botId)?.name||'A bot';
   await this.teamFolder.append(`board/runs-${day(t)}.md`,`${clock(t)} | ${bot} | done: scheduled run "${item.title}" was cut short; the schedule stays on and runs again at its next time | cost: $0.00 | problems: ${String(error).replace(/\n/g,' ').slice(0,200)}\n`).catch(()=>{});}
+ async skipLine(item,missed){if(!this.teamFolder)return;const t=this.now(),bot=this.service.state.bots.find(b=>b.id===item.botId)?.name||'A bot',when=t=>`${new Date(t).toDateString().slice(0,10)} ${clock(t)}`;
+  await this.teamFolder.append(`board/runs-${day(t)}.md`,`${clock(t)} | ${bot} | done: scheduled run "${item.title}" for ${when(missed)} was missed (Toby was closed) and skipped, not run late; next run ${when(item.nextRunAt)} | cost: $0.00 | problems: none\n`).catch(()=>{});}
  async close(){this.closed=true;clearInterval(this.timer);await this.persist;}
 }
