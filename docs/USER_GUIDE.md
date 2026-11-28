@@ -18,7 +18,7 @@ Attach files from the + menu. Generated files appear in Files. Markdown response
 
 Use an explicit instruction with a frequency, time and timezone. Daily, weekdays, a selected weekly day and intervals from 15 minutes are supported. A task runs through the same bot and tool permissions, and posts in the originating chat.
 
-The app must be running and the computer awake. Closing its window leaves enabled schedules running; quitting does not. Missed intervals coalesce into one fresh run. Busy chats defer scheduled work. Failed or interrupted runs pause for review rather than blindly repeating an uncertain action. A timer cannot authorize unrelated purchases, messages or deletions.
+The app must be running and the computer awake. Closing its window leaves enabled schedules running; quitting does not. Missed intervals coalesce into one fresh run (in Toby, a day-and-time schedule skips a run missed on an earlier day; see SCHEDULES.md). Busy chats defer scheduled work. Failed or interrupted runs pause for review rather than blindly repeating an uncertain action. A timer cannot authorize unrelated purchases, messages or deletions.
 
 ## Connected apps
 
